@@ -18,7 +18,28 @@
 
 
 完整播放清單:
-https://www.youtube.com/watch?v=V_ajcNni6wk&list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd&index=2&t=1s
+https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd
 
 程式新手學習發問區，問都給問: https://www.facebook.com/groups/914880435669061
 
+---
+
+## 課程章節與基礎範例導覽（Course Table of Contents）
+
+| 章節 | 主題名稱 | 核心學習重點 | 對應範例程式 |
+| :---: | :--- | :--- | :--- |
+| **Ch.01** | **陣列與單向鏈結串列（Array & Singly Linked List）** | 連續記憶體存取 $O(1)$ vs. 節點指標串接、插入與刪除操作 | `examples/ch01_array_linked_list.py` |
+| **Ch.02** | **堆疊與佇列（Stack & Queue）** | 後進先出（LIFO）括號匹配檢查 vs. 先進先出（FIFO）排隊模型 | `examples/ch02_stack_queue.py` |
+| **Ch.03** | **搜尋與排序演算法（Search & Sort）** | 二分搜尋法 $O(\log n)$、合併排序法（Merge Sort）$O(n \log n)$ | `examples/ch03_search_sort.py` |
+
+## 執行範例與單元測試
+
+```bash
+# 執行各章節教學範例
+python3 examples/ch01_array_linked_list.py
+python3 examples/ch02_stack_queue.py
+python3 examples/ch03_search_sort.py
+
+# 執行完整單元測試套件
+python3 -m unittest discover -s tests -v
+```
