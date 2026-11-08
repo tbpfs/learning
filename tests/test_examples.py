@@ -71,6 +71,22 @@ class TestLearningExamples(unittest.TestCase):
         self.assertEqual(binary_search(sorted_arr, 90), len(sorted_arr) - 1)
         self.assertEqual(binary_search(sorted_arr, 100), -1)
 
+    def test_build_site_generates_valid_html(self):
+        import tempfile
+        sys.path.insert(0, str(REPO_ROOT))
+        from build_site import build_site
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            index_path = build_site(Path(tmpdir))
+            self.assertTrue(index_path.is_file())
+            self.assertTrue((Path(tmpdir) / ".nojekyll").is_file())
+            html_text = index_path.read_text(encoding="utf-8")
+            self.assertIn("<!DOCTYPE html>", html_text)
+            self.assertIn("從零開始寫程式，輕鬆搞懂資料結構，演算法", html_text)
+            self.assertIn("Ch.01 SinglyLinkedList 範例結果:", html_text)
+            self.assertIn("Ch.02 括號平衡檢查", html_text)
+            self.assertIn("Ch.03 Merge Sort 結果:", html_text)
+
 
 if __name__ == "__main__":
     unittest.main()

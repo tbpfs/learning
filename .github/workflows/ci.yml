@@ -29,7 +29,7 @@ jobs:
 
       - name: Compile and run examples & unit tests
         run: |
-          python3 -m py_compile examples/*.py tests/*.py
+          python3 -m py_compile build_site.py examples/*.py tests/*.py
           python3 examples/ch01_array_linked_list.py
           python3 examples/ch02_stack_queue.py
           python3 examples/ch03_search_sort.py

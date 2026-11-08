@@ -22,6 +22,8 @@ https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd
 
 程式新手學習發問區，問都給問: https://www.facebook.com/groups/914880435669061
 
+線上教學與程式碼預覽網站 (GitHub Pages): https://tbpfs.github.io/learning/
+
 ---
 
 ## 課程章節與基礎範例導覽（Course Table of Contents）
@@ -32,7 +34,7 @@ https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd
 | **Ch.02** | **堆疊與佇列（Stack & Queue）** | 後進先出（LIFO）括號匹配檢查 vs. 先進先出（FIFO）排隊模型 | `examples/ch02_stack_queue.py` |
 | **Ch.03** | **搜尋與排序演算法（Search & Sort）** | 二分搜尋法 $O(\log n)$、合併排序法（Merge Sort）$O(n \log n)$ | `examples/ch03_search_sort.py` |
 
-## 執行範例與單元測試
+## 執行範例、單元測試與靜態網站建置
 
 ```bash
 # 執行各章節教學範例
@@ -42,4 +44,7 @@ python3 examples/ch03_search_sort.py
 
 # 執行完整單元測試套件
 python3 -m unittest discover -s tests -v
+
+# 建置 GitHub Pages 靜態教學網站至 _site/index.html
+python3 build_site.py -o _site
 ```
