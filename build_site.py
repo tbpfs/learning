@@ -169,12 +169,21 @@ def build_site(out_dir: Path) -> Path:
     page_html = f"""<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
+  <script async src="https://www.googletagmanager.com/gtm.js?id=GTM-WNSFQT5V"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){{dataLayer.push(arguments);}}
+    gtag('js', new Date());
+    gtag('config', 'G-B24GXZ32MW');
+  </script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B24GXZ32MW"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (AI王紫楓 / Purple Maple)</title>
   <meta name="description" content="紫楓（AI王紫楓 / Purple Maple / tbpfs）開設之 Python 資料結構、演算法與物件導向基本功鐵人賽教學網站與實機執行範例（陣列、鏈結串列、堆疊、佇列、二分搜尋、合併排序）。">
   <meta name="keywords" content="紫楓, AI王紫楓, Purple Maple, tbpfs, Python教學, 資料結構, 演算法, 鏈結串列, 堆疊, 佇列, 二分搜尋, Merge Sort">
   <meta name="google-adsense-account" content="{ADSENSE_CLIENT_ID}">
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADSENSE_CLIENT_ID}" crossorigin="anonymous"></script>
   <link rel="canonical" href="https://learn.ai-purplemaple.com/">
   <meta property="og:site_name" content="紫楓 Purple Maple Python 程式教學">
   <meta property="og:url" content="https://learn.ai-purplemaple.com/">
@@ -184,16 +193,6 @@ def build_site(out_dir: Path) -> Path:
   <meta property="og:image" content="https://ai-purplemaple.com/assets/gallery/aily_03.jpg">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@tbpfs1">
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADSENSE_CLIENT_ID}" crossorigin="anonymous"></script>
-  <!-- Google Tag Manager & Google Analytics 4 (G-B24GXZ32MW / GTM-WNSFQT5V) -->
-  <script async src="https://www.googletagmanager.com/gtm.js?id=GTM-WNSFQT5V"></script>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B24GXZ32MW"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){{dataLayer.push(arguments);}}
-    gtag('js', new Date());
-    gtag('config', 'G-B24GXZ32MW');
-  </script>
   <script type="application/ld+json">
   {{
     "@context": "https://schema.org",
