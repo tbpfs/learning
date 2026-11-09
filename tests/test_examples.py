@@ -80,13 +80,24 @@ class TestLearningExamples(unittest.TestCase):
             index_path = build_site(Path(tmpdir))
             self.assertTrue(index_path.is_file())
             self.assertTrue((Path(tmpdir) / ".nojekyll").is_file())
+            ads_txt = (Path(tmpdir) / "ads.txt").read_text(encoding="utf-8").strip()
+            self.assertEqual(
+                ads_txt,
+                "google.com, pub-6485917848711473, DIRECT, f08c47fec0942fa0",
+            )
             html_text = index_path.read_text(encoding="utf-8")
             self.assertIn("<!DOCTYPE html>", html_text)
             self.assertIn("從零開始寫程式，輕鬆搞懂資料結構，演算法", html_text)
             self.assertIn("Ch.01 SinglyLinkedList 範例結果:", html_text)
             self.assertIn("Ch.02 括號平衡檢查", html_text)
             self.assertIn("Ch.03 Merge Sort 結果:", html_text)
+            self.assertIn("ca-pub-6485917848711473", html_text)
+            self.assertIn("G-B24GXZ32MW", html_text)
+            self.assertIn("GTM-WNSFQT5V", html_text)
+            self.assertEqual(html_text.count('class="ad-slot-card"'), 3)
+            self.assertIn("Privacy Policy", html_text)
 
 
 if __name__ == "__main__":
     unittest.main()
+
