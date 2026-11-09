@@ -121,6 +121,21 @@ def build_site(out_dir: Path) -> Path:
         '    <priority>1.0</priority>\n'
         '  </url>\n'
         '  <url>\n'
+        '    <loc>https://learn.ai-purplemaple.com/ch01.html</loc>\n'
+        '    <changefreq>monthly</changefreq>\n'
+        '    <priority>0.9</priority>\n'
+        '  </url>\n'
+        '  <url>\n'
+        '    <loc>https://learn.ai-purplemaple.com/ch02.html</loc>\n'
+        '    <changefreq>monthly</changefreq>\n'
+        '    <priority>0.9</priority>\n'
+        '  </url>\n'
+        '  <url>\n'
+        '    <loc>https://learn.ai-purplemaple.com/ch03.html</loc>\n'
+        '    <changefreq>monthly</changefreq>\n'
+        '    <priority>0.9</priority>\n'
+        '  </url>\n'
+        '  <url>\n'
         '    <loc>https://learn.ai-purplemaple.com/llms.txt</loc>\n'
         '    <changefreq>monthly</changefreq>\n'
         '    <priority>0.6</priority>\n'
@@ -132,11 +147,11 @@ def build_site(out_dir: Path) -> Path:
         "# 紫楓 (AI王紫楓 / Purple Maple) — Python 資料結構、演算法與物件導向互動教學\n\n"
         "> 紫楓（AI王紫楓 / Purple Maple / @tbpfs1）開設之 Python 3.12 資料結構、演算法與物件導向基本功鐵人賽教學網站（`https://learn.ai-purplemaple.com/`），內含 CI 實機執行驗證之陣列（Array）、單向鏈結串列（Singly Linked List）、堆疊（Stack）、佇列（Queue）、二分搜尋（Binary Search）與合併排序（Merge Sort）範例。\n\n"
         "## 章節列表 (Chapters)\n"
-        "- [Ch.01 陣列（Array）與單向鏈結串列（Singly Linked List）](https://learn.ai-purplemaple.com/#ch01): `examples/ch01_array_and_linked_list.py`\n"
-        "- [Ch.02 堆疊（Stack）與佇列（Queue）](https://learn.ai-purplemaple.com/#ch02): `examples/ch02_stack_and_queue.py`\n"
-        "- [Ch.03 二分搜尋法（Binary Search）與合併排序法（Merge Sort）](https://learn.ai-purplemaple.com/#ch03): `examples/ch03_searching_and_sorting.py`\n\n"
+        "- [Ch.01 陣列（Array）與單向鏈結串列（Singly Linked List）](https://learn.ai-purplemaple.com/ch01.html): `examples/ch01_array_and_linked_list.py`\n"
+        "- [Ch.02 堆疊（Stack）與佇列（Queue）](https://learn.ai-purplemaple.com/ch02.html): `examples/ch02_stack_and_queue.py`\n"
+        "- [Ch.03 二分搜尋法（Binary Search）與合併排序法（Merge Sort）](https://learn.ai-purplemaple.com/ch03.html): `examples/ch03_searching_and_sorting.py`\n\n"
         "## 紫楓 (Purple Maple) 生態系相關網站\n"
-        "- [官方作品集與商業委託中心](https://ai-purplemaple.com/): 原創看板娘艾莉（Aily / エイリー）視覺畫廊、Suno AI 原創音樂精選與雙語價目表\n"
+        "- [官方作品集與商業委託中心](https://ai-purplemaple.com/): 原創看板娘白瀬アイリ（艾莉 / Aily / Shirase Airi）視覺畫廊、Suno AI 原創音樂精選與雙語價目表\n"
         "- [互動式委託估價單試算器](https://quote.ai-purplemaple.com/): AI 動漫插畫與原創音樂即時雙語試算\n"
         "- [艾莉的秘密星空（星盤占卜與肉球おみくじ）](https://game.ai-purplemaple.com/): 免費瀏覽器小遊戲\n"
         "- [YouTube 完整教學播放清單](https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd)\n",
@@ -161,7 +176,8 @@ def build_site(out_dir: Path) -> Path:
       <article class="chapter-card" id="{ch['id']}">
         <div class="chapter-header">
           <span class="badge">{ch['badge']}</span>
-          <h2>{escaped_title}</h2>
+          <h2><a href="{ch['id']}.html" style="color: inherit;">{escaped_title}</a></h2>
+          <a href="{ch['id']}.html" style="margin-left: auto; font-size: 0.86rem;">🔗 獨立章節講義 ↗</a>
         </div>
         <p class="chapter-summary">{escaped_summary}</p>
         <div class="concepts-box">
@@ -538,7 +554,7 @@ def build_site(out_dir: Path) -> Path:
       <p>大家好，我是<strong>紫楓</strong>！不管是學生、想轉職軟體工程師、還是想精益求精的夥伴，練好「資料結構、演算法、物件導向」就是克服迷惘最紮實的基本功。</p>
       <div class="cta-group">
         <a class="btn btn-primary" href="https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd" target="_blank" rel="noopener noreferrer">▶ 觀看 YouTube 完整教學播放清單</a>
-        <a class="btn btn-secondary" href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer">🌸 紫楓 Purple Maple 官方作品集（AI 音樂 ＆ 艾莉 Aily）</a>
+        <a class="btn btn-secondary" href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer">🌸 紫楓 Purple Maple 官方作品集（AI 音樂 ＆ 白瀬アイリ Aily）</a>
         <a class="btn btn-secondary" href="https://www.facebook.com/groups/914880435669061" target="_blank" rel="noopener noreferrer">💬 加入程式新手學習發問區（FB 社團）</a>
         <a class="btn btn-secondary" href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer">💻 GitHub 原始碼儲存庫</a>
       </div>
@@ -677,6 +693,34 @@ def build_site(out_dir: Path) -> Path:
 
     index_path = out_dir / "index.html"
     index_path.write_text(page_html, encoding="utf-8")
+
+    # Generate standalone SEO chapter pages (ch01.html, ch02.html, ch03.html)
+    for idx, ch in enumerate(CHAPTERS):
+        ch_card = cards_html[idx * 2]  # card HTML without duplicate list
+        ch_title_esc = html.escape(f"{ch['badge']} {ch['title']} | 紫楓 (AI王紫楓 / Purple Maple) Python 教學")
+        ch_desc_esc = html.escape(f"紫楓（AI王紫楓 / Purple Maple）Python 3.12 教學講義：{ch['badge']} {ch['title']}。{ch['summary']}")
+        ch_url = f"https://learn.ai-purplemaple.com/{ch['id']}.html"
+        ch_page = page_html.replace(
+            "<title>從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (AI王紫楓 / Purple Maple)</title>",
+            f"<title>{ch_title_esc}</title>",
+        ).replace(
+            '<link rel="canonical" href="https://learn.ai-purplemaple.com/">',
+            f'<link rel="canonical" href="{ch_url}">',
+        ).replace(
+            '<meta property="og:url" content="https://learn.ai-purplemaple.com/">',
+            f'<meta property="og:url" content="{ch_url}">',
+        ).replace(
+            '<meta property="og:title" content="從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)">',
+            f'<meta property="og:title" content="{ch_title_esc}">',
+        ).replace(
+            '<h1>從零開始寫程式，輕鬆搞懂資料結構，演算法</h1>',
+            f'<h1>{html.escape(ch["badge"] + " " + ch["title"])}</h1><p><a href="index.html">← 返回《從零開始寫程式，輕鬆搞懂資料結構，演算法》全章節總目錄</a></p>',
+        ).replace(
+            all_cards,
+            ch_card + "\n" + render_ad_slot(f"{ch['badge']} 獨立講義廣告單元"),
+        )
+        (out_dir / f"{ch['id']}.html").write_text(ch_page, encoding="utf-8")
+
     return index_path
 
 

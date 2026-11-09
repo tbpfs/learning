@@ -96,6 +96,13 @@ class TestLearningExamples(unittest.TestCase):
             self.assertIn("GTM-WNSFQT5V", html_text)
             self.assertEqual(html_text.count('class="ad-slot-card"'), 3)
             self.assertIn("Privacy Policy", html_text)
+            for ch_id in ("ch01", "ch02", "ch03"):
+                ch_file = Path(tmpdir) / f"{ch_id}.html"
+                self.assertTrue(ch_file.is_file(), f"Missing standalone chapter page {ch_id}.html")
+                self.assertIn(f"https://learn.ai-purplemaple.com/{ch_id}.html", ch_file.read_text(encoding="utf-8"))
+            sitemap_text = (Path(tmpdir) / "sitemap.xml").read_text(encoding="utf-8")
+            self.assertIn("https://learn.ai-purplemaple.com/ch01.html", sitemap_text)
+            self.assertIn("https://learn.ai-purplemaple.com/ch03.html", sitemap_text)
 
 
 if __name__ == "__main__":
