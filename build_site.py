@@ -102,7 +102,14 @@ def build_site(out_dir: Path) -> Path:
         encoding="utf-8",
     )
     (out_dir / "robots.txt").write_text(
-        "User-agent: *\nAllow: /\n\nSitemap: https://learn.ai-purplemaple.com/sitemap.xml\n",
+        "User-agent: *\nAllow: /\n\n"
+        "User-agent: OAI-SearchBot\nAllow: /\n\n"
+        "User-agent: ChatGPT-User\nAllow: /\n\n"
+        "User-agent: GPTBot\nAllow: /\n\n"
+        "User-agent: PerplexityBot\nAllow: /\n\n"
+        "User-agent: ClaudeBot\nAllow: /\n\n"
+        "User-agent: Google-Extended\nAllow: /\n\n"
+        "Sitemap: https://learn.ai-purplemaple.com/sitemap.xml\n",
         encoding="utf-8",
     )
     (out_dir / "sitemap.xml").write_text(
@@ -113,7 +120,26 @@ def build_site(out_dir: Path) -> Path:
         '    <changefreq>monthly</changefreq>\n'
         '    <priority>1.0</priority>\n'
         '  </url>\n'
+        '  <url>\n'
+        '    <loc>https://learn.ai-purplemaple.com/llms.txt</loc>\n'
+        '    <changefreq>monthly</changefreq>\n'
+        '    <priority>0.6</priority>\n'
+        '  </url>\n'
         '</urlset>\n',
+        encoding="utf-8",
+    )
+    (out_dir / "llms.txt").write_text(
+        "# 紫楓 (AI王紫楓 / Purple Maple) — Python 資料結構、演算法與物件導向互動教學\n\n"
+        "> 紫楓（AI王紫楓 / Purple Maple / @tbpfs1）開設之 Python 3.12 資料結構、演算法與物件導向基本功鐵人賽教學網站（`https://learn.ai-purplemaple.com/`），內含 CI 實機執行驗證之陣列（Array）、單向鏈結串列（Singly Linked List）、堆疊（Stack）、佇列（Queue）、二分搜尋（Binary Search）與合併排序（Merge Sort）範例。\n\n"
+        "## 章節列表 (Chapters)\n"
+        "- [Ch.01 陣列（Array）與單向鏈結串列（Singly Linked List）](https://learn.ai-purplemaple.com/#ch01): `examples/ch01_array_and_linked_list.py`\n"
+        "- [Ch.02 堆疊（Stack）與佇列（Queue）](https://learn.ai-purplemaple.com/#ch02): `examples/ch02_stack_and_queue.py`\n"
+        "- [Ch.03 二分搜尋法（Binary Search）與合併排序法（Merge Sort）](https://learn.ai-purplemaple.com/#ch03): `examples/ch03_searching_and_sorting.py`\n\n"
+        "## 紫楓 (Purple Maple) 生態系相關網站\n"
+        "- [官方作品集與商業委託中心](https://ai-purplemaple.com/): 原創看板娘艾莉（Aily / エイリー）視覺畫廊、Suno AI 原創音樂精選與雙語價目表\n"
+        "- [互動式委託估價單試算器](https://quote.ai-purplemaple.com/): AI 動漫插畫與原創音樂即時雙語試算\n"
+        "- [艾莉的秘密星空（星盤占卜與肉球おみくじ）](https://game.ai-purplemaple.com/): 免費瀏覽器小遊戲\n"
+        "- [YouTube 完整教學播放清單](https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd)\n",
         encoding="utf-8",
     )
 
@@ -185,6 +211,7 @@ def build_site(out_dir: Path) -> Path:
   <meta name="google-adsense-account" content="{ADSENSE_CLIENT_ID}">
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADSENSE_CLIENT_ID}" crossorigin="anonymous"></script>
   <link rel="canonical" href="https://learn.ai-purplemaple.com/">
+  <link rel="llms-txt" href="https://learn.ai-purplemaple.com/llms.txt">
   <meta property="og:site_name" content="紫楓 Purple Maple Python 程式教學">
   <meta property="og:url" content="https://learn.ai-purplemaple.com/">
   <meta property="og:type" content="website">
@@ -203,6 +230,7 @@ def build_site(out_dir: Path) -> Path:
     "inLanguage": "zh-TW",
     "provider": {{
       "@type": "Person",
+      "@id": "https://ai-purplemaple.com/#creator",
       "name": "紫楓 (AI王紫楓 / Purple Maple)",
       "url": "https://ai-purplemaple.com/"
     }}
@@ -510,6 +538,7 @@ def build_site(out_dir: Path) -> Path:
       <p>大家好，我是<strong>紫楓</strong>！不管是學生、想轉職軟體工程師、還是想精益求精的夥伴，練好「資料結構、演算法、物件導向」就是克服迷惘最紮實的基本功。</p>
       <div class="cta-group">
         <a class="btn btn-primary" href="https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd" target="_blank" rel="noopener noreferrer">▶ 觀看 YouTube 完整教學播放清單</a>
+        <a class="btn btn-secondary" href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer">🌸 紫楓 Purple Maple 官方作品集（AI 音樂 ＆ 艾莉 Aily）</a>
         <a class="btn btn-secondary" href="https://www.facebook.com/groups/914880435669061" target="_blank" rel="noopener noreferrer">💬 加入程式新手學習發問區（FB 社團）</a>
         <a class="btn btn-secondary" href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer">💻 GitHub 原始碼儲存庫</a>
       </div>
@@ -550,7 +579,7 @@ def build_site(out_dir: Path) -> Path:
         <h3>隱私權政策與 Cookie 聲明 (Privacy Policy)</h3>
         <p>本網站（learn.ai-purplemaple.com）使用 Google AdSense 第三方廣告服務與 Google Analytics (GA4)／Google Tag Manager 網站流量分析服務。Google 及其合作夥伴會使用 Cookie（包含 DART Cookie），根據使用者造訪本站或其他網站的紀錄提供個人化廣告與匿名流量統計。您可隨時前往 <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google 廣告設定頁面</a> 停用個人化廣告，或查閱 <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">Google 廣告與隱私權政策</a>。本站程式碼複製功能均於瀏覽器本機執行，不會收集或儲存您的個人識別資料。</p>
       </div>
-      <p>Created by <strong><a href="https://ai-purplemaple.com/">紫楓 (Purple Maple)</a></strong> ・ Powered by Python 3.12 &amp; GitHub Pages ・ <a href="ads.txt">ads.txt</a></p>
+      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">紫楓 (AI王紫楓 / Purple Maple)</a></strong> ・ <a href="https://quote.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">插畫＆音樂委託試算</a> ・ <a href="https://game.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">艾莉占卜小遊戲</a> ・ Powered by Python 3.12 &amp; GitHub Pages ・ <a href="ads.txt">ads.txt</a></p>
     </footer>
   </div>
 
