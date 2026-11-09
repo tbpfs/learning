@@ -531,6 +531,7 @@ def build_site(out_dir: Path) -> Path:
     </nav>
 
     <main>
+      <div id="cms-tutorials-container"></div>
 {all_cards}
 
       <section class="study-guide-card" id="study-guide">
@@ -554,21 +555,92 @@ def build_site(out_dir: Path) -> Path:
   </div>
 
   <script>
-    document.querySelectorAll('.copy-btn').forEach(function (btn) {{
-      btn.addEventListener('click', function () {{
-        var targetId = btn.getAttribute('data-target');
-        var codeEl = document.getElementById(targetId);
-        if (!codeEl || !navigator.clipboard) return;
-        navigator.clipboard.writeText(codeEl.textContent || '').then(function () {{
-          var orig = btn.textContent;
-          btn.textContent = '已複製 ✓';
-          if (typeof window.gtag === 'function') {{
-            window.gtag('event', 'copy_code', {{ chapter_target: targetId }});
-          }}
-          setTimeout(function () {{ btn.textContent = orig; }}, 1500);
+    function bindCopyButtons() {{
+      document.querySelectorAll('.copy-btn').forEach(function (btn) {{
+        if (btn.getAttribute('data-bound') === '1') return;
+        btn.setAttribute('data-bound', '1');
+        btn.addEventListener('click', function () {{
+          var targetId = btn.getAttribute('data-target');
+          var codeEl = document.getElementById(targetId);
+          if (!codeEl || !navigator.clipboard) return;
+          navigator.clipboard.writeText(codeEl.textContent || '').then(function () {{
+            var orig = btn.textContent;
+            btn.textContent = '已複製 ✓';
+            if (typeof window.gtag === 'function') {{
+              window.gtag('event', 'copy_code', {{ chapter_target: targetId }});
+            }}
+            setTimeout(function () {{ btn.textContent = orig; }}, 1500);
+          }});
         }});
       }});
-    }});
+    }}
+    bindCopyButtons();
+
+    if (typeof fetch === 'function') {{
+      fetch('https://ai-purplemaple.com/api/v1/content')
+        .then(function (r) {{ return r && r.ok ? r.json() : null; }})
+        .then(function (payload) {{
+          if (!payload || !payload.ok || !payload.content || !Array.isArray(payload.content.tutorials) || payload.content.tutorials.length === 0) return;
+          var container = document.getElementById('cms-tutorials-container');
+          if (!container) return;
+          payload.content.tutorials.forEach(function (tut, idx) {{
+            var sec = document.createElement('section');
+            sec.className = 'chapter-card';
+            var codeId = 'cms-code-' + idx;
+            var header = document.createElement('div');
+            header.className = 'chapter-header';
+            var badge = document.createElement('span');
+            badge.className = 'chapter-badge';
+            badge.textContent = tut.category || 'AI 補充講義';
+            var h2 = document.createElement('h2');
+            h2.textContent = tut.title || '';
+            header.appendChild(badge);
+            header.appendChild(h2);
+
+            var pSum = document.createElement('p');
+            pSum.className = 'chapter-summary';
+            pSum.textContent = (tut.summary || '') + (tut.explanation ? ' — ' + tut.explanation : '');
+
+            var compRow = document.createElement('div');
+            compRow.className = 'complexity-row';
+            var pill = document.createElement('span');
+            pill.className = 'complexity-pill';
+            pill.textContent = tut.complexity || '時間 O(n) / 空間 O(1)';
+            compRow.appendChild(pill);
+
+            var wrap = document.createElement('div');
+            wrap.className = 'code-wrapper';
+            var bar = document.createElement('div');
+            bar.className = 'code-toolbar';
+            var fnSpan = document.createElement('span');
+            fnSpan.className = 'code-filename';
+            fnSpan.textContent = (tut.id || 'grok_note') + '.py';
+            var cpBtn = document.createElement('button');
+            cpBtn.type = 'button';
+            cpBtn.className = 'copy-btn';
+            cpBtn.setAttribute('data-target', codeId);
+            cpBtn.textContent = '複製程式碼';
+            bar.appendChild(fnSpan);
+            bar.appendChild(cpBtn);
+
+            var pre = document.createElement('pre');
+            var code = document.createElement('code');
+            code.id = codeId;
+            code.textContent = tut.code_python || '';
+            pre.appendChild(code);
+            wrap.appendChild(bar);
+            wrap.appendChild(pre);
+
+            sec.appendChild(header);
+            sec.appendChild(pSum);
+            sec.appendChild(compRow);
+            sec.appendChild(wrap);
+            container.appendChild(sec);
+          }});
+          bindCopyButtons();
+        }})
+        .catch(function () {{}});
+    }}
   </script>
 </body>
 </html>
