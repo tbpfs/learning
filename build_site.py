@@ -61,6 +61,22 @@ def run_example(rel_path: str) -> tuple[str, str]:
 def build_site(out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / ".nojekyll").write_text("", encoding="utf-8")
+    (out_dir / "CNAME").write_text("learn.ai-purplemaple.com\n", encoding="utf-8")
+    (out_dir / "robots.txt").write_text(
+        "User-agent: *\nAllow: /\n\nSitemap: https://learn.ai-purplemaple.com/sitemap.xml\n",
+        encoding="utf-8",
+    )
+    (out_dir / "sitemap.xml").write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        '  <url>\n'
+        '    <loc>https://learn.ai-purplemaple.com/</loc>\n'
+        '    <changefreq>monthly</changefreq>\n'
+        '    <priority>1.0</priority>\n'
+        '  </url>\n'
+        '</urlset>\n',
+        encoding="utf-8",
+    )
 
     cards_html: list[str] = []
     for ch in CHAPTERS:
@@ -105,8 +121,33 @@ def build_site(out_dir: Path) -> Path:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)</title>
-  <meta name="description" content="紫楓開設之資料結構、演算法與物件導向基本功鐵人賽教學網站與 Python 實作範例。">
+  <title>從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (AI王紫楓 / Purple Maple)</title>
+  <meta name="description" content="紫楓（AI王紫楓 / Purple Maple / tbpfs）開設之 Python 資料結構、演算法與物件導向基本功鐵人賽教學網站與實機執行範例（陣列、鏈結串列、堆疊、佇列、二分搜尋、合併排序）。">
+  <meta name="keywords" content="紫楓, AI王紫楓, Purple Maple, tbpfs, Python教學, 資料結構, 演算法, 鏈結串列, 堆疊, 佇列, 二分搜尋, Merge Sort">
+  <link rel="canonical" href="https://learn.ai-purplemaple.com/">
+  <meta property="og:site_name" content="紫楓 Purple Maple Python 程式教學">
+  <meta property="og:url" content="https://learn.ai-purplemaple.com/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)">
+  <meta property="og:description" content="紫楓（AI王紫楓 / Purple Maple）Python 3.12 資料結構與演算法互動教學講義。">
+  <meta property="og:image" content="https://ai-purplemaple.com/assets/gallery/aily_03.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@tbpfs1">
+  <script type="application/ld+json">
+  {{
+    "@context": "https://schema.org",
+    "@type": "Course",
+    "name": "從零開始寫程式，輕鬆搞懂資料結構、演算法",
+    "description": "紫楓（AI王紫楓 / Purple Maple）開設之 Python 資料結構與演算法實戰教學課程，涵蓋 Array、Linked List、Stack、Queue、Binary Search 與 Merge Sort。",
+    "url": "https://learn.ai-purplemaple.com/",
+    "inLanguage": "zh-TW",
+    "provider": {{
+      "@type": "Person",
+      "name": "紫楓 (AI王紫楓 / Purple Maple)",
+      "url": "https://ai-purplemaple.com/"
+    }}
+  }}
+  </script>
   <style>
     :root {{
       --bg: #0f101a;
