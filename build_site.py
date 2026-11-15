@@ -145,6 +145,11 @@ def build_site(out_dir: Path) -> Path:
         "User-agent: Meta-ExternalAgent\nAllow: /\n\n"
         "User-agent: DuckAssistBot\nAllow: /\n\n"
         "User-agent: YouBot\nAllow: /\n\n"
+        "User-agent: Twitterbot\nAllow: /\n\n"
+        "User-agent: GrokBot\nAllow: /\n\n"
+        "User-agent: xAI-Bot\nAllow: /\n\n"
+        "User-agent: xAI-SearchBot\nAllow: /\n\n"
+        "User-agent: Bravebot\nAllow: /\n\n"
         "Sitemap: https://learn.ai-purplemaple.com/sitemap.xml\n"
         "# LLMs Chapter Index: https://learn.ai-purplemaple.com/llms.txt\n"
         "# LLMs Full Code & Output Corpus: https://learn.ai-purplemaple.com/llms-full.txt\n",
@@ -306,8 +311,14 @@ def build_site(out_dir: Path) -> Path:
   <meta property="og:title" content="從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)">
   <meta property="og:description" content="{index_og_desc_esc}">
   <meta property="og:image" content="https://ai-purplemaple.com/assets/gallery/aily_03.jpg">
+  <meta property="og:image:alt" content="紫楓（AI王紫楓 / @tbpfs1）Python 資料結構與演算法互動教學｜原創看板娘白瀬アイリ（左紅 #fb7185、右藍 #38bdf8）">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@tbpfs1">
+  <meta name="twitter:creator" content="@tbpfs1">
+  <meta name="twitter:title" content="從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)">
+  <meta name="twitter:description" content="{index_og_desc_esc}">
+  <meta name="twitter:image" content="https://ai-purplemaple.com/assets/gallery/aily_03.jpg">
+  <meta name="twitter:image:alt" content="紫楓（AI王紫楓 / @tbpfs1）Python 資料結構與演算法互動教學｜原創看板娘白瀬アイリ（左紅 #fb7185、右藍 #38bdf8）">
   <script type="application/ld+json">
   {{
     "@context": "https://schema.org",
@@ -812,6 +823,14 @@ def build_site(out_dir: Path) -> Path:
             .replace(
                 '<meta property="og:title" content="從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)">',
                 f'<meta property="og:title" content="{ch_title_esc}">',
+            )
+            .replace(
+                '<meta name="twitter:title" content="從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)">',
+                f'<meta name="twitter:title" content="{ch_title_esc}">',
+            )
+            .replace(
+                f'<meta name="twitter:description" content="{index_og_desc_esc}">',
+                f'<meta name="twitter:description" content="{ch_desc_esc}">',
             )
             .replace(
                 "<h1>從零開始寫程式，輕鬆搞懂資料結構，演算法</h1>",

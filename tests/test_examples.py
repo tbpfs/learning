@@ -168,6 +168,16 @@ class TestLearningExamples(unittest.TestCase):
             self.assertIn("https://learn.ai-purplemaple.com/ch05.html", sitemap_text)
             self.assertIn("https://learn.ai-purplemaple.com/llms-full.txt", sitemap_text)
 
+            robots_text = (Path(tmpdir) / "robots.txt").read_text(encoding="utf-8")
+            for bot in ("Twitterbot", "GrokBot", "xAI-Bot", "xAI-SearchBot", "Bravebot"):
+                self.assertIn(f"User-agent: {bot}", robots_text)
+
+            self.assertIn('name="twitter:creator" content="@tbpfs1"', html_text)
+            self.assertIn('name="twitter:image" content="https://ai-purplemaple.com/assets/gallery/aily_03.jpg"', html_text)
+            ch05_html = (Path(tmpdir) / "ch05.html").read_text(encoding="utf-8")
+            self.assertIn('name="twitter:title" content="Ch.05 ', ch05_html)
+            self.assertIn('name="twitter:description" content="紫楓（AI王紫楓 / Purple Maple）Python 3.12 教學講義：Ch.05 ', ch05_html)
+
 
 if __name__ == "__main__":
     unittest.main()
