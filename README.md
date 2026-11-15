@@ -34,6 +34,7 @@ https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd
 | **Ch.02** | **堆疊與佇列（Stack & Queue）** | 後進先出（LIFO）括號匹配檢查 vs. 先進先出（FIFO）排隊模型 | `examples/ch02_stack_queue.py` |
 | **Ch.03** | **搜尋與排序演算法（Search & Sort）** | 二分搜尋法 $O(\log n)$、合併排序法（Merge Sort）$O(n \log n)$ | `examples/ch03_search_sort.py` |
 | **Ch.04** | **雜湊表與二元搜尋樹（Hash Table & BST）** | 鏈結法碰撞處理、Two Sum $O(n)$ 解法、二元搜尋樹中序走訪 | `examples/ch04_hash_bst.py` |
+| **Ch.05** | **圖論走訪與物件導向設計（Graph BFS / DFS & OOP）** | 泛型鄰接表封裝、廣度優先搜尋最短路徑、深度優先搜尋走訪 | `examples/ch05_graph_oop.py` |
 
 ## 執行範例、單元測試與靜態網站建置
 
@@ -43,6 +44,7 @@ python3 examples/ch01_array_linked_list.py
 python3 examples/ch02_stack_queue.py
 python3 examples/ch03_search_sort.py
 python3 examples/ch04_hash_bst.py
+python3 examples/ch05_graph_oop.py
 
 # 執行完整單元測試套件
 python3 -m unittest discover -s tests -v

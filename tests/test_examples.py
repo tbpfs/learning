@@ -12,6 +12,7 @@ from ch01_array_linked_list import SinglyLinkedList  # noqa: E402
 from ch02_stack_queue import Queue, Stack, is_balanced_brackets  # noqa: E402
 from ch03_search_sort import binary_search, merge_sort  # noqa: E402
 from ch04_hash_bst import BinarySearchTree, ChainingHashTable, two_sum  # noqa: E402
+from ch05_graph_oop import Graph  # noqa: E402
 
 
 class TestLearningExamples(unittest.TestCase):
@@ -92,6 +93,15 @@ class TestLearningExamples(unittest.TestCase):
         self.assertTrue(bst.contains(60))
         self.assertFalse(bst.contains(99))
 
+    def test_graph_bfs_dfs_and_shortest_path(self):
+        g: Graph[str] = Graph()
+        for u, v in [("A", "B"), ("A", "C"), ("B", "D"), ("C", "E"), ("D", "F"), ("E", "F")]:
+            g.add_edge(u, v)
+        self.assertEqual(g.bfs("A"), ["A", "B", "C", "D", "E", "F"])
+        self.assertEqual(g.dfs("A"), ["A", "B", "D", "F", "E", "C"])
+        self.assertEqual(g.shortest_path_bfs("A", "F"), ["A", "B", "D", "F"])
+        self.assertIsNone(g.shortest_path_bfs("A", "Z"))
+
     def test_build_site_generates_valid_html(self):
         import tempfile
         sys.path.insert(0, str(REPO_ROOT))
@@ -113,18 +123,19 @@ class TestLearningExamples(unittest.TestCase):
             self.assertIn("Ch.02 括號平衡檢查", html_text)
             self.assertIn("Ch.03 Merge Sort 結果:", html_text)
             self.assertIn("Ch.04 Two Sum 索引:", html_text)
+            self.assertIn("Ch.05 BFS 走訪:", html_text)
             self.assertIn("ca-pub-6485917848711473", html_text)
             self.assertIn("G-B24GXZ32MW", html_text)
             self.assertIn("GTM-WNSFQT5V", html_text)
-            self.assertEqual(html_text.count('class="ad-slot-card"'), 4)
+            self.assertEqual(html_text.count('class="ad-slot-card"'), 5)
             self.assertIn("Privacy Policy", html_text)
-            for ch_id in ("ch01", "ch02", "ch03", "ch04"):
+            for ch_id in ("ch01", "ch02", "ch03", "ch04", "ch05"):
                 ch_file = Path(tmpdir) / f"{ch_id}.html"
                 self.assertTrue(ch_file.is_file(), f"Missing standalone chapter page {ch_id}.html")
                 self.assertIn(f"https://learn.ai-purplemaple.com/{ch_id}.html", ch_file.read_text(encoding="utf-8"))
             sitemap_text = (Path(tmpdir) / "sitemap.xml").read_text(encoding="utf-8")
             self.assertIn("https://learn.ai-purplemaple.com/ch01.html", sitemap_text)
-            self.assertIn("https://learn.ai-purplemaple.com/ch04.html", sitemap_text)
+            self.assertIn("https://learn.ai-purplemaple.com/ch05.html", sitemap_text)
 
 
 if __name__ == "__main__":

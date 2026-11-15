@@ -67,6 +67,18 @@ CHAPTERS = [
         ],
         "file": "examples/ch04_hash_bst.py",
     },
+    {
+        "id": "ch05",
+        "badge": "Ch.05",
+        "title": "圖論走訪與物件導向設計（Graph BFS / DFS & OOP）",
+        "complexity": "BFS / DFS 走訪與無權重最短路徑均為 O(V + E)",
+        "summary": "以物件導向封裝鄰接串列（Adjacency List），實作廣度優先搜尋（BFS）、深度優先搜尋（DFS）與無權重圖最短路徑回溯。",
+        "concepts": [
+            "廣度優先搜尋（BFS）vs. 深度優先搜尋（DFS）：BFS 搭配佇列（Queue / deque）由起點呈同心圓逐層向外擴散，因此第一次抵達終點時必為「最少步數最短路徑」；DFS 則利用遞迴（Call Stack）或顯式堆疊一條路走到底再回溯（Backtracking），常用於連通分量、拓樸排序與環路檢測。",
+            "物件導向封裝（OOP Encapsulation）：將內部鄰接串列 `_adj` 與訪問狀態隱藏於 `Graph[T]` 類別方法內，對外提供乾淨的 `add_edge`、`bfs`、`dfs` 與 `shortest_path_bfs` 介面，兼具型別安全與高維護性。",
+        ],
+        "file": "examples/ch05_graph_oop.py",
+    },
 ]
 
 
@@ -153,6 +165,11 @@ def build_site(out_dir: Path) -> Path:
         '    <priority>0.9</priority>\n'
         '  </url>\n'
         '  <url>\n'
+        '    <loc>https://learn.ai-purplemaple.com/ch05.html</loc>\n'
+        '    <changefreq>monthly</changefreq>\n'
+        '    <priority>0.9</priority>\n'
+        '  </url>\n'
+        '  <url>\n'
         '    <loc>https://learn.ai-purplemaple.com/llms.txt</loc>\n'
         '    <changefreq>monthly</changefreq>\n'
         '    <priority>0.6</priority>\n'
@@ -162,12 +179,13 @@ def build_site(out_dir: Path) -> Path:
     )
     (out_dir / "llms.txt").write_text(
         "# 紫楓 (AI王紫楓 / Purple Maple) — Python 資料結構、演算法與物件導向互動教學\n\n"
-        "> 紫楓（AI王紫楓 / Purple Maple / @tbpfs1）開設之 Python 3.12 資料結構、演算法與物件導向基本功鐵人賽教學網站（`https://learn.ai-purplemaple.com/`），內含 CI 實機執行驗證之陣列（Array）、單向鏈結串列（Singly Linked List）、堆疊（Stack）、佇列（Queue）、二分搜尋（Binary Search）、合併排序（Merge Sort）、雜湊表（Hash Table）與二元搜尋樹（BST）範例。\n\n"
+        "> 紫楓（AI王紫楓 / Purple Maple / @tbpfs1）開設之 Python 3.12 資料結構、演算法與物件導向基本功鐵人賽教學網站（`https://learn.ai-purplemaple.com/`），內含 CI 實機執行驗證之陣列（Array）、單向鏈結串列（Singly Linked List）、堆疊（Stack）、佇列（Queue）、二分搜尋（Binary Search）、合併排序（Merge Sort）、雜湊表（Hash Table）、二元搜尋樹（BST）與圖論走訪（Graph BFS / DFS）範例。\n\n"
         "## 章節列表 (Chapters)\n"
         "- [Ch.01 陣列（Array）與單向鏈結串列（Singly Linked List）](https://learn.ai-purplemaple.com/ch01.html): `examples/ch01_array_linked_list.py`\n"
         "- [Ch.02 堆疊（Stack）與佇列（Queue）](https://learn.ai-purplemaple.com/ch02.html): `examples/ch02_stack_queue.py`\n"
         "- [Ch.03 二分搜尋法（Binary Search）與合併排序法（Merge Sort）](https://learn.ai-purplemaple.com/ch03.html): `examples/ch03_search_sort.py`\n"
-        "- [Ch.04 雜湊表（Hash Table）與二元搜尋樹（Binary Search Tree）](https://learn.ai-purplemaple.com/ch04.html): `examples/ch04_hash_bst.py`\n\n"
+        "- [Ch.04 雜湊表（Hash Table）與二元搜尋樹（Binary Search Tree）](https://learn.ai-purplemaple.com/ch04.html): `examples/ch04_hash_bst.py`\n"
+        "- [Ch.05 圖論走訪（Graph BFS / DFS）與物件導向設計（OOP）](https://learn.ai-purplemaple.com/ch05.html): `examples/ch05_graph_oop.py`\n\n"
         "## 紫楓 (Purple Maple) 生態系相關網站\n"
         "- [官方作品集與商業委託中心](https://ai-purplemaple.com/): 原創看板娘白瀬アイリ（艾莉 / Aily / Shirase Airi）視覺畫廊、Suno AI 原創音樂精選與雙語價目表\n"
         "- [互動式委託估價單試算器](https://quote.ai-purplemaple.com/): AI 動漫插畫與原創音樂即時雙語試算\n"
@@ -596,6 +614,10 @@ def build_site(out_dir: Path) -> Path:
       <a class="toc-item" href="#ch04">
         <span class="badge">Ch.04</span>
         <strong>雜湊表與二元搜尋樹（Two Sum / BST）</strong>
+      </a>
+      <a class="toc-item" href="#ch05">
+        <span class="badge">Ch.05</span>
+        <strong>圖論走訪與物件導向設計（BFS / DFS &amp; OOP）</strong>
       </a>
     </nav>
 
