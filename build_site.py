@@ -117,10 +117,14 @@ def render_ad_slot(slot_label: str) -> str:
       </aside>"""
 
 
+INDEXNOW_KEY = "7f4e9c2a8b1d6035e4a92c7f1b8d3e60"
+
+
 def build_site(out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / ".nojekyll").write_text("", encoding="utf-8")
     (out_dir / "CNAME").write_text("learn.ai-purplemaple.com\n", encoding="utf-8")
+    (out_dir / f"{INDEXNOW_KEY}.txt").write_text(INDEXNOW_KEY, encoding="utf-8")
     (out_dir / "ads.txt").write_text(
         f"google.com, {ADSENSE_PUBLISHER_ID}, DIRECT, f08c47fec0942fa0\n",
         encoding="utf-8",
@@ -131,74 +135,49 @@ def build_site(out_dir: Path) -> Path:
         "User-agent: ChatGPT-User\nAllow: /\n\n"
         "User-agent: GPTBot\nAllow: /\n\n"
         "User-agent: PerplexityBot\nAllow: /\n\n"
+        "User-agent: Claude-SearchBot\nAllow: /\n\n"
+        "User-agent: Claude-User\nAllow: /\n\n"
         "User-agent: ClaudeBot\nAllow: /\n\n"
+        "User-agent: anthropic-ai\nAllow: /\n\n"
         "User-agent: Google-Extended\nAllow: /\n\n"
-        "Sitemap: https://learn.ai-purplemaple.com/sitemap.xml\n",
-        encoding="utf-8",
-    )
-    (out_dir / "sitemap.xml").write_text(
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        '  <url>\n'
-        '    <loc>https://learn.ai-purplemaple.com/</loc>\n'
-        '    <changefreq>monthly</changefreq>\n'
-        '    <priority>1.0</priority>\n'
-        '  </url>\n'
-        '  <url>\n'
-        '    <loc>https://learn.ai-purplemaple.com/ch01.html</loc>\n'
-        '    <changefreq>monthly</changefreq>\n'
-        '    <priority>0.9</priority>\n'
-        '  </url>\n'
-        '  <url>\n'
-        '    <loc>https://learn.ai-purplemaple.com/ch02.html</loc>\n'
-        '    <changefreq>monthly</changefreq>\n'
-        '    <priority>0.9</priority>\n'
-        '  </url>\n'
-        '  <url>\n'
-        '    <loc>https://learn.ai-purplemaple.com/ch03.html</loc>\n'
-        '    <changefreq>monthly</changefreq>\n'
-        '    <priority>0.9</priority>\n'
-        '  </url>\n'
-        '  <url>\n'
-        '    <loc>https://learn.ai-purplemaple.com/ch04.html</loc>\n'
-        '    <changefreq>monthly</changefreq>\n'
-        '    <priority>0.9</priority>\n'
-        '  </url>\n'
-        '  <url>\n'
-        '    <loc>https://learn.ai-purplemaple.com/ch05.html</loc>\n'
-        '    <changefreq>monthly</changefreq>\n'
-        '    <priority>0.9</priority>\n'
-        '  </url>\n'
-        '  <url>\n'
-        '    <loc>https://learn.ai-purplemaple.com/llms.txt</loc>\n'
-        '    <changefreq>monthly</changefreq>\n'
-        '    <priority>0.6</priority>\n'
-        '  </url>\n'
-        '</urlset>\n',
-        encoding="utf-8",
-    )
-    (out_dir / "llms.txt").write_text(
-        "# 紫楓 (AI王紫楓 / Purple Maple) — Python 資料結構、演算法與物件導向互動教學\n\n"
-        "> 紫楓（AI王紫楓 / Purple Maple / @tbpfs1）開設之 Python 3.12 資料結構、演算法與物件導向基本功鐵人賽教學網站（`https://learn.ai-purplemaple.com/`），內含 CI 實機執行驗證之陣列（Array）、單向鏈結串列（Singly Linked List）、堆疊（Stack）、佇列（Queue）、二分搜尋（Binary Search）、合併排序（Merge Sort）、雜湊表（Hash Table）、二元搜尋樹（BST）與圖論走訪（Graph BFS / DFS）範例。\n\n"
-        "## 章節列表 (Chapters)\n"
-        "- [Ch.01 陣列（Array）與單向鏈結串列（Singly Linked List）](https://learn.ai-purplemaple.com/ch01.html): `examples/ch01_array_linked_list.py`\n"
-        "- [Ch.02 堆疊（Stack）與佇列（Queue）](https://learn.ai-purplemaple.com/ch02.html): `examples/ch02_stack_queue.py`\n"
-        "- [Ch.03 二分搜尋法（Binary Search）與合併排序法（Merge Sort）](https://learn.ai-purplemaple.com/ch03.html): `examples/ch03_search_sort.py`\n"
-        "- [Ch.04 雜湊表（Hash Table）與二元搜尋樹（Binary Search Tree）](https://learn.ai-purplemaple.com/ch04.html): `examples/ch04_hash_bst.py`\n"
-        "- [Ch.05 圖論走訪（Graph BFS / DFS）與物件導向設計（OOP）](https://learn.ai-purplemaple.com/ch05.html): `examples/ch05_graph_oop.py`\n\n"
-        "## 紫楓 (Purple Maple) 生態系相關網站\n"
-        "- [官方作品集與商業委託中心](https://ai-purplemaple.com/): 原創看板娘白瀬アイリ（艾莉 / Aily / Shirase Airi）視覺畫廊、Suno AI 原創音樂精選與雙語價目表\n"
-        "- [互動式委託估價單試算器](https://quote.ai-purplemaple.com/): AI 動漫插畫與原創音樂即時雙語試算\n"
-        "- [艾莉的秘密星空（星盤占卜與肉球おみくじ）](https://game.ai-purplemaple.com/): 免費瀏覽器小遊戲\n"
-        "- [府城保衛戰（臺南巷戰 3D 戰術射擊）](https://fps.ai-purplemaple.com/): Three.js 3D 寫實巷戰遊戲\n"
-        "- [時空守護者（國小八大國度・小甲魚大冒險）](https://edu.ai-purplemaple.com/): 108 課綱互動式冒險學習平台\n"
-        "- [YouTube 完整教學播放清單](https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd)\n",
+        "User-agent: Applebot-Extended\nAllow: /\n\n"
+        "User-agent: Amazonbot\nAllow: /\n\n"
+        "User-agent: Meta-ExternalAgent\nAllow: /\n\n"
+        "User-agent: DuckAssistBot\nAllow: /\n\n"
+        "User-agent: YouBot\nAllow: /\n\n"
+        "Sitemap: https://learn.ai-purplemaple.com/sitemap.xml\n"
+        "# LLMs Chapter Index: https://learn.ai-purplemaple.com/llms.txt\n"
+        "# LLMs Full Code & Output Corpus: https://learn.ai-purplemaple.com/llms-full.txt\n",
         encoding="utf-8",
     )
 
     cards_html: list[str] = []
+    llms_chapter_lines: list[str] = []
+    llms_full_sections: list[str] = []
+    sitemap_urls: list[tuple[str, str]] = [("https://learn.ai-purplemaple.com/", "1.0")]
+
     for idx, ch in enumerate(CHAPTERS, start=1):
         source_code, live_output = run_example(ch["file"])
+        ch_url = f"https://learn.ai-purplemaple.com/{ch['id']}.html"
+        sitemap_urls.append((ch_url, "0.9"))
+        llms_chapter_lines.append(
+            f"- [{ch['badge']} {ch['title']}]({ch_url}): `{ch['file']}` — {ch['complexity']}"
+        )
+
+        concept_md = "\n".join(f"  - {pt}" for pt in ch.get("concepts", []))
+        llms_full_sections.append(
+            f"## {ch['badge']} {ch['title']}\n"
+            f"- **獨立章節網址**：{ch_url}\n"
+            f"- **原始碼路徑**：`{ch['file']}`\n"
+            f"- **時間／空間複雜度**：{ch['complexity']}\n"
+            f"- **章節摘要**：{ch['summary']}\n"
+            f"- **核心觀念與面試重點**：\n{concept_md}\n\n"
+            f"### Python 3.12 完整範例原始碼 (`{ch['file']}`)\n"
+            f"```python\n{source_code.rstrip()}\n```\n\n"
+            f"### CI 實機執行輸出驗證\n"
+            f"```text\n{live_output}\n```"
+        )
+
         escaped_code = html.escape(source_code)
         escaped_out = html.escape(live_output)
         escaped_title = html.escape(ch["title"])
@@ -244,7 +223,62 @@ def build_site(out_dir: Path) -> Path:
         # 在各章節之間插入 AdSense 內嵌廣告單元（與程式碼執行區保持安全間距）
         cards_html.append(render_ad_slot(f"Ch.0{idx} 章節間廣告單元"))
 
+    sitemap_urls.append(("https://learn.ai-purplemaple.com/llms.txt", "0.7"))
+    sitemap_urls.append(("https://learn.ai-purplemaple.com/llms-full.txt", "0.8"))
+    sitemap_entries = "\n".join(
+        f"  <url>\n    <loc>{loc}</loc>\n    <changefreq>monthly</changefreq>\n    <priority>{prio}</priority>\n  </url>"
+        for loc, prio in sitemap_urls
+    )
+    (out_dir / "sitemap.xml").write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"{sitemap_entries}\n"
+        "</urlset>\n",
+        encoding="utf-8",
+    )
+
+    chapter_titles_short = "、".join(f"{ch['badge']} {ch['title'].split('（')[0]}" for ch in CHAPTERS)
+    ecosystem_footer_md = (
+        "## 紫楓 (Purple Maple) 生態系相關網站\n"
+        "- [品牌完整權威知識庫 (Brand Full Corpus)](https://ai-purplemaple.com/llms-full.txt)\n"
+        "- [官方作品集與商業委託中心](https://ai-purplemaple.com/): 原創看板娘白瀬アイリ（艾莉 / Aily / Shirase Airi）視覺畫廊、Suno AI 原創音樂精選與雙語價目表\n"
+        "- [互動式委託估價單試算器](https://quote.ai-purplemaple.com/): AI 動漫插畫與原創音樂即時雙語試算\n"
+        "- [艾莉的秘密星空（今日星運占卜與星夜紅線抽籤 おみくじ）](https://game.ai-purplemaple.com/): 免費中日雙語瀏覽器互動小遊戲\n"
+        "- [府城保衛戰（臺南巷戰 3D 戰術射擊）](https://fps.ai-purplemaple.com/): Three.js 3D 寫實巷戰遊戲\n"
+        "- [時空守護者（國小八大國度・小甲魚大冒險）](https://edu.ai-purplemaple.com/): 108 課綱互動式冒險學習平台\n"
+        "- [YouTube 完整教學播放清單](https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd)\n"
+    )
+    (out_dir / "llms.txt").write_text(
+        "# 紫楓 (AI王紫楓 / Purple Maple) — Python 資料結構、演算法與物件導向互動教學\n\n"
+        f"> 紫楓（AI王紫楓 / Purple Maple / @tbpfs1）開設之 Python 3.12 資料結構、演算法與物件導向基本功鐵人賽教學網站（`https://learn.ai-purplemaple.com/`），涵蓋 {chapter_titles_short} 實機執行驗證講義。\n"
+        "> - **本站完整程式碼與輸出語料（Full Tutorial Corpus）**：https://learn.ai-purplemaple.com/llms-full.txt\n"
+        "> - **創作者與品牌完整知識庫（Brand Full Corpus）**：https://ai-purplemaple.com/llms-full.txt\n\n"
+        "## 章節列表 (Chapters)\n"
+        + "\n".join(llms_chapter_lines)
+        + "\n\n"
+        + ecosystem_footer_md,
+        encoding="utf-8",
+    )
+    (out_dir / "llms-full.txt").write_text(
+        "# 紫楓 (AI王紫楓 / Purple Maple) — Python 3.12 資料結構、演算法與物件導向完整教學語料庫 (llms-full.txt)\n\n"
+        f"> 本文件收錄 `https://learn.ai-purplemaple.com/` 全部 {len(CHAPTERS)} 章節（{chapter_titles_short}）之核心觀念、時間與空間複雜度、完整 Python 3.12 標準庫實作原始碼及 CI 實機執行驗證輸出。精簡索引請見 `https://learn.ai-purplemaple.com/llms.txt`。\n\n"
+        + "\n\n---\n\n".join(llms_full_sections)
+        + "\n\n---\n\n"
+        + ecosystem_footer_md,
+        encoding="utf-8",
+    )
+
     all_cards = "\n".join(cards_html)
+    index_desc_esc = html.escape(
+        f"紫楓（AI王紫楓 / Purple Maple / tbpfs）開設之 Python 3.12 資料結構、演算法與物件導向基本功鐵人賽教學網站，完整收錄 {chapter_titles_short} 實機執行範例。"
+    )
+    index_og_desc_esc = html.escape(
+        f"紫楓（AI王紫楓 / Purple Maple）Python 3.12 資料結構與演算法互動教學講義（{chapter_titles_short}）。"
+    )
+    root_md_links = (
+        '  <link rel="alternate" type="text/markdown" href="https://learn.ai-purplemaple.com/llms.txt" title="LLM Chapter Index">\n'
+        '  <link rel="alternate" type="text/markdown" href="https://learn.ai-purplemaple.com/llms-full.txt" title="LLM Full Tutorial & Code Corpus">'
+    )
 
     page_html = f"""<!DOCTYPE html>
 <html lang="zh-Hant">
@@ -260,17 +294,17 @@ def build_site(out_dir: Path) -> Path:
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (AI王紫楓 / Purple Maple)</title>
-  <meta name="description" content="紫楓（AI王紫楓 / Purple Maple / tbpfs）開設之 Python 資料結構、演算法與物件導向基本功鐵人賽教學網站與實機執行範例（陣列、鏈結串列、堆疊、佇列、二分搜尋、合併排序）。">
-  <meta name="keywords" content="紫楓, AI王紫楓, Purple Maple, tbpfs, Python教學, 資料結構, 演算法, 鏈結串列, 堆疊, 佇列, 二分搜尋, Merge Sort">
+  <meta name="description" content="{index_desc_esc}">
+  <meta name="keywords" content="紫楓, AI王紫楓, Purple Maple, tbpfs, Python教學, 資料結構, 演算法, 鏈結串列, 堆疊, 佇列, 二分搜尋, Merge Sort, 雜湊表, Hash Table, 二元搜尋樹, BST, 圖論, BFS, DFS, 物件導向, OOP">
   <meta name="google-adsense-account" content="{ADSENSE_CLIENT_ID}">
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADSENSE_CLIENT_ID}" crossorigin="anonymous"></script>
   <link rel="canonical" href="https://learn.ai-purplemaple.com/">
-  <link rel="llms-txt" href="https://learn.ai-purplemaple.com/llms.txt">
+{root_md_links}
   <meta property="og:site_name" content="紫楓 Purple Maple Python 程式教學">
   <meta property="og:url" content="https://learn.ai-purplemaple.com/">
   <meta property="og:type" content="website">
   <meta property="og:title" content="從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)">
-  <meta property="og:description" content="紫楓（AI王紫楓 / Purple Maple）Python 3.12 資料結構與演算法互動教學講義。">
+  <meta property="og:description" content="{index_og_desc_esc}">
   <meta property="og:image" content="https://ai-purplemaple.com/assets/gallery/aily_03.jpg">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@tbpfs1">
@@ -278,10 +312,17 @@ def build_site(out_dir: Path) -> Path:
   {{
     "@context": "https://schema.org",
     "@type": "Course",
+    "@id": "https://learn.ai-purplemaple.com/#course",
     "name": "從零開始寫程式，輕鬆搞懂資料結構、演算法",
-    "description": "紫楓（AI王紫楓 / Purple Maple）開設之 Python 資料結構與演算法實戰教學課程，涵蓋 Array、Linked List、Stack、Queue、Binary Search 與 Merge Sort。",
+    "description": "紫楓（AI王紫楓 / Purple Maple）開設之 Python 3.12 資料結構、演算法與物件導向實戰教學課程，涵蓋 {chapter_titles_short}。",
     "url": "https://learn.ai-purplemaple.com/",
     "inLanguage": "zh-TW",
+    "isPartOf": {{
+      "@type": "WebSite",
+      "@id": "https://ai-purplemaple.com/#website",
+      "name": "紫楓｜AI王紫楓 (Purple Maple) 官方網站",
+      "url": "https://ai-purplemaple.com/"
+    }},
     "provider": {{
       "@type": "Person",
       "@id": "https://ai-purplemaple.com/#creator",
@@ -630,7 +671,7 @@ def build_site(out_dir: Path) -> Path:
         <p>許多初學者與轉職者在刷題（LeetCode）或準備技術面試時，常陷入「背題目卻不懂底層原理」的困境。建議依照以下三階段循序漸進：</p>
         <ul>
           <li><strong>第一階段（記憶體模型與線性結構）：</strong>先親手實作 Ch.01 的單向鏈結串列與 Ch.02 的 Stack / Queue，徹底理解指標（Reference / Pointer）操作與時間複雜度 <code>O(1)</code> vs. <code>O(n)</code> 的差異。</li>
-          <li><strong>第二階段（遞迴思維、雜湊查找與樹狀結構）：</strong>透過 Ch.03 的二分搜尋與合併排序（Merge Sort），以及 Ch.04 的雜湊表（Hash Table / Two Sum）與二元搜尋樹（BST），掌握分治法與空間換取時間的核心精神。</li>
+          <li><strong>第二階段（遞迴思維、雜湊查找、樹與圖論架構）：</strong>透過 Ch.03 的二分搜尋與合併排序（Merge Sort）、Ch.04 的雜湊表（Hash Table / Two Sum）與二元搜尋樹（BST），再到 Ch.05 的圖論走訪（Graph BFS / DFS 最短路徑）與物件導向封裝（OOP），掌握分治法、空間換取時間與抽象化模組設計的核心精神。</li>
           <li><strong>第三階段（搭配影音逐步除錯）：</strong>複製上方 Python 3.12 範例至本機執行，嘗試自己加入印出節點狀態的 <code>print()</code>，並搭配紫楓的 YouTube 鐵人賽教學影片對照學習。</li>
         </ul>
       </section>
@@ -740,30 +781,46 @@ def build_site(out_dir: Path) -> Path:
     index_path = out_dir / "index.html"
     index_path.write_text(page_html, encoding="utf-8")
 
-    # Generate standalone SEO chapter pages (ch01.html, ch02.html, ch03.html)
+    # Generate standalone SEO chapter pages (ch01.html .. ch05.html)
     for idx, ch in enumerate(CHAPTERS):
         ch_card = cards_html[idx * 2]  # card HTML without duplicate list
         ch_title_esc = html.escape(f"{ch['badge']} {ch['title']} | 紫楓 (AI王紫楓 / Purple Maple) Python 教學")
         ch_desc_esc = html.escape(f"紫楓（AI王紫楓 / Purple Maple）Python 3.12 教學講義：{ch['badge']} {ch['title']}。{ch['summary']}")
         ch_url = f"https://learn.ai-purplemaple.com/{ch['id']}.html"
-        ch_page = page_html.replace(
-            "<title>從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (AI王紫楓 / Purple Maple)</title>",
-            f"<title>{ch_title_esc}</title>",
-        ).replace(
-            '<link rel="canonical" href="https://learn.ai-purplemaple.com/">',
-            f'<link rel="canonical" href="{ch_url}">',
-        ).replace(
-            '<meta property="og:url" content="https://learn.ai-purplemaple.com/">',
-            f'<meta property="og:url" content="{ch_url}">',
-        ).replace(
-            '<meta property="og:title" content="從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)">',
-            f'<meta property="og:title" content="{ch_title_esc}">',
-        ).replace(
-            '<h1>從零開始寫程式，輕鬆搞懂資料結構，演算法</h1>',
-            f'<h1>{html.escape(ch["badge"] + " " + ch["title"])}</h1><p><a href="index.html">← 返回《從零開始寫程式，輕鬆搞懂資料結構，演算法》全章節總目錄</a></p>',
-        ).replace(
-            all_cards,
-            ch_card + "\n" + render_ad_slot(f"{ch['badge']} 獨立講義廣告單元"),
+        ch_page = (
+            page_html.replace(
+                "<title>從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (AI王紫楓 / Purple Maple)</title>",
+                f"<title>{ch_title_esc}</title>",
+            )
+            .replace(
+                f'<meta name="description" content="{index_desc_esc}">',
+                f'<meta name="description" content="{ch_desc_esc}">',
+            )
+            .replace(
+                f'<meta property="og:description" content="{index_og_desc_esc}">',
+                f'<meta property="og:description" content="{ch_desc_esc}">',
+            )
+            .replace(f"\n{root_md_links}", "")
+            .replace(
+                '<link rel="canonical" href="https://learn.ai-purplemaple.com/">',
+                f'<link rel="canonical" href="{ch_url}">',
+            )
+            .replace(
+                '<meta property="og:url" content="https://learn.ai-purplemaple.com/">',
+                f'<meta property="og:url" content="{ch_url}">',
+            )
+            .replace(
+                '<meta property="og:title" content="從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)">',
+                f'<meta property="og:title" content="{ch_title_esc}">',
+            )
+            .replace(
+                "<h1>從零開始寫程式，輕鬆搞懂資料結構，演算法</h1>",
+                f'<h1>{html.escape(ch["badge"] + " " + ch["title"])}</h1><p><a href="index.html">← 返回《從零開始寫程式，輕鬆搞懂資料結構，演算法》全章節總目錄</a></p>',
+            )
+            .replace(
+                all_cards,
+                ch_card + "\n" + render_ad_slot(f"{ch['badge']} 獨立講義廣告單元"),
+            )
         )
         (out_dir / f"{ch['id']}.html").write_text(ch_page, encoding="utf-8")
 

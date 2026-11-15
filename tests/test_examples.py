@@ -132,10 +132,41 @@ class TestLearningExamples(unittest.TestCase):
             for ch_id in ("ch01", "ch02", "ch03", "ch04", "ch05"):
                 ch_file = Path(tmpdir) / f"{ch_id}.html"
                 self.assertTrue(ch_file.is_file(), f"Missing standalone chapter page {ch_id}.html")
-                self.assertIn(f"https://learn.ai-purplemaple.com/{ch_id}.html", ch_file.read_text(encoding="utf-8"))
+                ch_html = ch_file.read_text(encoding="utf-8")
+                self.assertIn(f"https://learn.ai-purplemaple.com/{ch_id}.html", ch_html)
+                self.assertIn(f"教學講義：Ch.0{ch_id[-1]}", ch_html)
+                self.assertNotIn('type="text/markdown"', ch_html)
+                self.assertNotIn('rel="llms-txt"', ch_html)
+
+            # Root GEO links, JSON-LD, llms.txt, llms-full.txt, and IndexNow key
+            self.assertIn('rel="alternate" type="text/markdown" href="https://learn.ai-purplemaple.com/llms.txt"', html_text)
+            self.assertIn('rel="alternate" type="text/markdown" href="https://learn.ai-purplemaple.com/llms-full.txt"', html_text)
+            self.assertNotIn('rel="llms-txt"', html_text)
+            self.assertIn("https://ai-purplemaple.com/#website", html_text)
+            self.assertIn("Ch.05 圖論走訪與物件導向設計", html_text)
+
+            key_text = (Path(tmpdir) / "7f4e9c2a8b1d6035e4a92c7f1b8d3e60.txt").read_text(encoding="utf-8").strip()
+            self.assertEqual(key_text, "7f4e9c2a8b1d6035e4a92c7f1b8d3e60")
+
+            llms_txt = (Path(tmpdir) / "llms.txt").read_text(encoding="utf-8")
+            self.assertIn("https://learn.ai-purplemaple.com/llms-full.txt", llms_txt)
+            self.assertIn("https://ai-purplemaple.com/llms-full.txt", llms_txt)
+            self.assertNotIn("肉球おみくじ", llms_txt)
+
+            llms_full = (Path(tmpdir) / "llms-full.txt").read_text(encoding="utf-8")
+            for marker in (
+                "Ch.01 SinglyLinkedList 範例結果:",
+                "Ch.02 括號平衡檢查",
+                "Ch.03 Merge Sort 結果:",
+                "Ch.04 Two Sum 索引:",
+                "Ch.05 BFS 走訪:",
+            ):
+                self.assertIn(marker, llms_full)
+
             sitemap_text = (Path(tmpdir) / "sitemap.xml").read_text(encoding="utf-8")
             self.assertIn("https://learn.ai-purplemaple.com/ch01.html", sitemap_text)
             self.assertIn("https://learn.ai-purplemaple.com/ch05.html", sitemap_text)
+            self.assertIn("https://learn.ai-purplemaple.com/llms-full.txt", sitemap_text)
 
 
 if __name__ == "__main__":
