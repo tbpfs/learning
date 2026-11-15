@@ -55,6 +55,18 @@ CHAPTERS = [
         ],
         "file": "examples/ch03_search_sort.py",
     },
+    {
+        "id": "ch04",
+        "badge": "Ch.04",
+        "title": "雜湊表與二元搜尋樹（Hash Table & Binary Search Tree）",
+        "complexity": "雜湊表平均讀寫 O(1) ・ 二元搜尋樹平衡搜尋/插入 O(log n) ・ 中序走訪 O(n)",
+        "summary": "掌握面試出場率最高的雜湊碰撞處理（Separate Chaining）與 Two Sum O(n) 秒殺技巧，並實作二元搜尋樹（BST）與中序遞增走訪。",
+        "concepts": [
+            "雜湊表（Hash Table / Python dict）：透過雜湊函式（Hash Function）將鍵值映射至桶位索引，達成平均 O(1) 的極速查找；當不同鍵值落入同一桶位產生碰撞（Collision）時，常以鏈結法（Separate Chaining）或開放定址法（Open Addressing）化解。經典白板題 Two Sum 即是利用 Hash Table 以空間換取時間，將雙層迴圈 O(n²) 降至單次掃描 O(n)。",
+            "二元搜尋樹（Binary Search Tree, BST）：滿足「左子樹所有節點 < 根節點 < 右子樹所有節點」不變量（Invariant）的樹狀結構。在樹高平衡時搜尋與插入皆為 O(log n)，且對 BST 執行「左 -> 根 -> 右」中序走訪（In-order Traversal）即可在 O(n) 時間內直接輸出由小到大的排序結果。",
+        ],
+        "file": "examples/ch04_hash_bst.py",
+    },
 ]
 
 
@@ -136,6 +148,11 @@ def build_site(out_dir: Path) -> Path:
         '    <priority>0.9</priority>\n'
         '  </url>\n'
         '  <url>\n'
+        '    <loc>https://learn.ai-purplemaple.com/ch04.html</loc>\n'
+        '    <changefreq>monthly</changefreq>\n'
+        '    <priority>0.9</priority>\n'
+        '  </url>\n'
+        '  <url>\n'
         '    <loc>https://learn.ai-purplemaple.com/llms.txt</loc>\n'
         '    <changefreq>monthly</changefreq>\n'
         '    <priority>0.6</priority>\n'
@@ -145,15 +162,18 @@ def build_site(out_dir: Path) -> Path:
     )
     (out_dir / "llms.txt").write_text(
         "# 紫楓 (AI王紫楓 / Purple Maple) — Python 資料結構、演算法與物件導向互動教學\n\n"
-        "> 紫楓（AI王紫楓 / Purple Maple / @tbpfs1）開設之 Python 3.12 資料結構、演算法與物件導向基本功鐵人賽教學網站（`https://learn.ai-purplemaple.com/`），內含 CI 實機執行驗證之陣列（Array）、單向鏈結串列（Singly Linked List）、堆疊（Stack）、佇列（Queue）、二分搜尋（Binary Search）與合併排序（Merge Sort）範例。\n\n"
+        "> 紫楓（AI王紫楓 / Purple Maple / @tbpfs1）開設之 Python 3.12 資料結構、演算法與物件導向基本功鐵人賽教學網站（`https://learn.ai-purplemaple.com/`），內含 CI 實機執行驗證之陣列（Array）、單向鏈結串列（Singly Linked List）、堆疊（Stack）、佇列（Queue）、二分搜尋（Binary Search）、合併排序（Merge Sort）、雜湊表（Hash Table）與二元搜尋樹（BST）範例。\n\n"
         "## 章節列表 (Chapters)\n"
-        "- [Ch.01 陣列（Array）與單向鏈結串列（Singly Linked List）](https://learn.ai-purplemaple.com/ch01.html): `examples/ch01_array_and_linked_list.py`\n"
-        "- [Ch.02 堆疊（Stack）與佇列（Queue）](https://learn.ai-purplemaple.com/ch02.html): `examples/ch02_stack_and_queue.py`\n"
-        "- [Ch.03 二分搜尋法（Binary Search）與合併排序法（Merge Sort）](https://learn.ai-purplemaple.com/ch03.html): `examples/ch03_searching_and_sorting.py`\n\n"
+        "- [Ch.01 陣列（Array）與單向鏈結串列（Singly Linked List）](https://learn.ai-purplemaple.com/ch01.html): `examples/ch01_array_linked_list.py`\n"
+        "- [Ch.02 堆疊（Stack）與佇列（Queue）](https://learn.ai-purplemaple.com/ch02.html): `examples/ch02_stack_queue.py`\n"
+        "- [Ch.03 二分搜尋法（Binary Search）與合併排序法（Merge Sort）](https://learn.ai-purplemaple.com/ch03.html): `examples/ch03_search_sort.py`\n"
+        "- [Ch.04 雜湊表（Hash Table）與二元搜尋樹（Binary Search Tree）](https://learn.ai-purplemaple.com/ch04.html): `examples/ch04_hash_bst.py`\n\n"
         "## 紫楓 (Purple Maple) 生態系相關網站\n"
         "- [官方作品集與商業委託中心](https://ai-purplemaple.com/): 原創看板娘白瀬アイリ（艾莉 / Aily / Shirase Airi）視覺畫廊、Suno AI 原創音樂精選與雙語價目表\n"
         "- [互動式委託估價單試算器](https://quote.ai-purplemaple.com/): AI 動漫插畫與原創音樂即時雙語試算\n"
         "- [艾莉的秘密星空（星盤占卜與肉球おみくじ）](https://game.ai-purplemaple.com/): 免費瀏覽器小遊戲\n"
+        "- [府城保衛戰（臺南巷戰 3D 戰術射擊）](https://fps.ai-purplemaple.com/): Three.js 3D 寫實巷戰遊戲\n"
+        "- [時空守護者（國小八大國度・小甲魚大冒險）](https://edu.ai-purplemaple.com/): 108 課綱互動式冒險學習平台\n"
         "- [YouTube 完整教學播放清單](https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd)\n",
         encoding="utf-8",
     )
@@ -573,6 +593,10 @@ def build_site(out_dir: Path) -> Path:
         <span class="badge">Ch.03</span>
         <strong>二分搜尋法與合併排序法</strong>
       </a>
+      <a class="toc-item" href="#ch04">
+        <span class="badge">Ch.04</span>
+        <strong>雜湊表與二元搜尋樹（Two Sum / BST）</strong>
+      </a>
     </nav>
 
     <main>
@@ -584,7 +608,7 @@ def build_site(out_dir: Path) -> Path:
         <p>許多初學者與轉職者在刷題（LeetCode）或準備技術面試時，常陷入「背題目卻不懂底層原理」的困境。建議依照以下三階段循序漸進：</p>
         <ul>
           <li><strong>第一階段（記憶體模型與線性結構）：</strong>先親手實作 Ch.01 的單向鏈結串列與 Ch.02 的 Stack / Queue，徹底理解指標（Reference / Pointer）操作與時間複雜度 <code>O(1)</code> vs. <code>O(n)</code> 的差異。</li>
-          <li><strong>第二階段（遞迴思維與分治演算法）：</strong>透過 Ch.03 的二分搜尋法與合併排序法（Merge Sort），掌握將大問題拆解為子問題的 Divide &amp; Conquer 核心精神，並練習分析遞迴樹深度 <code>O(log n)</code>。</li>
+          <li><strong>第二階段（遞迴思維、雜湊查找與樹狀結構）：</strong>透過 Ch.03 的二分搜尋與合併排序（Merge Sort），以及 Ch.04 的雜湊表（Hash Table / Two Sum）與二元搜尋樹（BST），掌握分治法與空間換取時間的核心精神。</li>
           <li><strong>第三階段（搭配影音逐步除錯）：</strong>複製上方 Python 3.12 範例至本機執行，嘗試自己加入印出節點狀態的 <code>print()</code>，並搭配紫楓的 YouTube 鐵人賽教學影片對照學習。</li>
         </ul>
       </section>
@@ -595,7 +619,7 @@ def build_site(out_dir: Path) -> Path:
         <h3>隱私權政策與 Cookie 聲明 (Privacy Policy)</h3>
         <p>本網站（learn.ai-purplemaple.com）使用 Google AdSense 第三方廣告服務與 Google Analytics (GA4)／Google Tag Manager 網站流量分析服務。Google 及其合作夥伴會使用 Cookie（包含 DART Cookie），根據使用者造訪本站或其他網站的紀錄提供個人化廣告與匿名流量統計。您可隨時前往 <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google 廣告設定頁面</a> 停用個人化廣告，或查閱 <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">Google 廣告與隱私權政策</a>。本站程式碼複製功能均於瀏覽器本機執行，不會收集或儲存您的個人識別資料。</p>
       </div>
-      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">紫楓 (AI王紫楓 / Purple Maple)</a></strong> ・ <a href="https://quote.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">插畫＆音樂委託試算</a> ・ <a href="https://game.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">艾莉占卜小遊戲</a> ・ Powered by Python 3.12 &amp; GitHub Pages ・ <a href="ads.txt">ads.txt</a></p>
+      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">紫楓 (AI王紫楓 / Purple Maple)</a></strong> ・ <a href="https://quote.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">插畫＆音樂委託試算</a> ・ <a href="https://game.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">白瀬アイリ占卜小遊戲</a> ・ <a href="https://fps.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">府城保衛戰 3D</a> ・ <a href="https://edu.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">時空守護者</a> ・ Powered by Python 3.12 &amp; GitHub Pages ・ <a href="ads.txt">ads.txt</a></p>
     </footer>
   </div>
 

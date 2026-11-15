@@ -11,6 +11,7 @@ sys.path.insert(0, str(REPO_ROOT / "examples"))
 from ch01_array_linked_list import SinglyLinkedList  # noqa: E402
 from ch02_stack_queue import Queue, Stack, is_balanced_brackets  # noqa: E402
 from ch03_search_sort import binary_search, merge_sort  # noqa: E402
+from ch04_hash_bst import BinarySearchTree, ChainingHashTable, two_sum  # noqa: E402
 
 
 class TestLearningExamples(unittest.TestCase):
@@ -71,6 +72,26 @@ class TestLearningExamples(unittest.TestCase):
         self.assertEqual(binary_search(sorted_arr, 90), len(sorted_arr) - 1)
         self.assertEqual(binary_search(sorted_arr, 100), -1)
 
+    def test_hash_table_two_sum_and_bst(self):
+        ht: ChainingHashTable[str, int] = ChainingHashTable(bucket_count=4)
+        ht.put("aily", 1)
+        ht.put("maple", 2)
+        ht.put("aily", 99)
+        self.assertEqual(len(ht), 2)
+        self.assertEqual(ht.get("aily"), 99)
+        self.assertIsNone(ht.get("missing"))
+        self.assertTrue(ht.remove("maple"))
+        self.assertFalse(ht.remove("maple"))
+        self.assertEqual(len(ht), 1)
+
+        self.assertEqual(two_sum([2, 7, 11, 15], 9), (0, 1))
+        self.assertIsNone(two_sum([1, 2, 3], 100))
+
+        bst = BinarySearchTree([50, 30, 70, 20, 40, 60, 80, 30])
+        self.assertEqual(bst.inorder(), [20, 30, 40, 50, 60, 70, 80])
+        self.assertTrue(bst.contains(60))
+        self.assertFalse(bst.contains(99))
+
     def test_build_site_generates_valid_html(self):
         import tempfile
         sys.path.insert(0, str(REPO_ROOT))
@@ -91,18 +112,19 @@ class TestLearningExamples(unittest.TestCase):
             self.assertIn("Ch.01 SinglyLinkedList 範例結果:", html_text)
             self.assertIn("Ch.02 括號平衡檢查", html_text)
             self.assertIn("Ch.03 Merge Sort 結果:", html_text)
+            self.assertIn("Ch.04 Two Sum 索引:", html_text)
             self.assertIn("ca-pub-6485917848711473", html_text)
             self.assertIn("G-B24GXZ32MW", html_text)
             self.assertIn("GTM-WNSFQT5V", html_text)
-            self.assertEqual(html_text.count('class="ad-slot-card"'), 3)
+            self.assertEqual(html_text.count('class="ad-slot-card"'), 4)
             self.assertIn("Privacy Policy", html_text)
-            for ch_id in ("ch01", "ch02", "ch03"):
+            for ch_id in ("ch01", "ch02", "ch03", "ch04"):
                 ch_file = Path(tmpdir) / f"{ch_id}.html"
                 self.assertTrue(ch_file.is_file(), f"Missing standalone chapter page {ch_id}.html")
                 self.assertIn(f"https://learn.ai-purplemaple.com/{ch_id}.html", ch_file.read_text(encoding="utf-8"))
             sitemap_text = (Path(tmpdir) / "sitemap.xml").read_text(encoding="utf-8")
             self.assertIn("https://learn.ai-purplemaple.com/ch01.html", sitemap_text)
-            self.assertIn("https://learn.ai-purplemaple.com/ch03.html", sitemap_text)
+            self.assertIn("https://learn.ai-purplemaple.com/ch04.html", sitemap_text)
 
 
 if __name__ == "__main__":
