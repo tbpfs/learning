@@ -56,11 +56,12 @@ jobs:
       - name: Notify IndexNow (SEO/GEO)
         run: |
           STATUS=$(curl -sS -o /dev/null -w "%{http_code}" -X POST "https://api.indexnow.org/indexnow" \
+            -A "PurpleMaple-IndexNow-Client/1.0 (+https://ai-purplemaple.com/)" \
             -H "Content-Type: application/json; charset=utf-8" \
             -d '{
               "host": "learn.ai-purplemaple.com",
-              "key": "6921614c17cf49e5801e20d822a2a88c",
-              "keyLocation": "https://learn.ai-purplemaple.com/6921614c17cf49e5801e20d822a2a88c.txt",
+              "key": "7f4e9c2a8b1d6035e4a92c7f1b8d3e60",
+              "keyLocation": "https://learn.ai-purplemaple.com/7f4e9c2a8b1d6035e4a92c7f1b8d3e60.txt",
               "urlList": [
                 "https://learn.ai-purplemaple.com/",
                 "https://learn.ai-purplemaple.com/ch01.html",
@@ -73,4 +74,8 @@ jobs:
               ]
             }' || echo "000")
           echo "IndexNow HTTP status: ${STATUS}"
+          if [[ "${STATUS}" != "200" && "${STATUS}" != "202" ]]; then
+            echo "::warning::IndexNow returned unexpected HTTP ${STATUS}"
+          fi
+
 

@@ -27,10 +27,14 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Compile and run examples & unit tests
+      - name: Compile and run examples, unit tests & SEO/GEO site gate
         run: |
           python3 -m py_compile build_site.py examples/*.py tests/*.py
-          python3 examples/ch01_array_linked_list.py
-          python3 examples/ch02_stack_queue.py
-          python3 examples/ch03_search_sort.py
-          python3 -m unittest discover -s tests -v
+          for ex in examples/ch*.py; do python3 "${ex}"; done
+          python3 -W error -m unittest discover -s tests -v
+          python3 build_site.py -o /tmp/learn_ci_site
+          if grep -rnE '(/home/antigravity|/workspace/|C:\\Users)' /tmp/learn_ci_site; then
+            echo "::error::偵測到本機或容器內部路徑外洩至靜態網站產出！"
+            exit 1
+          fi
+
