@@ -834,7 +834,7 @@ def build_site(out_dir: Path) -> Path:
             )
             .replace(
                 "<h1>從零開始寫程式，輕鬆搞懂資料結構，演算法</h1>",
-                f'<h1>{html.escape(ch["badge"] + " " + ch["title"])}</h1><p><a href="index.html">← 返回《從零開始寫程式，輕鬆搞懂資料結構，演算法》全章節總目錄</a></p>',
+                f'<h1>{html.escape(ch["badge"] + " " + ch["title"])}</h1><p><a href="/">← 返回《從零開始寫程式，輕鬆搞懂資料結構，演算法》全章節總目錄</a></p>',
             )
             .replace(
                 all_cards,

@@ -177,6 +177,8 @@ class TestLearningExamples(unittest.TestCase):
             ch05_html = (Path(tmpdir) / "ch05.html").read_text(encoding="utf-8")
             self.assertIn('name="twitter:title" content="Ch.05 ', ch05_html)
             self.assertIn('name="twitter:description" content="紫楓（AI王紫楓 / Purple Maple）Python 3.12 教學講義：Ch.05 ', ch05_html)
+            self.assertNotIn('href="index.html"', ch05_html)
+            self.assertIn('href="/"', ch05_html)
 
 
 if __name__ == "__main__":
