@@ -52,3 +52,25 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+      - name: Notify IndexNow (SEO/GEO)
+        run: |
+          STATUS=$(curl -sS -o /dev/null -w "%{http_code}" -X POST "https://api.indexnow.org/indexnow" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            -d '{
+              "host": "learn.ai-purplemaple.com",
+              "key": "6921614c17cf49e5801e20d822a2a88c",
+              "keyLocation": "https://learn.ai-purplemaple.com/6921614c17cf49e5801e20d822a2a88c.txt",
+              "urlList": [
+                "https://learn.ai-purplemaple.com/",
+                "https://learn.ai-purplemaple.com/ch01.html",
+                "https://learn.ai-purplemaple.com/ch02.html",
+                "https://learn.ai-purplemaple.com/ch03.html",
+                "https://learn.ai-purplemaple.com/ch04.html",
+                "https://learn.ai-purplemaple.com/ch05.html",
+                "https://learn.ai-purplemaple.com/llms.txt",
+                "https://learn.ai-purplemaple.com/llms-full.txt"
+              ]
+            }' || echo "000")
+          echo "IndexNow HTTP status: ${STATUS}"
+
