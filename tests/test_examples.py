@@ -128,6 +128,7 @@ class TestLearningExamples(unittest.TestCase):
             self.assertIn("G-B24GXZ32MW", html_text)
             self.assertIn("GTM-WNSFQT5V", html_text)
             self.assertEqual(html_text.count('class="ad-slot-card"'), 5)
+            self.assertEqual(html_text.count('data-ad-slot="1673180799"'), 5)
             self.assertIn("Privacy Policy", html_text)
             for ch_id in ("ch01", "ch02", "ch03", "ch04", "ch05"):
                 ch_file = Path(tmpdir) / f"{ch_id}.html"

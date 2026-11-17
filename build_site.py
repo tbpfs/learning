@@ -17,6 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parent
 
 ADSENSE_PUBLISHER_ID = "pub-6485917848711473"
 ADSENSE_CLIENT_ID = f"ca-{ADSENSE_PUBLISHER_ID}"
+ADSENSE_IN_ARTICLE_SLOT_ID = "1673180799"
 
 CHAPTERS = [
     {
@@ -107,6 +108,7 @@ def render_ad_slot(slot_label: str) -> str:
           <ins class="adsbygoogle"
                style="display:block; text-align:center;"
                data-ad-client="{ADSENSE_CLIENT_ID}"
+               data-ad-slot="{ADSENSE_IN_ARTICLE_SLOT_ID}"
                data-ad-layout="in-article"
                data-ad-format="fluid"
                data-full-width-responsive="true"></ins>
