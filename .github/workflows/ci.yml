@@ -29,7 +29,7 @@ jobs:
 
       - name: Compile and run examples, unit tests & SEO/GEO site gate
         run: |
-          python3 -m py_compile build_site.py examples/*.py tests/*.py
+          python3 -m py_compile build_site.py chapter_content.py examples/*.py tests/*.py
           for ex in examples/ch*.py; do python3 "${ex}"; done
           python3 -W error -m unittest discover -s tests -v
           python3 build_site.py -o /tmp/learn_ci_site
