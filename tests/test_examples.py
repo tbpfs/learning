@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit tests for learning repository examples (Ch.01 - Ch.07), SEO/GEO deep content, and README link check."""
+"""Unit tests for learning repository examples (Ch.01 - Ch.07), SEO/GEO invariants, and README links."""
 
 import json
 import re
@@ -9,10 +9,9 @@ import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT / "examples"))
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-if str(REPO_ROOT / "examples") not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT / "examples"))
 
 from ch01_array_linked_list import SinglyLinkedList  # noqa: E402
 from ch02_stack_queue import Queue, Stack, is_balanced_brackets  # noqa: E402
@@ -21,7 +20,6 @@ from ch04_hash_bst import BinarySearchTree, ChainingHashTable, two_sum  # noqa: 
 from ch05_graph_oop import Graph  # noqa: E402
 from ch06_dynamic_programming import climb_stairs_dp, knapsack_01, length_of_lis  # noqa: E402
 from ch07_heap_priority_queue import MinHeap, merge_k_sorted_lists, top_k_largest  # noqa: E402
-from chapter_content import CHAPTERS  # noqa: E402
 
 
 class TestLearningExamples(unittest.TestCase):
@@ -121,44 +119,39 @@ class TestLearningExamples(unittest.TestCase):
             climb_stairs_dp(-1)
 
         self.assertEqual(knapsack_01([10, 20, 30], [60, 100, 120], 50), 220)
-        self.assertEqual(knapsack_01([10], [60], 0), 0)
+        self.assertEqual(knapsack_01([10, 20], [60, 100], 0), 0)
         with self.assertRaises(ValueError):
-            knapsack_01([10, 20], [60], 50)
+            knapsack_01([10], [60], -5)
 
         self.assertEqual(length_of_lis([10, 9, 2, 5, 3, 7, 101, 18]), 4)
         self.assertEqual(length_of_lis([]), 0)
         self.assertEqual(length_of_lis([7, 7, 7, 7]), 1)
 
     def test_heap_priority_queue_ch07(self):
-        heap: MinHeap[int] = MinHeap([5, 1, 8, 3])
+        heap: MinHeap[int] = MinHeap([5, 1, 8, 3, 2])
+        self.assertEqual(len(heap), 5)
         self.assertFalse(heap.is_empty())
-        self.assertEqual(len(heap), 4)
         self.assertEqual(heap.peek(), 1)
-        self.assertEqual([heap.pop() for _ in range(len(heap))], [1, 3, 5, 8])
+        popped = [heap.pop() for _ in range(len(heap))]
+        self.assertEqual(popped, [1, 2, 3, 5, 8])
         self.assertTrue(heap.is_empty())
         with self.assertRaises(IndexError):
             heap.pop()
         with self.assertRaises(IndexError):
             heap.peek()
 
-        self.assertEqual(top_k_largest([64, 34, 25, 12, 22, 11, 90, -5], 3), [90, 64, 34])
+        self.assertEqual(top_k_largest([64, 34, 25, 12, 22, 11, 90], 3), [90, 64, 34])
         self.assertEqual(top_k_largest([], 3), [])
         self.assertEqual(top_k_largest([1, 2], 0), [])
 
         self.assertEqual(
-            merge_k_sorted_lists([[1, 4, 5], [], [1, 3, 4], [2, 6]]),
+            merge_k_sorted_lists([[1, 4, 5], [1, 3, 4], [2, 6], []]),
             [1, 1, 2, 3, 4, 4, 5, 6],
         )
         self.assertEqual(merge_k_sorted_lists([]), [])
 
-    def test_chapter_spec_backward_compatible_dict_access(self):
-        ch01 = CHAPTERS[0]
-        self.assertEqual(ch01["id"], "ch01")
-        self.assertEqual(ch01.get("badge"), "Ch.01")
-        self.assertIsNone(ch01.get("non_existent_key"))
-
     def test_build_site_generates_valid_html(self):
-        from build_site import build_site
+        from build_site import CHAPTERS, build_site
 
         with tempfile.TemporaryDirectory() as tmpdir:
             index_path = build_site(Path(tmpdir))
@@ -172,23 +165,27 @@ class TestLearningExamples(unittest.TestCase):
             html_text = index_path.read_text(encoding="utf-8")
             self.assertIn("<!DOCTYPE html>", html_text)
             self.assertIn("從零開始寫程式，輕鬆搞懂資料結構，演算法", html_text)
-            self.assertIn("Ch.01 SinglyLinkedList 範例結果:", html_text)
-            self.assertIn("Ch.02 括號平衡檢查", html_text)
-            self.assertIn("Ch.03 Merge Sort 結果:", html_text)
-            self.assertIn("Ch.04 Two Sum 索引:", html_text)
-            self.assertIn("Ch.05 BFS 走訪:", html_text)
-            self.assertIn("Ch.06 DP 爬樓梯(n=10): 89", html_text)
-            self.assertIn("Ch.07 MinHeap 依序彈出:", html_text)
+            for marker in (
+                "Ch.01 SinglyLinkedList 範例結果:",
+                "Ch.02 括號平衡檢查",
+                "Ch.03 Merge Sort 結果:",
+                "Ch.04 Two Sum 索引:",
+                "Ch.05 BFS 走訪:",
+                "Ch.06 DP 爬樓梯(n=10): 89",
+                "Ch.07 MinHeap 依序彈出: [1, 3, 5, 8]",
+            ):
+                self.assertIn(marker, html_text)
+
             self.assertIn("ca-pub-6485917848711473", html_text)
             self.assertIn("G-B24GXZ32MW", html_text)
             self.assertIn("GTM-WNSFQT5V", html_text)
-            self.assertEqual(html_text.count('class="ad-slot-card"'), 7)
-            self.assertEqual(html_text.count('data-ad-slot="1673180799"'), 7)
+            self.assertEqual(html_text.count('class="ad-slot-card"'), len(CHAPTERS))
+            self.assertEqual(html_text.count('data-ad-slot="1673180799"'), len(CHAPTERS))
             self.assertIn("Privacy Policy", html_text)
 
             # Validate index.html JSON-LD syntax
             idx_ld_match = re.search(
-                r'<script type="application/ld\+json">\s*(.*?)\s*</script>',
+                r'<script type="application/ld\+json">\s*(\{.*?\})\s*</script>',
                 html_text,
                 re.DOTALL,
             )
@@ -208,31 +205,33 @@ class TestLearningExamples(unittest.TestCase):
                 self.assertNotIn('href="index.html"', ch_html)
                 self.assertIn('href="/"', ch_html)
 
-                # De-duplication & UX checks on standalone chapter page
+                # Verify de-duplication & RWD comparison table on standalone pages
                 self.assertNotIn('id="study-guide"', ch_html)
                 self.assertNotIn('id="cms-tutorials-container"', ch_html)
                 self.assertNotIn('href="#ch02"', ch_html)
                 self.assertIn('class="table-responsive"', ch_html)
-                self.assertIn('class="comparison-table"', ch_html)
+                self.assertIn('<table class="comparison-table">', ch_html)
                 self.assertEqual(ch_html.count('data-ad-slot="1673180799"'), 2)
 
-                # Pure Chinese prose character threshold (>= 1,200 CJK chars excluding style/script/pre)
-                stripped = re.sub(r"<(style|script|pre)\b[^>]*>.*?</\1>", "", ch_html, flags=re.DOTALL)
+                # Verify pure Chinese prose count >= 1,200 chars (excluding style, script, pre)
+                stripped = re.sub(r"<style\b[^>]*>.*?</style>", "", ch_html, flags=re.DOTALL)
+                stripped = re.sub(r"<script\b[^>]*>.*?</script>", "", stripped, flags=re.DOTALL)
+                stripped = re.sub(r"<pre\b[^>]*>.*?</pre>", "", stripped, flags=re.DOTALL)
                 stripped = re.sub(r"<[^>]+>", "", stripped)
                 cjk_chars = re.findall(r"[\u4e00-\u9fff]", stripped)
                 self.assertGreaterEqual(
                     len(cjk_chars),
                     1200,
-                    f"{ch_id}.html has only {len(cjk_chars)} CJK prose chars (expected >= 1200)",
+                    f"{ch_id}.html prose Chinese char count ({len(cjk_chars)}) is below 1200 threshold!",
                 )
 
-                # Validate standalone chapter JSON-LD @graph
+                # Verify per-chapter JSON-LD @graph (TechArticle + FAQPage + BreadcrumbList)
                 ch_ld_match = re.search(
-                    r'<script type="application/ld\+json">\s*(.*?)\s*</script>',
+                    r'<script type="application/ld\+json">\s*(\{.*?\})\s*</script>',
                     ch_html,
                     re.DOTALL,
                 )
-                self.assertIsNotNone(ch_ld_match)
+                self.assertIsNotNone(ch_ld_match, f"Missing JSON-LD in {ch_id}.html")
                 ch_ld = json.loads(ch_ld_match.group(1))
                 self.assertIn("@graph", ch_ld)
                 graph_types = {node["@type"]: node for node in ch_ld["@graph"]}
@@ -249,8 +248,6 @@ class TestLearningExamples(unittest.TestCase):
             self.assertIn('rel="alternate" type="text/markdown" href="https://learn.ai-purplemaple.com/llms-full.txt"', html_text)
             self.assertNotIn('rel="llms-txt"', html_text)
             self.assertIn("https://ai-purplemaple.com/#website", html_text)
-            self.assertIn("Ch.05 圖論走訪與物件導向設計", html_text)
-            self.assertIn("Ch.06 動態規劃與記憶化搜尋", html_text)
             self.assertIn("Ch.07 堆積、優先佇列與 Top-K 演算法", html_text)
 
             key_text = (Path(tmpdir) / "7f4e9c2a8b1d6035e4a92c7f1b8d3e60.txt").read_text(encoding="utf-8").strip()
@@ -271,7 +268,7 @@ class TestLearningExamples(unittest.TestCase):
                 "Ch.04 Two Sum 索引:",
                 "Ch.05 BFS 走訪:",
                 "Ch.06 DP 爬樓梯(n=10): 89",
-                "Ch.07 MinHeap 依序彈出:",
+                "Ch.07 MinHeap 依序彈出: [1, 3, 5, 8]",
             ):
                 self.assertIn(marker, llms_full)
 

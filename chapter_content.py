@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-chapter_content.py - 紫楓 (Purple Maple) Python 3.12 資料結構、演算法與物件導向深度教材資料模組。
-採用 Python 標準庫 frozen dataclass 封裝 Ch.01 ~ Ch.07 四大獨家深度教學模組：
-  - 模組 A：結構化複雜度與底層特性對照表 (ComparisonTable)
-  - 模組 B：演算法逐步執行與記憶體狀態拆解 (WalkthroughStep)
-  - 模組 C：Python 3.12 (CPython) 底層原理與常見實作陷阱 (PitfallItem)
-  - 模組 D：LeetCode 經典題號對照與技術面試必考問答 (LeetCodeProblem & InterviewFAQ)
+chapter_content.py - 紫楓 (Purple Maple) Python 3.12 教學站深度教材資料模型與結構化課綱。
+採用零外部依賴標準庫 dataclasses 定義 Ch.01 ~ Ch.07 四大深度教學模組：
+1. ComparisonTable（時間／空間複雜度與底層特性對照表）
+2. WalkthroughStep（演算法逐步執行與記憶體指標狀態追蹤）
+3. PitfallItem（CPython 3.12 底層實作原理與常見效能陷阱）
+4. LeetCodeProblem & InterviewFAQ（白板題題號對應與技術面試深度問答）
 """
 
 from __future__ import annotations
@@ -76,9 +76,6 @@ class ChapterSpec:
 
 
 CHAPTERS: tuple[ChapterSpec, ...] = (
-    # =========================================================================
-    # Ch.01 陣列與單向鏈結串列
-    # =========================================================================
     ChapterSpec(
         id="ch01",
         badge="Ch.01",
@@ -88,7 +85,7 @@ CHAPTERS: tuple[ChapterSpec, ...] = (
         concepts=(
             "連續記憶體 vs. 指標串接：陣列（Array / Python list）透過連續記憶體區塊支援 O(1) 隨機索引存取，但在頭部或中間插入元素需搬移後續元素（O(n)）；單向鏈結串列（Singly Linked List）則以 Node 節點與 next 指標動態串接，在已知頭節點時可於 O(1) 時間完成頭部插入（prepend）。",
             "白板題必考「原地反轉（In-place Reverse）」：透過 prev、curr、nxt 三個指標迭代翻轉 next 指向，不需額外建立新串列，空間複雜度嚴格控制在 O(1)，是軟體工程師面試最常出現的基礎題型。",
-            "CPU 快取友善度（Cache Locality）：陣列因連續存放於實體或虛擬記憶體頁中，能充分利用現代處理器 L1/L2 Cache Line 預取機制；鏈結串列的節點則分散於堆積（Heap）各處，頻繁追蹤指標容易觸發 Cache Miss。",
+            "硬體快取親和性（CPU Cache Locality）：現代 CPU 讀取記憶體時會一次載入整條 Cache Line（通常 64 Bytes）。連續配置的陣列能充分受惠於空間局部性預先載入；而鏈結串列的節點散落於堆積（Heap）各處，頻繁追蹤指標容易觸發 Cache Miss。",
         ),
         file="examples/ch01_array_linked_list.py",
         lastmod="2026-11-17",
@@ -97,189 +94,93 @@ CHAPTERS: tuple[ChapterSpec, ...] = (
             "Singly Linked List",
             "反轉鏈結串列",
             "Reverse Linked List",
+            "Python list 底層原理",
             "陣列與鏈結串列比較",
             "LeetCode 206",
-            "指標操作",
-            "時間複雜度",
+            "雙指標演算法",
         ),
         deep_intro=(
-            "在學習所有進階演算法之前，「陣列（Array）」與「鏈結串列（Linked List）」是建構電腦科學記憶體世界觀的兩塊基石。"
-            "許多初學者在寫 Python 時習慣所有場景都用內建的 list 解決，卻在面對技術面試或百萬級資料處理時，因為不理解底層記憶體布局而寫出效能瓶頸。"
-            "在 CPython 3.12 底層中，Python 的 list 並非鏈結串列，而是以 C 語言結構 PyListObject 實作的「動態指標陣列（Dynamic Array of Pointers）」。"
-            "當你對 list[i] 進行讀取時，直譯器只需計算 base_address + i * sizeof(PyObject*) 即可在 O(1) 常數時間內直接命中目標位址；"
-            "但當你呼叫 list.insert(0, val) 在頭部插入元素時，底層必須將索引 0 到 n-1 的所有指標全數向後搬移一格，時間複雜度高達 O(n)。"
-            "相對地，單向鏈結串列（Singly Linked List）將每個元素封裝在獨立的 ListNode 節點物件中，節點之間僅靠 next 參照（Reference）彼此串聯。"
-            "這種設計放棄了 O(1) 隨機索引存取的能力，卻換來了在已知節點位置時 O(1) 修改指標即可完成插入或刪除的結構彈性，更是後續實作雜湊表碰撞鏈（Chaining）、"
-            "雙端佇列（Deque）、圖論鄰接串列（Adjacency List）與 LRU Cache 的核心基礎。"
+            "在學習所有進階演算法之前，軟體工程師必須先建立清晰的「記憶體物理模型」。"
+            "電腦記憶體可視為一排編號連續的儲物櫃：陣列（Array）要求一次租下連續 N 個櫃位，"
+            "因此只要知道起始位址（Base Address）與元素大小，CPU 就能用簡單的乘法與加法在 O(1) 常數時間內直接跳到第 i 個元素；"
+            "然而一旦要在陣列最前面插入新資料，就必須把後面所有元素往後挪動一格，造成 O(n) 的搬移成本。"
+            "相對地，單向鏈結串列（Singly Linked List）不要求連續空間，每個節點（ListNode）除了存放資料值 val 外，"
+            "還存放指向下一個節點記憶體位址的參照指標 next。這種設計讓「在頭部插入或刪除節點」只需修改指標指向即可在 O(1) 完成，"
+            "也是後續實作雜湊表鏈結桶位（Chaining Bucket）、LRU 快取（搭配雙向鏈結串列）與圖論鄰接串列的基石。"
         ),
         comparison_table=ComparisonTable(
-            caption="表 1-1：Python 動態陣列（list）與單向／雙向鏈結串列之操作複雜度與硬體特性對照表",
-            headers=(
-                "操作項目 / 結構特性",
-                "動態陣列（Python list）",
-                "單向鏈結串列（Singly Linked List）",
-                "雙向鏈結串列（Doubly Linked List）",
-                "底層關鍵原因剖析",
-            ),
+            caption="陣列（Python list 動態陣列）、單向鏈結串列與雙向鏈結串列操作複雜度對照表",
+            headers=("操作項目 ／ 結構特性", "Python list（動態陣列）", "單向鏈結串列（Singly Linked List）", "雙向鏈結串列（Doubly Linked List）"),
             rows=(
-                (
-                    "依索引隨機讀取（get by index）",
-                    "O(1)",
-                    "O(n)",
-                    "O(n)",
-                    "陣列支援基址加偏移量直接定址；鏈結串列必須從 head 沿 next 逐節點巡覽。",
-                ),
-                (
-                    "頭部插入 / 刪除（prepend / pop first）",
-                    "O(n)",
-                    "O(1)",
-                    "O(1)",
-                    "陣列需將後續 n 個元素整體搬移；鏈結串列僅需重新指向 head 指標。",
-                ),
-                (
-                    "尾部附加（append at tail）",
-                    "攤銷 O(1)（Amortized）",
-                    "無 tail 指標 O(n) / 有 tail O(1)",
-                    "O(1)（維護 tail 指標）",
-                    "Python list 採超額配置（Over-allocation），僅在容量滿時觸發 O(n) 擴容複製。",
-                ),
-                (
-                    "已知目標節點下刪除該節點",
-                    "O(n)",
-                    "O(n)（需找前驅節點 prev）",
-                    "O(1)（直接存取 node.prev）",
-                    "單向串列無法逆向得知前驅節點，除非使用雙向串列或改寫下一個節點的值。",
-                ),
-                (
-                    "按值線性搜尋（find target）",
-                    "O(n)",
-                    "O(n)",
-                    "O(n)",
-                    "未排序情況下皆須從頭逐一比對元素值。",
-                ),
-                (
-                    "CPU 快取命中率與額外空間開銷",
-                    "極高（連續記憶體） / 低額外空間",
-                    "偏低（分散配置） / 每節點多 1 個指標",
-                    "偏低（分散配置） / 每節點多 2 個指標",
-                    "陣列具空間局部性（Spatial Locality）；Python 每個 Node 物件另有 GC 與型別標頭開銷。",
-                ),
+                ("依索引隨機讀取 (Index Access)", "O(1) — 基址加偏移量直接定位", "O(n) — 需從 head 依序走訪", "O(n) — 需從頭或尾依序走訪"),
+                ("頭部插入 ／ 刪除 (Prepend / Pop Head)", "O(n) — 需搬移後續所有元素指標", "O(1) — 僅更新 head 指標指向", "O(1) — 更新 head 與 prev 指標"),
+                ("尾部附加 (Append at Tail)", "均攤 O(1) — 滿載擴容時為 O(n)", "無 tail 指標 O(n) ／ 有 tail 指標 O(1)", "O(1) — 直接透過 tail 指標串接"),
+                ("指定值搜尋 (Search by Value)", "O(n) — 線性掃描（已排序可二分 O(log n)）", "O(n) — 僅能單向線性巡覽", "O(n) — 線性巡覽"),
+                ("已知節點下刪除自身 (Delete Given Node)", "O(n) — 需搬移後續元素填補空缺", "O(n) — 需先從頭尋找前驅節點 prev", "O(1) — 直接串接 prev 與 next"),
+                ("CPU 快取親和性與額外記憶體", "高（連續指標陣列，Cache Locality 佳）", "低（每節點含 next 參照與物件標頭）", "低（每節點含 prev 與 next 雙參照）"),
             ),
         ),
-        walkthrough_title="逐步拆解：單向鏈結串列原地反轉（In-place Reverse, O(1) 空間）四步驟狀態追蹤",
+        walkthrough_title="原地反轉單向鏈結串列（In-place Reverse）三指標逐步狀態追蹤",
         walkthrough_steps=(
             WalkthroughStep(
-                step_label="Step 1：初始化三指標（prev = None, curr = head）",
-                state_snapshot="prev = None | curr -> [10] -> [20] -> [30] -> None",
-                explanation=(
-                    "假設原始串列為 10 -> 20 -> 30 -> None。我們宣告 prev 初始化為 None（代表反轉後的新尾部將指向 None），"
-                    "curr 初始化為 self.head（指向第一個節點 10）。此時尚未修改任何指標，準備進入 while curr is not None 迴圈。"
-                ),
+                step_label="Step 1：初始狀態與指標設定（串列 5 -> 10 -> 30 -> None）",
+                state_snapshot="prev = None | curr = Node(5) | head = Node(5)",
+                explanation="在進入 while curr is not None 迴圈前，將前驅指標 prev 初始化為 None（因為原本的頭節點 Node(5) 在反轉後會變成新的尾節點，其 next 必須指向 None），當前指標 curr 則指向 head。",
             ),
             WalkthroughStep(
-                step_label="Step 2：第一輪迭代 — 暫存 nxt 並翻轉首節點指標",
-                state_snapshot="prev -> [10] -> None | curr = nxt -> [20] -> [30] -> None",
-                explanation=(
-                    "在修改 curr.next 之前，必須先執行 nxt = curr.next 將節點 [20] 的位址保存下來，否則一旦改變指向就會徹底遺失後續串列（斷鏈）。"
-                    "接著執行 curr.next = prev（使 [10].next 指向 None），再將 prev 推進至 [10]、curr 推進至 nxt（[20]）。"
-                ),
+                step_label="Step 2：第一輪迭代 — 暫存下一個節點並翻轉 Node(5) 指標",
+                state_snapshot="nxt = Node(10) | Node(5).next = None | prev = Node(5) | curr = Node(10)",
+                explanation="關鍵第一步是先用 nxt = curr.next 備份 Node(10) 的位址，否則一旦執行 curr.next = prev 將 Node(5) 指向 None，後續串列就會永遠斷鏈遺失。接著將 prev 與 curr 同步往後推進一格。",
             ),
             WalkthroughStep(
-                step_label="Step 3：第二與第三輪迭代 — 依序翻轉後續節點",
-                state_snapshot="第二輪後：prev -> [20] -> [10] -> None | 第三輪後：prev -> [30] -> [20] -> [10] -> None, curr = None",
-                explanation=(
-                    "第二輪先暫存 nxt = [30]，將 [20].next 反指回 prev（[10]），推進後 prev = [20]、curr = [30]。"
-                    "第三輪暫存 nxt = None，將 [30].next 反指回 prev（[20]），推進後 prev = [30]，而 curr 變為 None，正式結束 while 迴圈。"
-                ),
+                step_label="Step 3：第二輪迭代 — 翻轉中間節點 Node(10) 指向 Node(5)",
+                state_snapshot="nxt = Node(30) | Node(10).next = Node(5) | prev = Node(10) | curr = Node(30)",
+                explanation="先記錄 nxt = Node(30)，再將 Node(10).next 改指回 prev（即 Node(5)），形成局部反轉鏈 10 -> 5 -> None。隨後 prev 推進至 Node(10)，curr 推進至最後一個節點 Node(30)。",
             ),
             WalkthroughStep(
-                step_label="Step 4：重新綁定串列頭指標（self.head = prev）",
-                state_snapshot="self.head -> [30] -> [20] -> [10] -> None（完成 O(n) 時間、O(1) 空間原地反轉）",
-                explanation=(
-                    "當 curr 為 None 時，prev 恰好停在原串列的最後一個節點 [30]，也就是反轉後的新頭節點。"
-                    "最後執行 self.head = prev，整條鏈結串列即完成原地反轉，全程僅使用三個區域變數指標，額外空間複雜度嚴格為 O(1)。"
-                ),
+                step_label="Step 4：第三輪迭代與收尾 — 完成反轉並更新 self.head",
+                state_snapshot="nxt = None | Node(30).next = Node(10) | prev = Node(30) | curr = None => self.head = prev",
+                explanation="將 Node(30).next 指向 Node(10)，此時 curr 推進至 nxt（即 None）觸發迴圈結束。最後別忘了執行 self.head = prev，將串列頭指標正式指向 Node(30)，完成 30 -> 10 -> 5 -> None 的 O(1) 額外空間反轉。",
             ),
         ),
         pitfalls=(
             PitfallItem(
-                title="陷阱一：反轉或插入節點時未先暫存 curr.next 導致「斷鏈（Lost Reference）」",
-                symptom="在撰寫 reverse() 或中間插入邏輯時，直接寫出 curr.next = prev，下一行再寫 curr = curr.next，結果串列只剩下第一個節點或變成無窮迴圈。",
-                root_cause_and_fix=(
-                    "根因分析：指標賦值具有破壞性覆寫特性，一旦 curr.next 被改寫為 prev，原本指向下一個節點的唯一參照便立即消失，甚至會被 Python 垃圾回收器（Garbage Collector）回收。"
-                    "正確對策：在任何修改 .next 指標的迴圈中，第一行永遠先寫 nxt = curr.next 保存下一個節點參照，最後再執行 curr = nxt。"
-                ),
+                title="陷阱一：反轉或刪除節點時未先備份 curr.next 導致「斷鏈（Lost Reference）」",
+                symptom="在撰寫 reverse() 時若先寫 curr.next = prev 再寫 curr = curr.next，迴圈跑完只剩一個節點，其餘節點全部消失。",
+                root_cause_and_fix="一旦覆寫 curr.next，原本指向下一個節點的唯一參照就被洗掉了。正確順序永遠是：1. 先備份 nxt = curr.next → 2. 修改指標 curr.next = prev → 3. 推進 prev = curr → 4. 推進 curr = nxt。",
             ),
             PitfallItem(
-                title="陷阱二：忽略刪除頭節點（head）或空串列的邊界條件（Boundary Conditions）",
-                symptom="在 remove(target) 時若目標值剛好位於第一個節點（prev is None），直接執行 prev.next = curr.next 會立即拋出 AttributeError: 'NoneType' object has no attribute 'next'。",
-                root_cause_and_fix=(
-                    "根因分析：頭節點沒有前驅節點（prev 為 None），其刪除動作本質上是「更新 self.head = curr.next」而非修改前驅節點。"
-                    "正確對策：務必像本章範例第 67 行顯式判斷 if prev is None: self.head = curr.next，或在白板題中使用「虛擬頭節點（Dummy Node / Sentinel Node）」讓所有節點都擁有前驅節點，統一刪除邏輯。"
-                ),
+                title="陷阱二：忽略刪除頭節點（head）或空串列的邊界條件（Edge Cases）",
+                symptom="在實作 remove(target) 時直接存取 prev.next = curr.next，當待刪除目標剛好位於第一個節點（head）時拋出 AttributeError: 'NoneType' object has no attribute 'next'。",
+                root_cause_and_fix="當目標位於頭節點時 prev 為 None，必須特判將 self.head = curr.next；實務白板題也常引入「虛擬頭節點（Dummy Head Node, dummy = ListNode(0, head)）」，讓包含頭節點在內的所有節點都擁有前驅節點，統一刪除邏輯。",
             ),
             PitfallItem(
-                title="陷阱三：在生產環境誤用自訂 Python 鏈結串列取代內建 list 或 deque",
-                symptom="以為需要頻繁在頭尾增刪時，自己用純 Python class ListNode 寫鏈結串列會比內建容器快，實測卻發現記憶體暴增 4 倍且速度更慢。",
-                root_cause_and_fix=(
-                    "根因分析：CPython 中每個自訂 Python 物件（即使加了 @dataclass 或 __slots__）都有可觀的 PyObject 標頭與配置開銷；"
-                    "而標準庫 collections.deque 在底層是以 C 語言實作的「定長 64 元素區塊雙向鏈結串列（Doubly Linked List of Blocks）」，兼具 O(1) 雙端操作與極佳的 CPU 快取局部性。"
-                    "正確對策：手寫 ListNode 用於教學理解指標與通過 LeetCode 白板題；工程實務上需要 O(1) 頭尾操作時，應優先選用 collections.deque。"
-                ),
+                title="陷阱三：誤以為在 Python 中自訂 SinglyLinkedList 一定比內建 list 更省記憶體",
+                symptom="為了節省記憶體而將數十萬筆整數改存在自訂的 Python ListNode 類別中，結果記憶體佔用反而暴增數倍且走訪速度變慢。",
+                root_cause_and_fix="CPython 3.12 的內建 list 底層是 C 語言的 PyObject* 連續指標陣列（每個元素僅需 8 Bytes 指標空間加上預分配緩衝）；而每個自訂 Python ListNode 實例都帶有完整的 PyObject 標頭與屬性結構（即便加上 slots 也遠大於 8 Bytes）。在工程實務中，除非需要高頻率的雙端操作（此時應選用 collections.deque）或教學演練，否則隨機存取一律優先使用內建 list。",
             ),
         ),
         leetcode_problems=(
-            LeetCodeProblem(
-                number=206,
-                title="Reverse Linked List（反轉單向鏈結串列）",
-                difficulty="Easy",
-                pattern="三指標迭代原地反轉（prev, curr, nxt） ・ 時間 O(n) / 空間 O(1)",
-            ),
-            LeetCodeProblem(
-                number=21,
-                title="Merge Two Sorted Lists（合併兩個已排序鏈結串列）",
-                difficulty="Easy",
-                pattern="虛擬頭節點（Dummy Head）+ 雙指標同步推進 ・ 時間 O(n + m) / 空間 O(1)",
-            ),
-            LeetCodeProblem(
-                number=141,
-                title="Linked List Cycle（鏈結串列環路檢測）",
-                difficulty="Easy",
-                pattern="Floyd 龜兔賽跑演算法（快慢雙指標 Fast & Slow Pointers） ・ 時間 O(n) / 空間 O(1)",
-            ),
+            LeetCodeProblem(206, "Reverse Linked List（反轉單向鏈結串列）", "Easy", "三指標原地迭代反轉 ／ 遞迴反轉 ・ 時間 O(n) / 空間 O(1)"),
+            LeetCodeProblem(21, "Merge Two Sorted Lists（合併兩個已排序鏈結串列）", "Easy", "虛擬頭節點（Dummy Node）＋雙指標拉鍊合併 ・ 時間 O(n + m) / 空間 O(1)"),
+            LeetCodeProblem(141, "Linked List Cycle（環路檢測）", "Easy", "Floyd 龜兔賽跑演算法（快慢雙指標 Fast & Slow Pointers） ・ 時間 O(n) / 空間 O(1)"),
+            LeetCodeProblem(19, "Remove Nth Node From End of List（刪除倒數第 N 個節點）", "Medium", "快指標先走 N 步＋虛擬頭節點單次掃描 ・ 時間 O(n) / 空間 O(1)"),
         ),
         interview_faqs=(
             InterviewFAQ(
-                question="Q1：Python 的內建 list 在執行 append() 時為什麼能達到攤銷 O(1) 時間複雜度？何時會退化為 O(n)？",
-                answer=(
-                    "CPython 的 list 底層為動態指標陣列（PyListObject），為了避免每次 append() 都重新向作業系統申請記憶體，它採用「超額配置（Over-allocation）」策略"
-                    "（容量成長曲線約為 new_allocated = newsize + (newsize >> 3) + 6，即每次擴充約 12.5% 額外空間）。"
-                    "大多數時候 append() 只是直接寫入已預留的空槽位，耗時嚴格為 O(1)；只有當預留容量完全填滿時，才會觸發一次 realloc 並複製既有 n 個指標（耗時 O(n)）。"
-                    "將這一次 O(n) 成本平攤到前 n 次插入操作上，每次操作的攤銷時間複雜度（Amortized Time Complexity）即為 O(1)。"
-                ),
+                question="為什麼 Python 的 list.append() 時間複雜度是「均攤 O(1)（Amortized O(1)）」，但 list.insert(0, val) 卻是 O(n)？",
+                answer="CPython 的 list 採用動態陣列（Dynamic Array）實作，底層配置空間時會進行「超額配置（Over-allocation）」，預留額外空位。因此絕大多數 append() 只需在尾端空位寫入指標，耗時 O(1)；僅在容量滿載時才重新申請約 1.125 倍的新陣列並複製舊指標，將該次 O(n) 成本平攤到每次插入後即為均攤 O(1)。相反地，list.insert(0, val) 必須將索引 0 之後的所有元素指標全部往右搬移一格以騰出首格空間，每次呼叫都必然消耗 O(n) 時間。",
             ),
             InterviewFAQ(
-                question="Q2：面試白板題反轉鏈結串列（LeetCode #206）時，「三指標迭代法」與「遞迴法」該選哪一種？為什麼？",
-                answer=(
-                    "在生產環境與面試首選中，強烈建議優先寫出「三指標迭代法（Iterative）」，並主動向面試官補充說明兩者的空間複雜度差異。"
-                    "雖然迭代法與遞迴法的時間複雜度同為 O(n)，但遞迴法需要依賴系統呼叫堆疊（Call Stack）保存每一層尚未返回的函式狀態，空間複雜度為 O(n)；"
-                    "且 CPython 預設最大遞迴深度限制為 1000（sys.getrecursionlimit()），當鏈結串列長度超過 1000 個節點時，遞迴解法會直接拋出 RecursionError，而迭代法僅需 O(1) 額外空間且絕不會爆堆疊。"
-                ),
+                question="面試官要求在 O(1) 額外空間內判斷單向鏈結串列是否有環（Cycle），且不能修改節點結構，該如何實作？",
+                answer="標準解法為「Floyd 龜兔賽跑演算法（快慢雙指標）」。設定慢指標 slow = head（每次走 1 步：slow = slow.next）與快指標 fast = head（每次走 2 步：fast = fast.next.next）。若串列不存在環，fast 會率先抵達 None；若串列存在環，進入環後快指標每輪與慢指標的距離會縮短 1 步，最終必定在環內某個節點相遇（slow is fast），時間複雜度 O(n)，且只使用兩個指標變數，空間複雜度為嚴格的 O(1)。",
             ),
             InterviewFAQ(
-                question="Q3：如何在不額外使用 Hash Set（O(1) 空間限制）的前提下，判斷一條單向鏈結串列是否有環（Cycle）或找出中點？",
-                answer=(
-                    "標準解法是使用「快慢雙指標（Floyd's Tortoise and Hare Algorithm）」。設定慢指標 slow = head（每次走 1 步：slow = slow.next）"
-                    "與快指標 fast = head（每次走 2 步：fast = fast.next.next）。"
-                    "若要找無環串列的中點，當 fast 抵達尾部（fast is None or fast.next is None）時，slow 恰好位於正中央；"
-                    "若要檢測是否有環，只要串列存在環路，快指標必定會在環內追上慢指標（slow is fast），時間複雜度 O(n)，額外空間複雜度嚴格為 O(1)。"
-                ),
+                question="在什麼情況下，我們需要在鏈結串列題目中使用「虛擬頭節點（Dummy Node）」？",
+                answer="當題目的操作可能會「改變、刪除或替換原本的頭節點（head）」時（例如：合併兩個排序串列 LeetCode #21、刪除特定值的所有節點 #203、刪除倒數第 N 個節點 #19、區間反轉 #92），若不使用 Dummy Node，就必須寫大量 if prev is None 的分支來特別處理頭節點。先建立 dummy = ListNode(0, head) 並讓 prev = dummy，所有真實節點（包含原 head）就都成為某個節點的 next，處理完畢後直接 return dummy.next 即可，程式碼簡潔且不易出錯。",
             ),
         ),
     ),
-    # =========================================================================
-    # Ch.02 堆疊與佇列
-    # =========================================================================
     ChapterSpec(
         id="ch02",
         badge="Ch.02",
@@ -289,191 +190,100 @@ CHAPTERS: tuple[ChapterSpec, ...] = (
         concepts=(
             "堆疊（Stack，後進先出 LIFO）：如同疊盤子，最後放入的元素最先取出。常用於函式呼叫堆疊（Call Stack）、瀏覽器上一頁紀錄、語法括號匹配檢查與深度優先搜尋（DFS）。",
             "佇列（Queue，先進先出 FIFO）：如同排隊買票，最先進入的元素最先處理。在 Python 中切勿使用 list.pop(0)（會導致 O(n) 記憶體搬移），應採用 collections.deque 雙端佇列達成真正的 O(1) 雙端操作，廣泛應用於廣度優先搜尋（BFS）與非同步任務佇列。",
-            "抽象資料型態（Abstract Data Type, ADT）封裝精神：透過受限介面（Stack 僅開放頂端 push/pop/peek；Queue 僅開放尾進頭出 enqueue/dequeue），防止外部程式碼隨意修改中間元素而破壞演算法不變量。",
+            "單調堆疊（Monotonic Stack）進階模式：在維護堆疊 LIFO 特性的同時，強制保持堆疊內元素呈遞增或遞減順序，能在 O(n) 線性時間內解決「下一個更大元素（Next Greater Element）」與「直方圖最大矩形面積」等中高階面試題。",
         ),
         file="examples/ch02_stack_queue.py",
         lastmod="2026-11-17",
         keywords=(
-            "Python Stack",
-            "Python Queue",
-            "堆疊與佇列",
+            "Python 堆疊",
+            "Python 佇列",
+            "Stack and Queue",
             "collections.deque",
-            "括號匹配檢查",
+            "括號平衡檢查",
             "Valid Parentheses",
             "LIFO FIFO",
             "LeetCode 20",
         ),
         deep_intro=(
-            "堆疊（Stack）與佇列（Queue）雖然底層同樣儲存線性序列，但它們透過「限制元素的進出端口」建立了截然不同的時間順序契約。"
-            "堆疊遵循「後進先出（Last-In, First-Out, LIFO）」原則：所有新增（Push）與取出（Pop）都只能在同一個端點（Top 堆頂）進行。"
-            "當你在程式中呼叫函式 A、A 再呼叫函式 B 時，作業系統與 Python 虛擬機正是使用「呼叫堆疊（Call Stack）」將區域變數與返回位址一層層壓入，等最內層的 B 執行完畢彈出後，才回到外層的 A。"
-            "這也是為什麼任何具有「巢狀對稱結構（如 HTML 標籤、JSON 括號、算術表達式）」或「回溯（Backtracking）」特性的問題，只要套上 Stack 就能迎刃而解。"
-            "相對地，佇列遵循「先進先出（First-In, First-Out, FIFO）」原則：元素一律從隊尾進入（Enqueue），並從隊首離開（Dequeue）。"
-            "這種公平排隊的機制，是作業系統 CPU 排程、訊息佇列（Message Queue）、Web 伺服器請求緩衝區，以及圖論「廣度優先搜尋（BFS）逐層擴散」不可或缺的核心引擎。"
+            "堆疊（Stack）與佇列（Queue）並非特定的硬體記憶體排列方式，而是定義了「資料進出順序契約」的抽象資料型態（Abstract Data Type, ADT）。"
+            "透過限制資料只能在特定端點進行讀寫，我們能讓複雜的程式狀態變得高度可預測。"
+            "堆疊遵循「後進先出（Last-In, First-Out, LIFO）」原則：作業系統管理每個執行緒的函式呼叫堆疊（Call Stack）、"
+            "編譯器解析巢狀算式與括號匹配、文字編輯器的 Undo 復原功能，背後全都是 Stack 在運作。"
+            "佇列則遵循「先進先出（First-In, First-Out, FIFO）」原則：從作業系統的 CPU 排程器、網路封包緩衝區（Buffer）、"
+            "微服務架構中的訊息佇列（Message Queue），到圖論演算法中尋找最短路徑的廣度優先搜尋（BFS），都仰賴 Queue 確保公平與逐層處理順序。"
         ),
         comparison_table=ComparisonTable(
-            caption="表 2-1：Python 實作 Stack 與 Queue 各容器方案之時間複雜度與適用場景對照表",
-            headers=(
-                "容器方案 / 抽象結構",
-                "尾端推入 append()",
-                "尾端彈出 pop()",
-                "首端彈出 popleft() / pop(0)",
-                "工程實戰適用定位",
-            ),
+            caption="堆疊（Stack）、雙端佇列（collections.deque）與錯誤佇列寫法（list.pop(0)）效能對照表",
+            headers=("資料結構 ／ 實作方式", "核心順序模型", "寫入操作（Push / Enqueue）", "取出操作（Pop / Dequeue）", "工程實戰建議與適用場景"),
             rows=(
-                (
-                    "Stack（以 Python list 封裝）",
-                    "攤銷 O(1)",
-                    "O(1)",
-                    "不適用（LIFO 僅操作尾端）",
-                    "單執行緒 LIFO 堆疊首選，記憶體連續且存取速度最快。",
-                ),
-                (
-                    "Queue（以 collections.deque 封裝）",
-                    "O(1)",
-                    "O(1)",
-                    "O(1)（popleft）",
-                    "FIFO 佇列與滑動視窗（Sliding Window）唯一標準正解。",
-                ),
-                (
-                    "錯誤 Queue（誤用 list.pop(0)）",
-                    "攤銷 O(1)",
-                    "O(1)",
-                    "O(n)（全體元素向前搬移）",
-                    "嚴禁於大資料量使用！n 次出佇列總時間將退化為 O(n²)。",
-                ),
-                (
-                    "queue.Queue / queue.LifoQueue",
-                    "O(1)（含 Mutex 鎖開銷）",
-                    "O(1)（含鎖開銷）",
-                    "O(1)（含鎖開銷）",
-                    "專供多執行緒（Multi-threading）生產者／消費者模型同步使用；演算法刷題勿用（無謂鎖開銷）。",
-                ),
-                (
-                    "單調堆疊（Monotonic Stack）",
-                    "每個元素最多入堆 1 次 O(1)",
-                    "每個元素最多出堆 1 次 O(1)",
-                    "不適用",
-                    "在 O(n) 線性時間內解決「下一個更大／更小元素（Next Greater Element）」問題。",
-                ),
+                ("Stack（底層封裝 Python list）", "後進先出 (LIFO)", "list.append(x) — 均攤 O(1)", "list.pop() — O(1)", "推薦！記憶體緊湊且尾端操作極速，適用括號匹配、DFS、復原紀錄"),
+                ("Queue（底層封裝 collections.deque）", "先進先出 (FIFO)", "deque.append(x) — O(1)", "deque.popleft() — O(1)", "推薦！底層為雙向區塊鏈結串列，雙端讀寫皆為嚴格 O(1)，適用 BFS 與任務排程"),
+                ("錯誤 Queue（使用 list.pop(0)）", "先進先出 (FIFO)", "list.append(x) — 均攤 O(1)", "list.pop(0) — O(n) 災難", "嚴禁在刷題或大型佇列中使用！每次 pop(0) 都會搬移整排陣列導致 TLE"),
+                ("執行緒安全佇列（queue.Queue）", "先進先出 (FIFO)", "put(x) — O(1) 含鎖定開銷", "get() — O(1) 含鎖定開銷", "內建 Mutex 鎖，專供多執行緒（Multi-threading）生產者／消費者模型使用"),
+                ("單調堆疊（Monotonic Stack）", "具單調性之 LIFO", "每個元素最多入堆疊 1 次 — 均攤 O(1)", "違反單調性即彈出 — 均攤 O(1)", "搜尋陣列中每個元素「左側／右側第一個更大或更小值」的 O(n) 利器"),
             ),
         ),
-        walkthrough_title="逐步拆解：括號平衡檢查器 is_balanced_brackets(\"{[()]}\") 四步驟堆疊追蹤",
+        walkthrough_title="多層括號平衡檢查（is_balanced_brackets('{[()]}')）堆疊狀態逐步追蹤",
         walkthrough_steps=(
             WalkthroughStep(
-                step_label="Step 1：依序讀取左括號 '{'、'['、'(' 並壓入堆疊",
-                state_snapshot="輸入字元：'{' -> '[' -> '(' | Stack 狀態（底 -> 頂）：['{', '[', '(']",
-                explanation=(
-                    "迴圈巡覽字串前三個字元，由於 '{'、'['、'(' 皆屬於左括號集合 opening，因此依序呼叫 stack.push(ch)。"
-                    "根據 LIFO 原則，越晚出現的左括號（越內層的括號 '('）會位在堆疊最頂端，等待最先被閉合。"
-                ),
+                step_label="Step 1：依序讀取左括號 '{'、'['、'(' — 全數推入堆疊",
+                state_snapshot="輸入字元: '{' -> '[' -> '(' | Stack 內部狀態（底 -> 頂）: ['{', '[', '(']",
+                explanation="當掃描到任何開括號（屬於 opening 集合 {'(', '[', '{'}）時，表示開啟了一個尚未閉合的語法範疇，直接呼叫 stack.push(ch) 將其壓入堆疊頂端等待後續配對。",
             ),
             WalkthroughStep(
-                step_label="Step 2：讀取第一個右括號 ')' 並與堆頂比對彈出",
-                state_snapshot="當前字元：')' | 查表 pairs[')'] == '(' | stack.pop() 彈出 '(' -> 配對成功！剩餘 Stack：['{', '[']",
-                explanation=(
-                    "遇到右括號 ')' 時，先確認 stack.is_empty() 為 False（代表有尚未配對的左括號），接著呼叫 stack.pop() 取出堆頂的 '('。"
-                    "比對發現彈出的 '(' 完全等於 pairs[')']，證明最內層的小括號合法閉合，此時堆頂自然顯露出次內層的 '['。"
-                ),
+                step_label="Step 2：讀取第一個右括號 ')' — 檢查堆疊頂端是否為對應的 '('",
+                state_snapshot="輸入字元: ')' | 查表 pairs[')'] == '(' | stack.pop() -> '('（配對成功）| Stack 剩餘: ['{', '[']",
+                explanation="遇到閉括號 ')' 時，根據 LIFO 原則，它必須與「最近一次出現且尚未閉合的左括號」配對。此時檢查堆疊非空，且彈出的頂端元素正好是 '('，該層小括號成功抵銷。",
             ),
             WalkthroughStep(
-                step_label="Step 3：依序讀取右括號 ']' 與 '}' 完成外層消除",
-                state_snapshot="讀取 ']' 彈出 '[' -> 讀取 '}' 彈出 '{' | 剩餘 Stack：[]（空堆疊）",
-                explanation=(
-                    "繼續讀取 ']'，與堆頂彈出的 '[' 配對成功；再讀取 '}'，與堆頂彈出的 '{' 配對成功。"
-                    "若中途遇到像 \"([)]\" 這種交錯順序，在讀取 ')' 時堆頂彈出的是 '[' != '('，函式便會在第一時間提早回傳 False。"
-                ),
+                step_label="Step 3：依序讀取 ']' 與 '}' — 逐層往外彈出配對",
+                state_snapshot="讀取 ']': pop() 得 '[' ✓ | 讀取 '}': pop() 得 '{' ✓ | Stack 剩餘: []",
+                explanation="接著遇到 ']' 與 '}'，分別與堆疊頂端的 '[' 及 '{' 完美匹配並彈出。若途中遇到如 '([)]' 的交錯情況，stack.pop() 彈出的會是 '(' 而非 '['，函式便會立即回傳 False。",
             ),
             WalkthroughStep(
-                step_label="Step 4：迴圈結束後檢查 stack.is_empty() 防止多餘左括號",
-                state_snapshot="return stack.is_empty() -> True（若輸入為 \"(((\" 則剩餘 3 個元素回傳 False）",
-                explanation=(
-                    "這是初學者最常漏寫的一步！迴圈平安跑完不代表一定合法（例如輸入 \"(((\" 從頭到尾都沒有觸發右括號失敗，但堆疊內還殘留 3 個未閉合的左括號）。"
-                    "因此最後一行必須回傳 stack.is_empty()，唯有堆疊完全清空才代表 100% 成對平衡。"
-                ),
+                step_label="Step 4：字串掃描完畢 — 檢查 stack.is_empty() 確認無殘留左括號",
+                state_snapshot="迴圈結束 | stack.is_empty() == True => 最終回傳 True",
+                explanation="走訪完所有字元後，不能直接回傳 True，必須檢查 stack.is_empty()！因為若輸入為 '((('，迴圈中不會觸發任何錯誤，唯有確認堆疊已完全清空，才能保證所有左括號都找到對應的右括號。",
             ),
         ),
         pitfalls=(
             PitfallItem(
-                title="陷阱一：在 BFS 或佇列模擬中寫出 queue.pop(0) 導致 O(n²) 超時（TLE）",
-                symptom="在 LeetCode 執行廣度優先搜尋（BFS）或佇列題目時，小測資完全正確，一旦遇到 10 萬筆資料的隱藏測資立刻 Time Limit Exceeded。",
-                root_cause_and_fix=(
-                    "根因分析：Python 的 list.pop(0) 移除第一個元素後，必須在 C 底層呼叫 memmove 將後面 n-1 個指標全部往前挪一格，單次耗時 O(n)，"
-                    "在迴圈中執行 n 次就會累積成 O(n²) 的效能災難。"
-                    "正確對策：只要需要從左側（頭部）移除元素，一律執行 from collections import deque，並使用 queue.popleft()，確保單次操作嚴格為 O(1)。"
-                ),
+                title="陷阱一：在 BFS 或佇列題目中寫出 queue.pop(0) 造成隱藏版 O(n²) 超時（TLE）",
+                symptom="演算法邏輯完全正確，小測資秒過，但在 LeetCode 遇到 N = 10^5 節點的圖或樹時直接 Time Limit Exceeded。",
+                root_cause_and_fix="Python 的 list 是連續記憶體陣列，呼叫 list.pop(0) 刪除首元素後，CPython 必須呼叫 memmove 將後面 N-1 個指標全部往前搬移一格，單次耗時 O(n)，N 次出佇列總耗時變成 O(n²)。請務必養成習慣：只要需要 FIFO 佇列，第一行先寫 from collections import deque，並以 popleft() 取代 pop(0)。",
             ),
             PitfallItem(
-                title="陷阱二：對空堆疊或空佇列直接呼叫 pop() / [-1] 觸發 IndexError",
-                symptom="在括號檢查輸入為 \")\"（開頭就是右括號）時，未先檢查堆疊是否為空就直接執行 stack.pop()，導致程式崩潰。",
-                root_cause_and_fix=(
-                    "根因分析：當右括號數量多於左括號時，堆疊會在字串巡覽結束前提前變空。"
-                    "正確對策：在呼叫 pop() 或存取堆頂元素前，必須以短路邏輯 if stack.is_empty() or stack.pop() != expected: 先行防護；"
-                    "或者在自訂 Queue.peek() 中優雅回傳 None（如本章範例第 54 行）。"
-                ),
+                title="陷阱二：對空堆疊執行 pop() 或 peek() 前忘記檢查 is_empty()",
+                symptom="在括號匹配中遇到以右括號開頭的字串（例如 ')()' 或 ']'），程式直接崩潰拋出 IndexError: pop from empty list。",
+                root_cause_and_fix="任何會從 Stack 或 Queue 取出或查看頂端元素的邏輯（包含括號匹配、單調堆疊 while stack and stack[-1] < cur），都必須將 not stack.is_empty()（或布林判斷 if stack:）放在條件判斷的最左側，利用短路求值（Short-circuit evaluation）保護後續的 pop/peek 操作。",
             ),
             PitfallItem(
-                title="陷阱三：不了解「單調堆疊（Monotonic Stack）」而用雙層迴圈硬解區間極值問題",
-                symptom="面對「找出陣列中每個元素右邊第一個比它大的數（如每日溫度問題）」時，直覺寫出雙層 for 迴圈 O(n²)。",
-                root_cause_and_fix=(
-                    "根因分析：雙層迴圈重複比較了大量已經確定不可能成為答案的元素。"
-                    "正確對策：維護一個「堆底到堆頂保持單調遞減（存索引）」的 Stack。當新元素大於堆頂索引對應的值時，不斷 pop() 堆頂並記錄答案，再將新索引 push() 入堆。"
-                    "因為每個元素最多進堆一次、出堆一次，整體時間複雜度可直接從 O(n²) 降至線性 O(n)。"
-                ),
+                title="陷阱三：括號檢查結束時直接 return True，漏判「只有左括號」的輸入",
+                symptom="測試輸入 '(((' 或 '{[' 時，函式錯誤回傳 True。",
+                root_cause_and_fix="迴圈內的檢查只負責抓出「右括號多餘」或「括號種類不匹配」；若輸入字串全都是左括號，迴圈只會一直 push 而不會進入 elif 分支。因此函式最後一行必須寫 return stack.is_empty()，確保所有開啟的括號皆已閉合。",
             ),
         ),
         leetcode_problems=(
-            LeetCodeProblem(
-                number=20,
-                title="Valid Parentheses（有效的括號）",
-                difficulty="Easy",
-                pattern="雜湊表配對字典 + LIFO 堆疊消除 ・ 時間 O(n) / 空間 O(n)",
-            ),
-            LeetCodeProblem(
-                number=232,
-                title="Implement Queue using Stacks（用兩個堆疊實作佇列）",
-                difficulty="Easy",
-                pattern="雙堆疊（in_stack 與 out_stack）懶惰倒換 ・ 攤銷時間 O(1) / 空間 O(n)",
-            ),
-            LeetCodeProblem(
-                number=739,
-                title="Daily Temperatures（每日溫度）",
-                difficulty="Medium",
-                pattern="單調遞減堆疊（Monotonic Decreasing Stack） ・ 時間 O(n) / 空間 O(n)",
-            ),
+            LeetCodeProblem(20, "Valid Parentheses（有效的括號）", "Easy", "Stack 堆疊配對與空堆疊邊界檢查 ・ 時間 O(n) / 空間 O(n)"),
+            LeetCodeProblem(232, "Implement Queue using Stacks（用兩個堆疊實作佇列）", "Easy", "輸入堆疊 in_stack ＋ 輸出堆疊 out_stack 惰性倒轉 ・ 均攤時間 O(1)"),
+            LeetCodeProblem(155, "Min Stack（最小堆疊）", "Medium", "主堆疊搭配輔助最小值堆疊（或差值壓縮） ・ getMin 時間 O(1)"),
+            LeetCodeProblem(739, "Daily Temperatures（每日溫度）", "Medium", "單調遞減堆疊（Monotonic Decreasing Stack 存索引） ・ 時間 O(n) / 空間 O(n)"),
         ),
         interview_faqs=(
             InterviewFAQ(
-                question="Q1：為什麼 CPython 的 collections.deque 可以同時做到雙端 O(1) 插入與刪除？它的底層結構是什麼？",
-                answer=(
-                    "collections.deque 在 CPython 底層（Modules/_collectionsmodule.c）並非使用單一連續陣列，而是實作為「由定長陣列區塊（Block，每個區塊可存放 64 個 PyObject* 指標）組成的雙向鏈結串列」，"
-                    "並維護 leftblock/leftindex 與 rightblock/rightindex 兩組游標。"
-                    "當執行 append() 或 popleft() 時，只需移動對應區塊內的游標（O(1)）；唯有當單一 64 元素區塊填滿或清空時，才配置或釋放一個區塊節點（同樣是 O(1)）。"
-                    "這種區塊鏈結設計同時兼顧了雙端 O(1) 時間複雜度與優於傳統單節點鏈結串列的 CPU 快取局部性。"
-                ),
+                question="Python 的 collections.deque 底層是如何實作的？為什麼它能同時支援頭尾 O(1) 插入與刪除，卻不適合用來隨機讀取中間元素？",
+                answer="CPython 的 deque（Double-Ended Queue）底層並非單一連續陣列，而是由多個固定長度（通常為 64 個元素指標）的區塊（Block）所組成的「雙向鏈結串列（Doubly Linked List of Blocks）」。因為維護了指向頭尾區塊的指標與偏移量，在頭尾兩端執行 append()、appendleft()、pop()、popleft() 都只需在當前區塊增減或分配新區塊，時間複雜度為嚴格的 O(1)；但若執行 d[i] 存取中間索引，則必須跨越區塊鏈結逐一走訪，時間複雜度會退化為 O(n)。",
             ),
             InterviewFAQ(
-                question="Q2：面試常考「如何只用兩個 Stack（LIFO）實作出一個 Queue（FIFO）（LeetCode #232）」？為什麼時間複雜度是攤銷 O(1)？",
-                answer=(
-                    "準備兩個堆疊：in_stack（專門負責接收 enqueue 新元素）與 out_stack（專門負責提供 dequeue / peek 輸出）。"
-                    "當呼叫 enqueue(x) 時，直接壓入 in_stack（O(1)）。當呼叫 dequeue() 或 peek() 時，若 out_stack 不為空，直接從 out_stack 彈出（O(1)）；"
-                    "只有當 out_stack 完全為空時，才將 in_stack 中的所有元素逐一彈出並壓入 out_stack（經過兩次 LIFO 負負得正，順序剛好翻轉為 FIFO），再從 out_stack 頂端彈出。"
-                    "因為每個元素一生只會經歷「進 in_stack 一次、出 in_stack 一次、進 out_stack 一次、出 out_stack 一次」共 4 次基本操作，所以攤銷時間複雜度嚴格為 O(1)。"
-                ),
+                question="如何只用兩個 Stack（LIFO）實作出一個支援均攤 O(1) 操作的 Queue（FIFO，LeetCode #232）？",
+                answer="準備兩個堆疊：in_stack（專門負責接收 enqueue 新元素）與 out_stack（專門負責提供 dequeue 與 peek）。當呼叫 enqueue(x) 時，直接將 x 壓入 in_stack（O(1)）。當呼叫 dequeue() 或 peek() 時，若 out_stack 不為空，直接從 out_stack 彈出頂端元素（O(1)）；若 out_stack 為空，才將 in_stack 中的所有元素逐一彈出並壓入 out_stack（經歷兩次 LIFO 翻轉後，最先進入的元素就會浮到 out_stack 最頂端）。由於每個元素一輩子只會進 in_stack 一次、轉移到 out_stack 一次、出 out_stack 一次，因此均攤時間複雜度為 O(1)。",
             ),
             InterviewFAQ(
-                question="Q3：既然 collections.deque 雙端操作都是 O(1)，為什麼平常我們還是常拿 Python list 來當一般陣列，而不全部改用 deque？",
-                answer=(
-                    "關鍵在於「隨機索引讀取（Random Access, d[i]）」的複雜度差異！Python list 是連續記憶體區塊，讀取 list[50000] 是嚴格的 O(1)；"
-                    "但 collections.deque 是由多個 64 元素區塊串接而成的鏈結結構，當你存取中間元素 deque[50000] 時，它必須沿著區塊鏈結逐塊跳轉，隨機存取時間複雜度退化為 O(n)。"
-                    "因此：需要隨機索引、二分搜尋或排序時用 list；需要 FIFO 佇列、BFS 或雙端滑動視窗時用 collections.deque。"
-                ),
+                question="什麼是「單調堆疊（Monotonic Stack）」？遇到什麼特徵的題目應該立刻聯想到它？",
+                answer="單調堆疊是指堆疊內的元素由底到頂始終維持單調遞增或單調遞減的順序。當新元素準備入堆疊前，會透過 while 迴圈將堆疊頂端所有破壞單調性的元素彈出。只要題目要求在陣列中尋找每個元素「左邊或右邊第一個比它大（或比它小）的元素位置」（例如 LeetCode #739 每日溫度、#496 下一個更大元素、#84 柱狀圖中最大的矩形），使用暴力雙層迴圈需 O(n²)，改用單調堆疊存放索引，每個元素最多入堆疊一次、出堆疊一次，即可在 O(n) 時間內完美解決。",
             ),
         ),
     ),
-    # =========================================================================
-    # Ch.03 搜尋與排序演算法
-    # =========================================================================
     ChapterSpec(
         id="ch03",
         badge="Ch.03",
@@ -483,197 +293,103 @@ CHAPTERS: tuple[ChapterSpec, ...] = (
         concepts=(
             "二分搜尋法（Binary Search）：在「已排序」的序列中，每次比對中間元素即可排除一半搜尋範圍，將搜尋複雜度由線性 O(n) 大幅降至對數級 O(log n)（100 萬筆資料最多只需比對約 20 次）。",
             "合併排序法（Merge Sort）：經典的「分治法（Divide and Conquer）」演算法，先遞迴將陣列對半拆解至單一元素，再以雙指標（Two Pointers）線性合併兩個已排序子陣列。無論最佳、平均或最壞情況，時間複雜度皆穩定維持 O(n log n)，且具備穩定排序（Stable Sort）特性。",
-            "比較排序下界定理（Comparison Sort Lower Bound）：任何僅透過元素兩兩比較決定順序的排序演算法，其決策樹葉節點數至少為 n!，高度至少為 log₂(n!) = Ω(n log n)，因此 Merge Sort 在漸近時間複雜度上已達理論最優。",
+            "穩定排序（Stability）與 Timsort：當兩個元素鍵值相等時，若排序後仍能保證它們原本的先後相對順序不變，即稱為穩定排序。Python 內建的 sorted() 與 list.sort() 採用結合了 Merge Sort 與 Insertion Sort 優點的 Timsort，正是穩定且實務極速的排序演算法。",
         ),
         file="examples/ch03_search_sort.py",
         lastmod="2026-11-17",
         keywords=(
-            "Python 二分搜尋法",
+            "二分搜尋法",
             "Binary Search",
             "合併排序法",
             "Merge Sort",
             "分治法 Divide and Conquer",
+            "Python 排序演算法",
             "Timsort",
-            "穩定排序 Stable Sort",
-            "LeetCode 704",
+            "時間複雜度 O(n log n)",
         ),
         deep_intro=(
-            "當資料規模從數百筆成長到數百萬筆時，O(n) 與 O(log n)、O(n²) 與 O(n log n) 之間的差距，就是系統「毫秒級回應」與「伺服器卡死超時」的分水嶺。"
-            "以 1,000,000（一百萬）筆已排序資料為例，線性搜尋（Linear Search）在最壞情況下需要比對 1,000,000 次；"
-            "而二分搜尋法（Binary Search）利用資料的單調性（Monotonicity），每次鎖定閉區間 [left, right] 的中點 mid，比對後直接捨棄不可能包含目標的一半區間，"
-            "由於 2²⁰ = 1,048,576，最多只需比對 20 次即可斷定目標是否存在！"
-            "然而，二分搜尋的前提是「資料必須預先排序」。傳統的氣泡排序（Bubble Sort）與插入排序（Insertion Sort）平均時間複雜度高達 O(n²)，"
-            "面對百萬筆資料需執行 10¹² 次比較；而馮・諾伊曼（John von Neumann）提出的合併排序法（Merge Sort）則運用「分治法（Divide and Conquer）」："
-            "將長為 n 的陣列遞迴對半切分為 log₂(n) 層，每一層再透過雙指標在 O(n) 時間內完成有序合併，總時間複雜度嚴格鎖定在 O(n log n)，更是 Python 內建 Timsort 的核心基石之一。"
+            "搜尋（Searching）與排序（Sorting）是電腦科學中最核心的演算法基石。"
+            "當資料雜亂無章時，要在 N 筆資料中尋找特定目標，唯一的辦法是從頭到尾逐一比對（線性搜尋 Linear Search，時間複雜度 O(n)）。"
+            "然而一旦資料經過「排序」整理為單調遞增序列，我們就能施展「二分搜尋法（Binary Search）」——每次直接檢查區間正中央的元素，"
+            "若目標較大就捨棄左半部、若目標較小就捨棄右半部。每比對一次，問題規模就瞬間減半："
+            "面對 10 億（10^9）筆已排序資料，線性搜尋最差要跑 10 億次，二分搜尋卻只需要最多 30 次比對（log2(10^9) ≈ 29.89）！"
+            "為了將無序資料高效轉化為有序序列，本章透過「分治法（Divide and Conquer）」實作合併排序法（Merge Sort），"
+            "將 O(n²) 的基礎排序瓶頸一舉突破至理論下限 O(n log n)。"
         ),
         comparison_table=ComparisonTable(
-            caption="表 3-1：主流搜尋與排序演算法之最佳／平均／最壞時間複雜度、空間複雜度與穩定性對照表",
-            headers=(
-                "演算法名稱",
-                "最佳時間",
-                "平均時間",
-                "最壞時間",
-                "額外空間與穩定性（Stability）",
-            ),
+            caption="主流搜尋與排序演算法之時間複雜度、空間複雜度與穩定性完整對照表",
+            headers=("演算法名稱", "最佳時間", "平均時間", "最差時間", "額外空間複雜度與穩定性（Stability）"),
             rows=(
-                (
-                    "線性搜尋（Linear Search）",
-                    "O(1)",
-                    "O(n)",
-                    "O(n)",
-                    "O(1) 空間 ・ 無須預先排序，適用於小型或未排序串列。",
-                ),
-                (
-                    "二分搜尋（Binary Search）",
-                    "O(1)",
-                    "O(log n)",
-                    "O(log n)",
-                    "迭代版 O(1) 空間 ・ 必須具備已排序或單調性（Monotonicity）前提。",
-                ),
-                (
-                    "插入排序（Insertion Sort）",
-                    "O(n)（近乎有序）",
-                    "O(n²)",
-                    "O(n²)",
-                    "O(1) 原地排序 ・ 穩定（Stable），極小規模（n <= 32）常數極小。",
-                ),
-                (
-                    "合併排序（Merge Sort）",
-                    "O(n log n)",
-                    "O(n log n)",
-                    "O(n log n)",
-                    "O(n) 額外空間 ・ 穩定（Stable），保證無最壞退化，適合外部排序與鏈結串列排序。",
-                ),
-                (
-                    "快速排序（Quick Sort）",
-                    "O(n log n)",
-                    "O(n log n)",
-                    "O(n²)（Pivot 失衡）",
-                    "O(log n) 遞迴堆疊 ・ 不穩定（Unstable），隨機化 Pivot 後實務快取表現極佳。",
-                ),
-                (
-                    "Python 內建 Timsort（sort / sorted）",
-                    "O(n)",
-                    "O(n log n)",
-                    "O(n log n)",
-                    "O(n) 空間 ・ 穩定（Stable），融合 Insertion Sort 與自然區段 Merge Sort 之混合演算法。",
-                ),
+                ("線性搜尋 (Linear Search)", "O(1)", "O(n)", "O(n)", "空間 O(1) ・ 不需事先排序"),
+                ("二分搜尋 (Binary Search)", "O(1)", "O(log n)", "O(log n)", "迭代版空間 O(1) ・ 前提：序列必須已排序（或具單調性）"),
+                ("插入排序 (Insertion Sort)", "O(n)", "O(n²)", "O(n²)", "空間 O(1) ・ 穩定排序（小規模或近乎有序資料極快）"),
+                ("合併排序 (Merge Sort)", "O(n log n)", "O(n log n)", "O(n log n)", "空間 O(n) ・ 穩定排序（保證無 O(n²) 最壞退化）"),
+                ("快速排序 (Quick Sort)", "O(n log n)", "O(n log n)", "O(n²)", "空間 O(log n) 遞迴堆疊 ・ 不穩定排序（Pivot 選取不當時退化）"),
+                ("堆積排序 (Heap Sort)", "O(n log n)", "O(n log n)", "O(n log n)", "空間 O(1) 原地排序 ・ 不穩定排序"),
+                ("Python Timsort (sorted / .sort)", "O(n)", "O(n log n)", "O(n log n)", "空間 O(n) ・ 穩定排序（結合自然連續區段 Run 與二分插入）"),
             ),
         ),
-        walkthrough_title="逐步拆解：Merge Sort 分治排序 [38, 27, 43, 3] 與雙指標合併四步驟狀態追蹤",
+        walkthrough_title="合併排序法（Merge Sort）分治拆解與雙指標合併逐步追蹤",
         walkthrough_steps=(
             WalkthroughStep(
-                step_label="Step 1：Divide（遞迴對半拆分至基底條件 len <= 1）",
-                state_snapshot="[38, 27, 43, 3] -> 左半 [38, 27] 與 右半 [43, 3] -> 拆至單元素 [38], [27], [43], [3]",
-                explanation=(
-                    "呼叫 merge_sort([38, 27, 43, 3])，計算 mid = 2，遞迴拆分左半 [38, 27] 與右半 [43, 3]。"
-                    "下一層再各自對半拆為單一元素 [38]、[27]、[43]、[3]，觸發基底條件 if len(arr) <= 1: return arr，因為長度為 1 的陣列天然已排序。"
-                ),
+                step_label="Step 1：遞迴拆分階段（Divide）— 對半切分直到子陣列長度 <= 1",
+                state_snapshot="[38, 27, 43, 3] => 左半 [38, 27] 與 右半 [43, 3] => 基底 [38], [27], [43], [3]",
+                explanation="merge_sort() 利用 mid = len(arr) // 2 持續遞迴切分左右半部。當子陣列只剩 1 個元素（len(arr) <= 1）時，單一元素本身即為已排序狀態，直接回傳作為遞迴基底（Base Case）。",
             ),
             WalkthroughStep(
-                step_label="Step 2：Conquer 底層合併 — 局部子陣列兩兩有序歸併",
-                state_snapshot="合併 ([38], [27]) -> left_half = [27, 38] | 合併 ([43], [3]) -> right_half = [3, 43]",
-                explanation=(
-                    "遞迴開始向上回傳：左分支比對 38 與 27，將較小的 27 先放入 merged，再放入 38，得到有序的 [27, 38]；"
-                    "右分支比對 43 與 3，得到有序的 [3, 43]。此時最頂層的兩個子問題皆已完成排序。"
-                ),
+                step_label="Step 2：底層雙指標合併（Conquer Level 1）— 兩兩合併為長度 2 的有序子陣列",
+                state_snapshot="合併 [38] 與 [27] -> [27, 38] | 合併 [43] 與 [3] -> [3, 43]",
+                explanation="在每一層遞迴返回時，利用雙指標 i=0, j=0 比較左右兩個已排序子陣列的最前端元素，將較小者優先放入 merged 陣列，形成局部有序的 [27, 38] 與 [3, 43]。",
             ),
             WalkthroughStep(
-                step_label="Step 3：Combine 頂層雙指標（i, j）線性比對合併",
-                state_snapshot="left_half=[27, 38] (i), right_half=[3, 43] (j) -> 依序比對選出 3 -> 27 -> 38",
-                explanation=(
-                    "初始化雙指標 i = 0（指向 27）、j = 0（指向 3）："
-                    "(1) 比對 27 vs 3：取右邊 3，j 推進至 1（指向 43），merged = [3]；"
-                    "(2) 比對 27 vs 43：取左邊 27，i 推進至 1（指向 38），merged = [3, 27]；"
-                    "(3) 比對 38 vs 43：取左邊 38，i 推進至 2（超出左半長度，結束 while 迴圈），merged = [3, 27, 38]。"
-                ),
+                step_label="Step 3：頂層雙指標拉鍊式合併（Conquer Level 2）— 比較 [27, 38] 與 [3, 43]",
+                state_snapshot="比對 27 vs 3 (取 3) -> 比對 27 vs 43 (取 27) -> 比對 38 vs 43 (取 38) -> 尾端補齊 43",
+                explanation="i 指向 [27, 38] 開頭、j 指向 [3, 43] 開頭：1. 3 < 27 取 3（j=1）；2. 27 <= 43 取 27（i=1）；3. 38 <= 43 取 38（i=2 抵達左半尾端）；4. 將右半剩餘的 [43] 直接 extend 附加至結果尾端。",
             ),
             WalkthroughStep(
-                step_label="Step 4：尾端剩餘元素收尾（merged.extend）與穩定性保證",
-                state_snapshot="右半尚餘 right_half[1:] == [43] -> merged.extend([43]) -> 最終結果 [3, 27, 38, 43]",
-                explanation=(
-                    "當其中一邊子陣列先取完時，另一邊剩下的元素（此處為 [43]）必然全部大於已合併元素且本身已排序，直接呼叫 merged.extend() 附加至尾端。"
-                    "注意第 39 行判斷條件必須寫成 left_half[i] <= right_half[j]（包含等號），確保左右遇到相等值時優先取左半元素，維持相等元素的原始相對順序（Stable Sort）。"
-                ),
+                step_label="Step 4：在排序結果上執行二分搜尋（binary_search([3, 9, 10, 27, 38, 43, 82], 27)）",
+                state_snapshot="left = 0, right = 6 => mid = 3 => sorted_nums[3] == 27（一擊命中索引 3！）",
+                explanation="完整 7 個元素排序後為 [3, 9, 10, 27, 38, 43, 82]。二分搜尋計算 mid = 0 + (6 - 0) // 2 = 3，讀取索引 3 的值恰好就是 27，僅比對 1 次即回傳索引 3。",
             ),
         ),
         pitfalls=(
             PitfallItem(
-                title="陷阱一：二分搜尋區間定義混亂（閉區間 [left, right] vs. 左閉右開 [left, right)）導致無窮迴圈",
-                symptom="在寫二分搜尋時，有時寫 while left <= right，有時寫 right = mid，結果在剩餘 2 個元素時卡死在無窮迴圈或漏查最後一個元素。",
-                root_cause_and_fix=(
-                    "根因分析：未固定「搜尋區間不變量（Loop Invariant）」。"
-                    "正確對策：若像本章範例採用「雙閉區間 [left, right]（初始化 right = len(nums) - 1）」，則 while 條件必為 left <= right（因為 left == right 時區間內仍有 1 個合法元素需檢查），"
-                    "且當 nums[mid] 已比對失敗時，mid 必須排除在下一輪區間外，故必寫 left = mid + 1 與 right = mid - 1。"
-                ),
+                title="陷阱一：二分搜尋邊界更新寫成 left = mid 或 right = mid 導致無窮迴圈",
+                symptom="在閉區間 [left, right]（迴圈條件 while left <= right）搜尋不存在的元素時，程式卡死在 left == right 的無窮迴圈。",
+                root_cause_and_fix="當搜尋區間定義為閉區間 [left, right] 時，一旦確認 sorted_nums[mid] != target，索引 mid 本身已經被排除！因此下一輪搜尋範圍必須嚴格縮小為 left = mid + 1 或 right = mid - 1，確保每次迭代區間長度至少減少 1。",
             ),
             PitfallItem(
-                title="陷阱二：Merge Sort 合併時誤將 <= 寫成 < 破壞排序穩定性（Stability）",
-                symptom="對包含多個欄位的物件（如先按分數排序、同分再保持原本報名順序）執行自訂 Merge Sort 後，同分者的先後順序被顛倒。",
-                root_cause_and_fix=(
-                    "根因分析：若寫成 if left_half[i] < right_half[j]，當左右兩邊元素相等時會跳進 else 分支先取右半邊（原本位置在後面）的元素，破壞了穩定性。"
-                    "正確對策：合併條件務必使用 <=（if left_half[i] <= right_half[j]:），確保相等時永遠左半邊優先出列。"
-                ),
+                title="陷阱二：合併排序比較條件誤寫成 < 而非 <=，破壞穩定排序（Stability）特性",
+                symptom="在合併左右子陣列時寫 if left_half[i] < right_half[j]:，導致相同鍵值的元素在排序後順序被顛倒。",
+                root_cause_and_fix="當左半部元素與右半部元素相等（left_half[i] == right_half[j]）時，因為左半部元素在原始陣列中排在前面，必須優先選取左半部元素（使用 left_half[i] <= right_half[j]），才能保證相等元素的相對先後順序維持不變。",
             ),
             PitfallItem(
-                title="陷阱三：不熟悉 Python 標準庫 bisect 而在面試中花 15 分鐘重造尋找插入點輪子",
-                symptom="當題目需要「在已排序陣列中找出第一個 >= target 或 > target 的插入位置（Lower Bound / Upper Bound）」時，手寫變形二分搜尋卻在重複元素邊界出錯。",
-                root_cause_and_fix=(
-                    "根因分析：標準二分搜尋在遇到重複元素（如 [1, 2, 2, 2, 3] 找 2）時只能回傳任意一個 2 的索引，不保證是最左或最右邊界。"
-                    "正確對策：熟記手寫二分搜尋模板以應對旋轉陣列等進階變形；但若為標準有序序列查邊界，在 Python 中可直接調用 C 語言加速的 bisect.bisect_left(a, x)（第一個 >= x 的索引）與 bisect.bisect_right(a, x)（第一個 > x 的索引）。"
-                ),
+                title="陷阱三：其他語言轉來的整數溢位（Integer Overflow）與 Python 實戰標準庫 bisect",
+                symptom="在 C++/Java 寫 mid = (left + right) / 2 當 left + right > 2^31 - 1 時會發生正整數溢位變負數。",
+                root_cause_and_fix="雖然 Python 3 的 int 支援任意精度大整數不會溢位，但在跨語言面試中寫 mid = left + (right - left) // 2 能展現優秀的工程防禦習慣。此外在 Python 實務開發與競賽中，可直接呼叫標準庫 bisect.bisect_left(arr, target)（C 語言底層實作）進行極速二分查找。",
             ),
         ),
         leetcode_problems=(
-            LeetCodeProblem(
-                number=704,
-                title="Binary Search（標準二分搜尋法）",
-                difficulty="Easy",
-                pattern="雙閉區間 [left, right] 中點折半搜尋 ・ 時間 O(log n) / 空間 O(1)",
-            ),
-            LeetCodeProblem(
-                number=33,
-                title="Search in Rotated Sorted Array（搜尋旋轉排序陣列）",
-                difficulty="Medium",
-                pattern="二分搜尋判斷哪一半部維持嚴格有序 ・ 時間 O(log n) / 空間 O(1)",
-            ),
-            LeetCodeProblem(
-                number=912,
-                title="Sort an Array（排序陣列）",
-                difficulty="Medium",
-                pattern="分治法 Merge Sort 穩定排序實作 ・ 時間 O(n log n) / 空間 O(n)",
-            ),
+            LeetCodeProblem(704, "Binary Search（標準二分搜尋）", "Easy", "閉區間 [left, right] 模板 ・ 時間 O(log n) / 空間 O(1)"),
+            LeetCodeProblem(33, "Search in Rotated Sorted Array（搜尋旋轉排序陣列）", "Medium", "利用 mid 判斷哪一半部維持單調遞增再縮小區間 ・ 時間 O(log n)"),
+            LeetCodeProblem(34, "Find First and Last Position of Element in Sorted Array", "Medium", "左右邊界二分搜尋（bisect_left / bisect_right） ・ 時間 O(log n)"),
+            LeetCodeProblem(912, "Sort an Array（排序陣列）", "Medium", "手寫 Merge Sort 分治排序避免 Quick Sort 最差 O(n²) 退化 ・ 時間 O(n log n)"),
         ),
         interview_faqs=(
             InterviewFAQ(
-                question="Q1：為什麼二分搜尋計算中點時，許多教材與本章範例第 15 行都寫成 mid = left + (right - left) // 2，而不直接寫 (left + right) // 2？",
-                answer=(
-                    "在 C、C++、Java 等使用固定 32 位元有號整數（上限 2³¹ - 1 ≈ 21.4 億）的語言中，當陣列很大且 left 與 right 都超過 11 億時，"
-                    "直接相加 (left + right) 會發生「整數溢位（Integer Overflow）」變成負數，引發陣列越界崩潰；改寫為 left + (right - left) // 2 則永遠不會超出 right 的範圍。"
-                    "雖然 Python 3 的 int 支援任意精度大整數不會發生溢位，但在跨語言技術面試中寫出 left + (right - left) // 2 能展現工程師對數值邊界安全的嚴謹素養。"
-                ),
+                question="為什麼合併排序法（Merge Sort）的時間複雜度是 O(n log n)？能用直觀的方式推導嗎？",
+                answer="將長度為 n 的陣列不斷對半切分，直到長度為 1，總共需要切分 log2(n) 層（即遞迴樹的高度為 log n + 1）。而在遞迴樹的「每一層」中，無論子陣列被切成幾份，將該層所有子陣列透過雙指標線性掃描合併起來的總元素個數剛好都是 n，因此每一層的合併工作量固定為 O(n)。將「每層工作量 O(n)」乘以「總層數 O(log n)」，即得出無論資料原本順序為何，總時間複雜度恆為 O(n log n)。",
             ),
             InterviewFAQ(
-                question="Q2：Quick Sort（快速排序）平均速度很快且原地排序，為什麼許多系統底層（如 Python Timsort）對物件排序仍偏好 Merge Sort 的穩定概念？",
-                answer=(
-                    "主要有兩個原因：第一是「最壞時間複雜度保證」，Quick Sort 若遇到刻意構造的輸入或大量重複值且未做三向切分（3-Way Partition），最壞情況會退化至 O(n²)，"
-                    "而 Merge Sort 無論輸入資料分布為何，時間複雜度永遠是鐵打的 O(n log n)；"
-                    "第二是「穩定性（Stability）」，Quick Sort 在遠距交換元素時會打亂相等鍵值物件的原始順序，而 Merge Sort 天然穩定，這在多鍵值複合排序（如試算表先排姓名再排部門）中是不可或缺的正確性需求。"
-                ),
+                question="既然 Quick Sort 平均也很快且是原地排序，為什麼 Python 內建的 sorted() 與 list.sort() 選擇以 Merge Sort 為基礎的 Timsort？",
+                answer="主要有兩大原因：第一是「穩定性（Stability）」，Python 保證多重條件排序時相等元素的原始相對順序不變（例如先按分數排序再按部門排序），而原地 Quick Sort 是不穩定排序；第二是「真實世界資料局部有序性」，真實應用中的陣列往往包含許多已經排好序的連續區段（稱為 Natural Runs），Timsort 會自動偵測這些有序區段並用二分插入排序擴展，再用聰明的 Galloping 模式合併，使已排序或近乎有序的陣列能在 O(n) 最佳時間內瞬間完成排序。",
             ),
             InterviewFAQ(
-                question="Q3：Python 內建的 list.sort() 與 sorted() 使用的 Timsort 演算法，是如何做到在最佳情況下只需 O(n) 時間的？",
-                answer=(
-                    "Timsort 是由 Tim Peters 為 Python 設計的混合穩定排序演算法。它洞察到真實世界的資料通常已經包含許多「局部自然有序區段（Natural Runs，遞增或嚴格遞減區段）」。"
-                    "Timsort 會先線性掃描陣列識別這些天然有序的 Run（若嚴格遞減則原地反轉為遞增；若長度不足 minrun 則以二分插入排序補齊），接著利用堆疊規則將這些 Run 智慧合併。"
-                    "如果傳入的陣列本身已經排序好（或完全逆序），Timsort 只需一次 O(n) 掃描即可識別出單一完整 Run 並直接結束，無須做任何拆解合併！"
-                ),
+                question="二分搜尋法只能用在「找某個數字是否存在於排序陣列」嗎？還有什麼進階應用？",
+                answer="二分搜尋的本質並非「搜尋陣列元素」，而是「在具有單調性（Monotonicity）的解空間上尋找轉折邊界」。只要問題滿足「若答案 X 可行，則所有大於 X 的值也都可行；若 X 不可行，則所有小於 X 的值也都不可行」，就能直接「對答案本身進行二分搜尋（Binary Search on Answer）」！常見題型包含：愛吃香蕉的珂珂（LeetCode #875 求最小吃蕉速度）、在 D 天內送達包裹的最低運載能力（#1011）與分割陣列的最大值（#410）。",
             ),
         ),
     ),
-    # =========================================================================
-    # Ch.04 雜湊表與二元搜尋樹
-    # =========================================================================
     ChapterSpec(
         id="ch04",
         badge="Ch.04",
@@ -683,7 +399,7 @@ CHAPTERS: tuple[ChapterSpec, ...] = (
         concepts=(
             "雜湊表（Hash Table / Python dict）：透過雜湊函式（Hash Function）將鍵值映射至桶位索引，達成平均 O(1) 的極速查找；當不同鍵值落入同一桶位產生碰撞（Collision）時，常以鏈結法（Separate Chaining）或開放定址法（Open Addressing）化解。經典白板題 Two Sum 即是利用 Hash Table 以空間換取時間，將雙層迴圈 O(n²) 降至單次掃描 O(n)。",
             "二元搜尋樹（Binary Search Tree, BST）：滿足「左子樹所有節點 < 根節點 < 右子樹所有節點」不變量（Invariant）的樹狀結構。在樹高平衡時搜尋與插入皆為 O(log n)，且對 BST 執行「左 -> 根 -> 右」中序走訪（In-order Traversal）即可在 O(n) 時間內直接輸出由小到大的排序結果。",
-            "無序極速查找 vs. 有序範圍查找：Hash Table 擁有平均 O(1) 單點查詢優勢，但鍵值經過雜湊後失去大小順序，無法支援範圍查詢（Range Query）或前驅／後繼查找；BST 則透過樹狀偏序結構同時兼顧動態更新與有序性。",
+            "負載因子（Load Factor）與動態擴容（Rehashing）：當雜湊表內的元素數量 N 與桶位總數 M 的比值（α = N / M）過高時，碰撞機率會急劇上升；現代雜湊表會在 α 超過門檻（如 CPython dict 為 2/3）時自動擴增桶位並重新計算雜湊位置。",
         ),
         file="examples/ch04_hash_bst.py",
         lastmod="2026-11-17",
@@ -692,177 +408,91 @@ CHAPTERS: tuple[ChapterSpec, ...] = (
             "Hash Table",
             "Two Sum 解法",
             "二元搜尋樹",
-            "Binary Search Tree",
-            "BST 中序走訪",
+            "Binary Search Tree BST",
             "雜湊碰撞 Separate Chaining",
+            "中序走訪 Inorder Traversal",
             "LeetCode 1",
         ),
         deep_intro=(
-            "在軟體工程師白板面試中，流傳著一句名言：「當你不知道怎麼把 O(n²) 最佳化時，先想想能不能用雜湊表（Hash Table）以空間換取時間。」"
-            "雜湊表的核心魔法在於雜湊函式（Hash Function）：它能將任意不可變鍵值（如字串 \"aily\" 或整數）轉換為固定長度的整數雜湊碼，再對桶位陣列長度取模（hash(key) % bucket_count），"
-            "直接算出該鍵值在記憶體中的儲存桶位，讓查找、插入與刪除在平均情況下都不受資料總量 n 影響，達成驚人的 O(1) 常數時間！"
-            "然而根據鴿籠原理（Pigeonhole Principle），當鍵值空間大於桶位數量時，必然會發生兩個不同鍵值算出相同桶位索引的「雜湊碰撞（Hash Collision）」。"
-            "本章親手實作了最經典的「分離鏈結法（Separate Chaining）」碰撞處理機制，並展示如何用 dict 在單次迴圈 O(n) 時間內秒殺 LeetCode 第 1 題 Two Sum。"
-            "與此同時，若業務場景需要「動態維護資料由小到大的順序」、「查詢排名第 k 小的元素」或「找出介於 [L, R] 之間的所有數值」，無序的雜湊表便無能為力——"
-            "這正是二元搜尋樹（Binary Search Tree, BST）大顯身手的舞台。"
+            "在軟體工程技術面試中，如果有一句話能幫你解開一半以上的演算法題，那就是：「當遇到 O(n²) 的重複查找瓶頸時，先想能不能用雜湊表（Hash Table）以空間換取時間！」"
+            "雜湊表透過雜湊函式 `hash(key) % bucket_count` 將任意可雜湊鍵值直接轉換為陣列索引，實現平均 O(1) 的增刪查改。"
+            "然而雜湊表是「無序」的（雖然 Python 3.7+ 的 dict 保留了插入順序，但並非依鍵值大小排序），無法高效回答「大於 X 且小於 Y 的所有元素」或「排名第 K 小的元素」。"
+            "這正是二元搜尋樹（Binary Search Tree, BST）登場的時刻：BST 嚴格遵守「左子樹所有值 < 根節點 < 右子樹所有值」的結構不變量，"
+            "不僅支援平均 O(log n) 的動態插入與搜尋，還能透過中序走訪（In-order Traversal）天然產生遞增有序序列。"
         ),
         comparison_table=ComparisonTable(
-            caption="表 4-1：雜湊表（Hash Table）、平衡二元搜尋樹與退化二元搜尋樹之複雜度與功能特性對照表",
-            headers=(
-                "操作 / 特性維度",
-                "雜湊表（Hash Table / dict）",
-                "平衡二元搜尋樹（Balanced BST）",
-                "退化二元搜尋樹（Skewed BST）",
-                "架構選型關鍵決策點",
-            ),
+            caption="雜湊表（Hash Table）、平衡二元搜尋樹与退化斜樹之複雜度與功能特性對照表",
+            headers=("操作項目 ／ 結構特性", "雜湊表（Hash Table / dict）", "平衡二元搜尋樹（Balanced BST）", "退化二元搜尋樹（Skewed BST 最差情況）"),
             rows=(
-                (
-                    "單點搜尋 / 插入 / 刪除（平均）",
-                    "O(1)",
-                    "O(log n)",
-                    "O(n)（退化為單向鏈結串列）",
-                    "純粹依 Key 精確查找（Exact Match）永遠優先選用 Hash Table。",
-                ),
-                (
-                    "最壞情況時間複雜度",
-                    "O(n)（全數碰撞落入同一桶）",
-                    "O(log n)（紅黑樹 / AVL 旋轉維持）",
-                    "O(n)（輸入已排序序列時必然發生）",
-                    "一般 BST 若未搭配自平衡機制，切勿直接餵入已排序資料。",
-                ),
-                (
-                    "依大小順序輸出全體元素",
-                    "O(n log n)（需額外呼叫 sorted）",
-                    "O(n)（直接執行 In-order 中序走訪）",
-                    "O(n)（中序走訪）",
-                    "BST 的「左 -> 根 -> 右」中序走訪天然就是遞增排序序列。",
-                ),
-                (
-                    "範圍查詢 [L, R] 與最大/最小值",
-                    "O(n)（必須全表掃描）",
-                    "最大/最小 O(log n)；範圍 O(log n + k)",
-                    "O(n)",
-                    "資料庫索引（B+ Tree）與有序集合皆依賴搜尋樹的有序剪枝能力。",
-                ),
-                (
-                    "鍵值（Key）型別限制",
-                    "必須可雜湊（Hashable / 不可變）",
-                    "必須可比較大小（Comparable, 支援 <）",
-                    "必須可比較大小（支援 <）",
-                    "Python dict 的 key 不能是 list；BST 的節點值則必須支援大小比較。",
-                ),
+                ("單一鍵值查找 (Search / Get)", "平均 O(1) ／ 碰撞最差 O(n)", "O(log n) — 每次比較排除半棵子樹", "O(n) — 退化為單向鏈結串列"),
+                ("插入與更新 (Insert / Put)", "均攤 O(1) ／ 擴容時 O(n)", "O(log n) — 含旋轉平衡維護", "O(n) — 依序走訪至最深葉節點"),
+                ("刪除鍵值 (Remove / Delete)", "平均 O(1)", "O(log n) — 尋找中序後繼替換", "O(n) — 線性搜尋後刪除"),
+                ("依鍵值大小順序輸出全部元素", "O(n log n) — 需額外呼叫 sorted()", "O(n) — 直接執行中序走訪 (In-order)", "O(n) — 中序走訪"),
+                ("區間範圍查詢 (Range Query [L, R])", "O(n) — 必須全表掃描過濾", "O(log n + k) — 剪枝跳過無關子樹", "O(n) — 無法有效剪枝"),
+                ("鍵值型別限制 (Key Constraint)", "必須可雜湊且不可變 (Hashable)", "必須支援大小比較運算 (<, >)", "必須支援大小比較運算 (<, >)"),
             ),
         ),
-        walkthrough_title="逐步拆解：Two Sum 單次雜湊掃描（nums = [2, 7, 11, 15], target = 9）與 BST 中序走訪追蹤",
+        walkthrough_title="Two Sum O(n) 單次雜湊掃描與 BST 中序走訪（In-order）逐步狀態追蹤",
         walkthrough_steps=(
             WalkthroughStep(
-                step_label="Step 1：Two Sum 第一輪（idx = 0, num = 2）— 計算補數並登記至 seen",
-                state_snapshot="target = 9, num = 2 -> complement = 9 - 2 = 7 | 7 not in seen {} -> 寫入 seen = {2: 0}",
-                explanation=(
-                    "我們不再使用雙層迴圈往後找誰加 2 等於 9，而是反過來問：「之前看過的數字裡，有沒有 7（complement = target - num）？」"
-                    "此時雜湊表 seen 為空，7 不在裡面，於是將當前數字與索引配對 2: 0 存入 seen，耗時 O(1)。"
-                ),
+                step_label="Step 1：Two Sum 掃描索引 0（nums = [2, 7, 11, 15], target = 9）",
+                state_snapshot="idx = 0, num = 2 | complement = 9 - 2 = 7 | 7 not in seen | 寫入 seen = {2: 0}",
+                explanation="讀取第一個數字 2，計算它需要的互補數 complement = 9 - 2 = 7。查詢雜湊表 seen 發現 7 尚未出現，因此將當前數值與索引 {2: 0} 存入 seen 字典中。",
             ),
             WalkthroughStep(
-                step_label="Step 2：Two Sum 第二輪（idx = 1, num = 7）— O(1) 命中補數立即回傳",
-                state_snapshot="target = 9, num = 7 -> complement = 9 - 7 = 2 | 2 in seen {2: 0} -> 立即回傳 (seen[2], 1) == (0, 1)！",
-                explanation=(
-                    "巡覽到索引 1 的數字 7 時，計算補數 complement = 9 - 7 = 2，執行 if complement in seen 查詢雜湊表。"
-                    "瞬間命中先前存入的 seen[2] == 0，立即回傳 (0, 1)，連後面的 11 與 15 都不必再看，完美在單次掃描 O(n) 時間內收工！"
-                ),
+                step_label="Step 2：Two Sum 掃描索引 1 — O(1) 瞬間命中互補數並回傳",
+                state_snapshot="idx = 1, num = 7 | complement = 9 - 7 = 2 | 2 in seen (索引 0) => 回傳 (0, 1)",
+                explanation="讀取第二個數字 7，計算 complement = 9 - 7 = 2。查詢 seen 字典在 O(1) 時間內發現鍵值 2 已存在且對應索引為 0，立即回傳 (0, 1)，省去雙層迴圈的重複配對。",
             ),
             WalkthroughStep(
-                step_label="Step 3：BST 插入建樹 — 維持「左子樹 < 根 < 右子樹」不變量",
-                state_snapshot="依序插入 [50, 30, 70, 20, 40, 60, 80] -> 根 50 | 左子樹根 30 (含 20, 40) | 右子樹根 70 (含 60, 80)",
-                explanation=(
-                    "第一個元素 50 成為 root。接著插入 30（30 < 50 放左子節點）、70（70 > 50 放右子節點）。"
-                    "插入 40 時，先比對 40 < 50 往左走到 30，再比對 40 > 30 往右放到 30.right。每次往下走一層就排除一半子樹，高度平衡時僅需 O(log n) 步。"
-                ),
+                step_label="Step 3：建立二元搜尋樹（依序插入 [50, 30, 70, 20, 40, 60, 80]）",
+                state_snapshot="Root = 50 | 左子樹: 30 (左 20, 右 40) | 右子樹: 70 (左 60, 右 80)",
+                explanation="第一個元素 50 成為根節點；30 < 50 進入左子樹、70 > 50 進入右子樹；接著 20 < 30 掛在 30 左側、40 > 30 掛在 30 右側，形成高度平衡的三層完美二元搜尋樹。",
             ),
             WalkthroughStep(
-                step_label="Step 4：BST 中序走訪（In-order：左 -> 根 -> 右）自動產出遞增序列",
-                state_snapshot="_traverse(left) -> append(node.val) -> _traverse(right) => [20, 30, 40, 50, 60, 70, 80]",
-                explanation=(
-                    "中序走訪從 50 一路遞迴往左深入到 30 再到葉節點 20：先印出 20，回到父節點印出 30，再走訪 30 的右子節點印出 40；"
-                    "左子樹全數完成後回到樹根印出 50，接著以同樣規則走訪右子樹印出 60、70、80。由於嚴格遵循「左小、中根、右大」，輸出結果必為嚴格遞增序列！"
-                ),
+                step_label="Step 4：執行中序走訪（左子樹 -> 根節點 -> 右子樹）輸出排序序列",
+                state_snapshot="走訪順序: (20 -> 30 -> 40) -> 50 -> (60 -> 70 -> 80) => [20, 30, 40, 50, 60, 70, 80]",
+                explanation="遞迴函式 _traverse 先一路往左深入到最左葉節點 20 印出，回到父節點 30 印出，再訪問右子節點 40；完成左半部後印出根節點 50，最後以相同邏輯走訪右子樹，不需任何額外排序即得遞增陣列。",
             ),
         ),
         pitfalls=(
             PitfallItem(
-                title="陷阱一：拿可變物件（如 list 或 dict）當作雜湊表（dict / set）的 Key 觸發 TypeError",
-                symptom="在將座標或陣列狀態存入 dict / set 時寫出 visited.add([x, y])，立即拋出 TypeError: unhashable type: 'list'。",
-                root_cause_and_fix=(
-                    "根因分析：雜湊表依賴 Key 的雜湊值 hash(key) 來決定桶位索引。如果 Key 在存入後內容被修改（如 list.append），其雜湊值就會改變，導致在原本的桶位再也找不到該物件，破壞雜湊表不變量。"
-                    "正確對策：在 Python 中作為 dict 或 set 的 Key 必須是不可變型別（Immutable）：請將 list 轉為 tuple(lst)（如 visited.add((x, y))），將 set 轉為 frozenset。"
-                ),
+                title="陷阱一：將可變容器（如 list、dict、set）當作雜湊表的 Key 觸發 TypeError",
+                symptom="在分組題（如 Group Anagrams）中嘗試寫 seen[[1, 2, 3]] = val，執行時直接拋出 TypeError: unhashable type: 'list'。",
+                root_cause_and_fix="雜湊表要求 Key 的雜湊值在生命週期內永遠不可改變（否則修改內容後雜湊值改變，就再也找不到原本的桶位）。在 Python 中，若需以序列作為字典的 Key，必須先轉為不可變的 tuple(my_list)；若需以集合為 Key，則應轉為 frozenset(my_set)。",
             ),
             PitfallItem(
-                title="陷阱二：驗證二元搜尋樹（LeetCode #98 Validate BST）時只檢查「左子節點 < 父節點 < 右子節點」",
-                symptom="寫出 if node.left.val < node.val < node.right.val 就以為是合法 BST，結果遇到根為 50、右子節點為 70、但 70 的左子節點為 40（40 < 50 卻出現在 50 的右子樹！）時誤判為 True。",
-                root_cause_and_fix=(
-                    "根因分析：BST 的不變量要求「右子樹中的『所有』節點都必須大於根節點」，而不只是直接相連的右子節點。"
-                    "正確對策：遞迴驗證時必須向下傳遞合法區間上下界 validate(node, low, high)（往左走更新上界 high = node.val；往右走更新下界 low = node.val），或直接檢查中序走訪序列是否嚴格遞增。"
-                ),
+                title="陷阱二：將「已排序陣列」直接依序插入普通 BST，導致樹高退化為 O(n) 斜樹",
+                symptom="若依序將 [10, 20, 30, 40, 50] 插入未自平衡的 BinarySearchTree，搜尋時間從 O(log n) 退化成 O(n)。",
+                root_cause_and_fix="因為每個新數字都比前一個大，所有節點都會一路掛在右側（right child），使二元搜尋樹徹底退化為一條單向鏈結串列。若已知輸入為已排序陣列，應每次取正中央元素 arr[mid] 作為根節點並遞迴建構左右子樹（LeetCode #108）；在工程系統中則會採用紅黑樹（Red-Black Tree）或 AVL 樹透過旋轉維持平衡。",
             ),
             PitfallItem(
-                title="陷阱三：對未平衡的一般 BST 依序插入已排序資料 [10, 20, 30, 40, 50] 導致退化為 O(n)",
-                symptom="在測試時為了方便，將排序好的陣列依序呼叫 bst.insert(x)，結果樹高變成 n，搜尋速度退化得跟單向鏈結串列一樣慢。",
-                root_cause_and_fix=(
-                    "根因分析：當輸入序列單調遞增時，每個新節點都比前一個大，會一路掛在最右側（right -> right -> right），形成沒有任何左分支的「退化斜樹（Degenerate / Skewed Tree）」。"
-                    "正確對策：若已知輸入為已排序陣列，應每次取中點 mid 作為子樹根遞迴建樹（LeetCode #108）；若為動態隨機插入，工業界資料庫與語言標準庫則會採用紅黑樹（Red-Black Tree）或 AVL 樹透過旋轉維持樹高 O(log n)。"
-                ),
+                title="陷阱三：驗證二元搜尋樹（Validate BST）時只檢查「左子節點 < 父節點 < 右子節點」",
+                symptom="面對根節點為 50、左子節點為 30，但 30 的右子節點為 60 的樹時，錯誤判定為合法 BST（實際上 60 > 50 不應出現在 50 的左子樹中）。",
+                root_cause_and_fix="BST 的不變量要求「左子樹的所有後代節點」都必須嚴格小於根節點。正確驗證方式有兩種：1. 在遞迴時傳遞開區間上下界 validate(node, low, high)，確保 low < node.val < high；2. 執行中序走訪，檢查輸出的序列是否嚴格單調遞增。",
             ),
         ),
         leetcode_problems=(
-            LeetCodeProblem(
-                number=1,
-                title="Two Sum（兩數之和）",
-                difficulty="Easy",
-                pattern="單次掃描雜湊表查詢補數（target - num） ・ 時間 O(n) / 空間 O(n)",
-            ),
-            LeetCodeProblem(
-                number=98,
-                title="Validate Binary Search Tree（驗證二元搜尋樹）",
-                difficulty="Medium",
-                pattern="遞迴傳遞上下界 (low, high) 或中序遞增檢查 ・ 時間 O(n) / 空間 O(h)",
-            ),
-            LeetCodeProblem(
-                number=230,
-                title="Kth Smallest Element in a BST（二元搜尋樹中第 K 小的元素）",
-                difficulty="Medium",
-                pattern="BST 中序走訪（In-order Traversal）第 k 個訪問節點 ・ 時間 O(H + k) / 空間 O(H)",
-            ),
+            LeetCodeProblem(1, "Two Sum（兩數之和）", "Easy", "Hash Table 記錄已訪問數值與索引單次掃描 ・ 時間 O(n) / 空間 O(n)"),
+            LeetCodeProblem(49, "Group Anagrams（字母異位詞分組）", "Medium", "將排序後字元 tuple 或 26 字母計數 tuple 作為 dict Key ・ 時間 O(n * k)"),
+            LeetCodeProblem(98, "Validate Binary Search Tree（驗證二元搜尋樹）", "Medium", "遞迴傳遞 (low, high) 上下界或中序嚴格遞增檢查 ・ 時間 O(n)"),
+            LeetCodeProblem(230, "Kth Smallest Element in a BST（BST 中第 K 小的元素）", "Medium", "中序走訪第 K 個訪問到的節點即為所求 ・ 時間 O(H + k)"),
         ),
         interview_faqs=(
             InterviewFAQ(
-                question="Q1：本章 ChainingHashTable 使用「分離鏈結法」處理碰撞，那 CPython 內建的 dict 底層也是用鏈結法嗎？為什麼 Python 3.7+ 的 dict 能保持插入順序？",
-                answer=(
-                    "CPython 內建的 dict 採用的是「緊湊開放定址法（Compact Open Addressing）」，而非鏈結法。在 Python 3.6+ 改版後，dict 底層拆分為兩張陣列："
-                    "一張是稀疏的雜湊索引表 indices（僅儲存整數偏移量，只佔 1～8 bytes），另一張是緊湊排列的 entries 陣列（依插入先後順序連續儲存 (hash, key, value)）。"
-                    "當發生碰撞時，CPython 利用偽隨機探測序列在 indices 表中尋找下一個空槽。這項設計不僅讓 dict 的記憶體消耗大減 20%～25%，更因為 entries 陣列是依插入順序連續追加的，所以天然保證了迭代順序等於插入順序！"
-                ),
+                question="本講義實作了「鏈結法（Separate Chaining）」處理雜湊碰撞，那 Python 內建的 dict 底層也是用鏈結法嗎？",
+                answer="教學上常以鏈結法（每個桶位存放一個串列）展示碰撞處理，因為邏輯最直觀；但 CPython 3.6+ 的內建 dict 採用的是高度優化的「緊湊型開放定址法（Compact Open Addressing）」。它將稀疏的雜湊索引表（Indices Array）與緊湊存放實際 (hash, key, value) 的項目陣列（Entries Table）拆開，當發生碰撞時使用偽隨機探測（Perturb Probing）尋找下一個空槽。這項設計不僅省下 20%～25% 的記憶體，更同時保留了元素的插入順序並大幅提升 CPU Cache 命中率。",
             ),
             InterviewFAQ(
-                question="Q2：什麼是雜湊表的「負載因子（Load Factor, α = n / m）」？當負載因子過高時雜湊表如何維持 O(1) 效能？",
-                answer=(
-                    "負載因子 α 定義為「已存入的元素數量 n」除以「總桶位數 m」。隨著 α 上升，發生雜湊碰撞的機率會急遽增加（例如開放定址法在 α > 2/3 時探測次數會明顯上升）。"
-                    "為了維持 O(1) 平均讀寫效能，當 α 超過預設門檻（CPython dict 門檻為 2/3 ≈ 0.66；Java HashMap 為 0.75）時，雜湊表會自動觸發「擴容與重雜湊（Resize & Rehash）」："
-                    "配置一張容量翻倍的新桶位陣列，並將所有既有鍵值重新計算 hash(key) % new_m 搬移過去，使攤銷時間複雜度依然維持在 O(1)。"
-                ),
+                question="二元樹的前序（Pre-order）、中序（In-order）、後序（Post-order）走訪分別代表什麼？各自有什麼實際用途？",
+                answer="三者的差異在於「根節點（Root）在何時被處理」：1. 前序（根 -> 左 -> 右）：一見到節點就處理，適合用來複製整棵樹或將樹結構序列化（Serialization）；2. 中序（左 -> 根 -> 右）：先處理完左子樹、再處理根節點、最後處理右子樹，對二元搜尋樹（BST）執行中序走訪會直接產生由小到大的排序序列；3. 後序（左 -> 右 -> 根）：必須等左右子樹都算完才能計算當前節點，廣泛用於計算樹高、子樹節點總和、釋放記憶體與底層樹狀 DP。",
             ),
             InterviewFAQ(
-                question="Q3：既然二元搜尋樹（BST）的中序走訪可以在 O(n) 時間內輸出排序結果，那是不是代表我們可以用 BST 在 O(n) 時間內完成任意陣列排序？",
-                answer=(
-                    "不能！這是一個非常經典的面試陷阱題。雖然對一棵「已經建好的 BST」執行中序走訪確實只要 O(n) 時間，但別忘了「把 n 個無序元素逐一 insert 進平衡 BST」的建樹過程："
-                    "每次插入需耗時 O(log n)，插入 n 個元素的建樹總時間為 O(n log n)。因此「BST 建樹 O(n log n) + 中序走訪 O(n)」的總體時間複雜度依然是 O(n log n)，完全符合比較排序的 Ω(n log n) 理論下界。"
-                ),
+                question="在 Two Sum 題目中，為什麼「邊走訪邊寫入字典（One-pass Hash Table）」比「先把全部數字塞進字典再查表（Two-pass）」更好？",
+                answer="除了少跑一趟迴圈外，One-pass 最大的優勢在於能自然優雅地處理「兩個相同數字加總等於 target」的重複元素情況（例如 nums = [3, 3], target = 6）。在 One-pass 中，當掃描到索引 1 的第二個 3 時，先檢查 complement = 3 是否在字典 seen 中，此時 seen[3] 正好記錄著索引 0，立刻就能配對回傳 (0, 1)，不會被第二個 3 覆蓋掉索引 0 的紀錄，也完全不必擔心同一個元素自己跟自己配對。",
             ),
         ),
     ),
-    # =========================================================================
-    # Ch.05 圖論走訪與物件導向設計
-    # =========================================================================
     ChapterSpec(
         id="ch05",
         badge="Ch.05",
@@ -872,568 +502,305 @@ CHAPTERS: tuple[ChapterSpec, ...] = (
         concepts=(
             "廣度優先搜尋（BFS）vs. 深度優先搜尋（DFS）：BFS 搭配佇列（Queue / deque）由起點呈同心圓逐層向外擴散，因此第一次抵達終點時必為「最少步數最短路徑」；DFS 則利用遞迴（Call Stack）或顯式堆疊一條路走到底再回溯（Backtracking），常用於連通分量、拓樸排序與環路檢測。",
             "物件導向封裝（OOP Encapsulation）：將內部鄰接串列 `_adj` 與訪問狀態隱藏於 `Graph[T]` 類別方法內，對外提供乾淨的 `add_edge`、`bfs`、`dfs` 與 `shortest_path_bfs` 介面，兼具型別安全與高維護性。",
-            "圖的表示法權衡：稀疏圖（Sparse Graph，邊數 E 遠小於 V²）採用鄰接串列（Adjacency List）僅需 O(V + E) 空間；稠密圖（Dense Graph）採用鄰接矩陣（Adjacency Matrix）雖需 O(V²) 空間，但能於 O(1) 時間判斷任兩點是否相連。",
+            "稀疏圖與稠密圖表示法：真實世界的網路（如社群好友圖、道路網、網頁連結）絕大多數屬於「稀疏圖（Sparse Graph，邊數 E 遠小於 V²）」，使用鄰接串列（Adjacency List）僅需 O(V + E) 空間，遠優於鄰接矩陣的 O(V²) 空間。",
         ),
         file="examples/ch05_graph_oop.py",
         lastmod="2026-11-17",
         keywords=(
-            "Python 圖論",
-            "Graph BFS DFS",
-            "廣度優先搜尋",
-            "深度優先搜尋",
-            "最短路徑演算法",
+            "圖論演算法",
+            "廣度優先搜尋 BFS",
+            "深度優先搜尋 DFS",
+            "Python 物件導向 OOP",
             "鄰接串列 Adjacency List",
-            "物件導向 OOP",
-            "LeetCode 200",
+            "無權重圖最短路徑",
+            "LeetCode 200 島嶼數量",
+            "Graph Traversal",
         ),
         deep_intro=(
-            "前面學過的鏈結串列與二元搜尋樹，其實都只是「圖（Graph, G = (V, E)）」的特例：鏈結串列是沒有分支的線性圖，而樹則是「連通且無環（Connected Acyclic）」的圖。"
-            "一旦進入真實世界的網路拓樸、社群好友關係、地圖導航、套件相依性解析（如 pip / npm）或迷宮尋路，節點（Vertex, V）與邊（Edge, E）之間往往存在多對多連接與環路（Cycle），"
-            "這時就必須仰賴圖論兩大核心走訪引擎：**廣度優先搜尋（Breadth-First Search, BFS）** 與 **深度優先搜尋（Depth-First Search, DFS）**。"
-            "在工程架構上，初學者寫圖論題常把全域變數 dictionary、visited set 與鄰接表散落在腳本各處，導致多次查詢時狀態互相污染。"
-            "本章特別結合 Python 3.12 泛型物件導向設計（Generic OOP，`class Graph(Generic[T])`），將底層鄰接串列 `_adj: dict[T, list[T]]` 嚴密封装，"
-            "並將 `visited` 與 `parent` 狀態局部化於各演算法方法內，展示如何寫出同時具備工業級可讀性與 O(V + E) 最佳時間複雜度的圖論模組。"
+            "當資料之間的關係不再是單純的「一對一（線性串列）」或「一對多（階層式樹狀結構）」，"
+            "而是任意兩個實體之間都可能存在關聯的「多對多網路」時，我們就進入了圖論（Graph Theory）的世界。"
+            "從 Google Maps 的道路導航網、社交網路的好友推薦、套件管理器的相依性解析，到迷宮尋路與遊戲 AI 決策，"
+            "背後全都是由頂點（Vertex, V）與邊（Edge, E）所構成的圖。"
+            "本章同時展示了中型軟體工程極為重要的「物件導向設計（Object-Oriented Programming, OOP）」精神："
+            "我們透過 Python Generic 泛型將底層鄰接串列 `_adj: dict[T, list[T]]` 封裝於 `Graph[T]` 類別內，"
+            "讓呼叫端無須關心內部字典如何初始化或如何防止重複邊，只需呼叫高階語意方法即可安全完成 BFS、DFS 與最短路徑回溯。"
         ),
         comparison_table=ComparisonTable(
-            caption="表 5-1：圖論表示法（鄰接串列 vs. 鄰接矩陣）與走訪演算法（BFS vs. DFS）完整對照表",
-            headers=(
-                "比較項目 / 演算法",
-                "核心資料結構",
-                "時間複雜度",
-                "空間複雜度",
-                "最佳適用場景與關鍵特性",
-            ),
+            caption="圖論表示法（鄰接串列 vs. 鄰接矩陣）與走訪演算法（BFS vs. DFS）完整對照表",
+            headers=("比較維度 ／ 演算法", "空間複雜度", "走訪／查詢時間複雜度", "核心資料結構", "最佳工程與面試應用場景"),
             rows=(
-                (
-                    "鄰接串列（Adjacency List）",
-                    "dict[T, list[T]]",
-                    "巡覽所有鄰居 O(V + E)",
-                    "O(V + E)",
-                    "真實世界 95% 以上稀疏圖（社交網路、道路網、工作流）之標準首選。",
-                ),
-                (
-                    "鄰接矩陣（Adjacency Matrix）",
-                    "V × V 二維陣列",
-                    "查兩點連線 O(1)；全圖走訪 O(V²)",
-                    "O(V²)",
-                    "僅適用於頂點數 V 很小（如 V <= 500）的稠密圖或 Floyd-Warshall 全點對最短路徑。",
-                ),
-                (
-                    "廣度優先搜尋（BFS）",
-                    "佇列 Queue（collections.deque）+ visited",
-                    "O(V + E)",
-                    "O(V)（佇列最大寬度）",
-                    "像水波同心圓逐層擴散，保證在「無權重圖」中第一次抵達終點即為最少步數最短路徑。",
-                ),
-                (
-                    "深度優先搜尋（DFS）",
-                    "遞迴 Call Stack 或顯式 Stack + visited",
-                    "O(V + E)",
-                    "O(V)（最大遞迴深度）",
-                    "不撞南牆不回頭再回溯（Backtracking），適合連通分量計數、環路檢測、拓樸排序與排列組合。",
-                ),
-                (
-                    "BFS 最短路徑回溯（shortest_path_bfs）",
-                    "deque + parent: dict[T, T | None]",
-                    "O(V + E)",
-                    "O(V)",
-                    "利用 parent 字典記錄「誰把我帶進佇列」，抵達終點後逆向回推並 reverse() 還原完整路徑。",
-                ),
+                ("鄰接串列 (Adjacency List)", "O(V + E)", "巡覽所有鄰居 O(deg(v))", "dict[T, list[T]]", "稀疏圖首選（95% 實務與 LeetCode 圖論題標準表示法）"),
+                ("鄰接矩陣 (Adjacency Matrix)", "O(V²)", "判斷兩點是否相連 O(1)", "二維陣列 matrix[V][V]", "頂點數 V 極小（如 V <= 500）且邊極為稠密的完全圖"),
+                ("廣度優先搜尋 (BFS)", "O(V) 佇列與 visited", "O(V + E)", "FIFO 佇列 (collections.deque)", "無權重圖最短路徑、最少步數轉換、多源點同時擴散問題"),
+                ("深度優先搜尋 (DFS)", "O(V) 遞迴堆疊深度", "O(V + E)", "LIFO 堆疊 ／ 遞迴 Call Stack", "連通分量計數、迷宮所有可能路徑枚舉、回溯法、環路檢測"),
+                ("BFS 最短路徑回溯 (Parent Map)", "O(V) 儲存前驅節點", "O(V + E)", "deque + parent: dict[T, T|None]", "不但求出最短距離，還能完整還原起點到終點的頂點序列"),
             ),
         ),
-        walkthrough_title="逐步拆解：無權重圖 BFS 最短路徑回溯（A -> F）四步驟佇列與 parent 字典追蹤",
+        walkthrough_title="無權重圖 BFS 最短路徑與 Parent 回溯（shortest_path_bfs('A', 'F')）逐步追蹤",
         walkthrough_steps=(
             WalkthroughStep(
-                step_label="Step 1：初始化起點 A 的佇列與前驅字典 parent",
-                state_snapshot="queue = deque(['A']) | parent = {'A': None}（兼作已訪問集合 visited）",
-                explanation=(
-                    "在 shortest_path_bfs('A', 'F') 中，我們巧妙地用 parent: dict[T, T | None] = {'A': None} 同時扮演兩個角色："
-                    "一是判斷某頂點是否已被訪問過（nb not in parent），二是記錄每個頂點是由哪一個前驅頂點擴展而來的（起點 A 沒有前驅，故為 None）。"
-                ),
+                step_label="Step 1：初始化起點 'A'（距離 0 層）",
+                state_snapshot="queue = deque(['A']) | parent = {'A': None}",
+                explanation="從起點 'A' 出發，將 'A' 放入雙端佇列 queue，並在前驅字典 parent 記錄 {'A': None}。此 parent 字典同時身兼兩職：1. 取代 visited 集合防止重複訪問；2. 記錄每個節點是由哪個父節點首次擴散而來。",
             ),
             WalkthroughStep(
-                step_label="Step 2：第 0 層擴展 — 彈出 A 並將第 1 層鄰居 B、C 入佇列",
-                state_snapshot="popleft() -> 'A' | 擴展鄰居 B, C -> queue = deque(['B', 'C']) | parent = {'A': None, 'B': 'A', 'C': 'A'}",
-                explanation=(
-                    "從佇列首端彈出 A，檢視 A 的鄰居 ['B', 'C']。由於 B 與 C 都還不在 parent 中，立即登記 parent['B'] = 'A'、parent['C'] = 'A'，"
-                    "並將 B、C 推入佇列尾端。這代表所有距離起點 A 步數為 1 的頂點皆已完成排隊。"
-                ),
+                step_label="Step 2：擴散第 1 層 — 彈出 'A' 並將鄰居 'B'、'C' 入佇列",
+                state_snapshot="popleft() -> 'A' | 探索鄰居 'B', 'C' | queue = deque(['B', 'C']) | parent = {'A': None, 'B': 'A', 'C': 'A'}",
+                explanation="從佇列左端彈出 'A'，檢查其鄰居 'B' 與 'C' 均尚未在 parent 中，立即將 parent['B'] = 'A'、parent['C'] = 'A' 寫入並推入佇列尾端，完成距離為 1 的第一層同心圓搜尋。",
             ),
             WalkthroughStep(
-                step_label="Step 3：第 1 層擴展 — 依序彈出 B、C 並將第 2 層鄰居 D、E 入佇列",
-                state_snapshot="彈出 B -> 推入 D (parent['D']='B') | 彈出 C -> 推入 E (parent['E']='C') | queue = deque(['D', 'E'])",
-                explanation=(
-                    "接著彈出 B，其鄰居 A 已在 parent 中跳過，未訪問鄰居 D 登記 parent['D'] = 'B' 並入佇列；"
-                    "再彈出 C，將未訪問鄰居 E 登記 parent['E'] = 'C' 並入佇列。此時佇列中全數為距離起點步數為 2 的頂點。"
-                ),
+                step_label="Step 3：擴散第 2 層 — 依序彈出 'B' 與 'C'，探索 'D' 與 'E'",
+                state_snapshot="彈出 'B' -> 入佇列 'D' (parent['D']='B') | 彈出 'C' -> 入佇列 'E' (parent['E']='C') | queue = deque(['D', 'E'])",
+                explanation="彈出 'B' 時，鄰居 'A' 已在 parent 中跳過，新鄰居 'D' 記錄 parent['D'] = 'B'；接著彈出 'C'，新鄰居 'E' 記錄 parent['E'] = 'C'。此時佇列中為距離起點 2 步的節點 ['D', 'E']。",
             ),
             WalkthroughStep(
-                step_label="Step 4：第 2 層擴展命中終點 F 並沿 parent 逆向還原最短路徑",
-                state_snapshot="彈出 D -> 鄰居 F == goal！登記 parent['F']='D' | 逆推 F -> D -> B -> A，反轉得 ['A', 'B', 'D', 'F']",
-                explanation=(
-                    "彈出 D，發現鄰居 F 恰好等於目標 goal！立即記錄 parent['F'] = 'D'，接著從 step = 'F' 開始沿著 parent[step] 往回走："
-                    "'F' -> 'D' -> 'B' -> 'A' -> None，得到逆序路徑 ['F', 'D', 'B', 'A']，最後呼叫 path.reverse() 即回傳最短路徑 ['A', 'B', 'D', 'F']。"
-                ),
+                step_label="Step 4：擴散第 3 層命中終點 'F' — 順著 parent 指標反向回溯還原最短路徑",
+                state_snapshot="彈出 'D' -> 鄰居 'F' == goal | parent['F'] = 'D' | 回溯: F -> D -> B -> A => reverse() 得 ['A', 'B', 'D', 'F']",
+                explanation="彈出 'D' 時發現鄰居 'F' 正好等於目標 goal！記錄 parent['F'] = 'D' 後，從 'F' 開始順著 parent 字典一路往回找（F -> D -> B -> A -> None），最後將串列反轉即得到最少步數最短路徑 ['A', 'B', 'D', 'F']。",
             ),
         ),
         pitfalls=(
             PitfallItem(
-                title="陷阱一：BFS 在「彈出佇列（popleft）」時才標記 visited，導致同一節點被重複推入佇列數十次",
-                symptom="在網格地圖或稠密圖跑 BFS 時，雖然最後答案對，但執行時間極慢甚至在 LeetCode 觸發 Memory Limit Exceeded (MLE)。",
-                root_cause_and_fix=(
-                    "根因分析：若等到 curr = queue.popleft() 時才執行 visited.add(curr)，那麼在 curr 還在佇列中排隊等待的期間，"
-                    "其他同樣連向 curr 的節點會發現 curr not in visited 為 True，因而把 curr 重複推入佇列許多次（在網格圖中每層重複率呈指數上升）。"
-                    "正確對策：務必像本章範例第 48–49 行，在「準備將鄰居 nb 推入 queue 的當下」就立即執行 visited.add(nb)（或登記 parent[nb] = curr）！"
-                ),
+                title="陷阱一：在 BFS 中等到「從佇列彈出（popleft）時」才標記 visited，導致重複入佇列爆記憶體",
+                symptom="在網格圖（Grid）或稠密圖執行 BFS 時，同一個節點被周圍多個鄰居重複 append 進 queue 數十次，造成 Memory Limit Exceeded 或 TLE。",
+                root_cause_and_fix="BFS 黃金鐵律：必須在「決定將鄰居節點 nb 推入 queue 的那一瞬間（queue.append(nb) 之前）」就立刻執行 visited.add(nb)（或寫入 parent[nb] = curr）！這樣同層的其他節點再看到 nb 時，就能立刻知道它已經在佇列裡排隊了，確保每個頂點嚴格只入佇列一次。",
             ),
             PitfallItem(
-                title="陷阱二：在「有權重圖（Weighted Graph，每條邊成本不同）」誤用一般 BFS 求最短路徑",
-                symptom="地圖上 A 到 B 有一條直達高速公路（耗時 100 分鐘，1 步），以及一條經由 C 的替代道路（A->C 10 分鐘 + C->B 10 分鐘 = 20 分鐘，2 步），用 BFS 卻選出 100 分鐘的直達路。",
-                root_cause_and_fix=(
-                    "根因分析：標準 BFS 保證的是「最少邊數（Hops）」，而非「最小權重總和」。"
-                    "正確對策：無權重圖（或所有邊權重皆相等）的最短路徑用 BFS O(V + E)；若邊具有非負權重（Non-negative Weights），必須結合第 7 章的最小堆積優先佇列（Min-Heap）改用 **Dijkstra 演算法** O((V + E) log V)。"
-                ),
+                title="陷阱二：在「邊帶有不同正權重（Weighted Graph）」的圖上誤用普通 BFS 求最短路徑",
+                symptom="地圖上 A 直接到 C 距離為 100 公里（1 步），而 A 經 B 到 C 距離為 10 + 10 = 20 公里（2 步），普通 BFS 卻錯誤回傳 A -> C。",
+                root_cause_and_fix="普通 BFS（使用 FIFO deque）求的是「最少邊數（Hops）」。當每條邊的權重完全相等（或無權重）時，最少邊數才等於最短距離；若邊具有不同非負權重，必須將普通佇列替換為「優先佇列（Min-Heap）」，改用 Dijkstra 演算法（複雜度 O((V + E) log V)）。",
             ),
             PitfallItem(
-                title="陷阱三：オブジェクト封裝時直接回傳內部參考 return self._adj[vertex] 破壞封裝安全性",
-                symptom="外部呼叫者拿到 g.neighbors('A') 後對回傳的 list 執行 .append('Z') 或 .clear()，意外竄改了 Graph 內部的鄰接串列結構。",
-                root_cause_and_fix=(
-                    "根因分析：Python 的 list 是可變物件（Mutable），直接回傳內部屬性會暴露私有狀態的記憶體參照（Aliasing Bug）。"
-                    "正確對策：如本章範例第 34 行 def neighbors(self, vertex: T) -> list[T]: return list(self._adj.get(vertex, []))，透過淺拷貝（Shallow Copy）回傳新串列，確保物件導向封裝的不變量。"
-                ),
+                title="陷阱三：在深度極深的圖上使用遞迴 DFS，觸發 Python 預設遞迴上限 RecursionError",
+                symptom="當圖退化為長度超過 1,000 個節點的長鏈時，呼叫遞迴版 dfs() 拋出 RecursionError: maximum recursion depth exceeded。",
+                root_cause_and_fix="CPython 預設的呼叫堆疊深度限制約為 1,000（可由 sys.getrecursionlimit() 查看）。面對節點數 V > 1,000 的大型圖論問題，建議改用「顯式堆疊（Explicit Stack，使用 Python list 迭代 pop/append）」實作非遞迴版 DFS，或改用迭代式 BFS，即可完全避開呼叫堆疊溢位風險。",
             ),
         ),
         leetcode_problems=(
-            LeetCodeProblem(
-                number=200,
-                title="Number of Islands（島嶼數量）",
-                difficulty="Medium",
-                pattern="二維網格圖連通分量（Connected Components）BFS / DFS 染色走訪 ・ 時間 O(M × N) / 空間 O(M × N)",
-            ),
-            LeetCodeProblem(
-                number=994,
-                title="Rotting Oranges（腐爛的橘子）",
-                difficulty="Medium",
-                pattern="多源廣度優先搜尋（Multi-Source BFS）逐層計時擴散 ・ 時間 O(M × N) / 空間 O(M × N)",
-            ),
-            LeetCodeProblem(
-                number=207,
-                title="Course Schedule（課程表先修相依檢查）",
-                difficulty="Medium",
-                pattern="有向圖環路檢測：Kahn 演算法（入度 In-degree + BFS 拓樸排序）或三色標記 DFS ・ 時間 O(V + E)",
-            ),
+            LeetCodeProblem(200, "Number of Islands（島嶼數量）", "Medium", "二維網格連通分量 BFS / DFS 走訪標記 ・ 時間 O(M * N)"),
+            LeetCodeProblem(994, "Rotting Oranges（腐爛的橘子）", "Medium", "多源點廣度優先搜尋（Multi-source BFS）求最少分鐘數 ・ 時間 O(M * N)"),
+            LeetCodeProblem(207, "Course Schedule（課程表相依性檢查）", "Medium", "有向圖環路檢測（Kahn 演算法入度 BFS 拓樸排序 ／ 三色標記 DFS） ・ 時間 O(V + E)"),
+            LeetCodeProblem(133, "Clone Graph（複製無向圖）", "Medium", "Hash Table (舊節點 -> 新節點映射) 搭配 BFS / DFS 深拷貝 ・ 時間 O(V + E)"),
         ),
         interview_faqs=(
             InterviewFAQ(
-                question="Q1：為什麼圖論 BFS 與 DFS 的時間複雜度會寫成 O(V + E)，而不是 O(V × E) 或只寫 O(E)？",
-                answer=(
-                    "在使用鄰接串列（Adjacency List）並搭配 visited 集合時，每個頂點（Vertex）最多只會被放進佇列／遞迴呼叫 1 次，處理頂點本身的總時間為 O(V)；"
-                    "而當某個頂點 u 被取出時，內層 for 迴圈只會巡覽 u 的鄰接邊（Degree of u）。將全圖所有頂點的鄰接邊加總起來，在有向圖剛好等於 E 條邊、無向圖等於 2E 條邊，因此巡覽邊的總時間為 O(E)。"
-                    "之所以必須同時寫出 V + E，是因為若圖中有大量沒有連邊的孤立頂點（V >> E），耗時由 O(V) 主導；若為連通圖（E >= V - 1），則由 O(E) 主導，故寫為 O(V + E) 最為精確。"
-                ),
+                question="為什麼廣度優先搜尋（BFS）的時間複雜度寫作 O(V + E)，而不是 O(V * E)？",
+                answer="因為透過 visited 集合（或 parent 字典）的保護，圖中的每一個頂點（Vertex）最多只會進入佇列一次、並從佇列彈出一次，這部分共耗時 O(V)。而當某個頂點 u 從佇列彈出時，我們只會巡覽它自己的鄰接串列 `_adj[u]`（長度為該點的度數 deg(u)）。將所有頂點的鄰接串列長度加總起來，在有向圖中正好等於總邊數 E（無向圖則為 2E），因此檢查所有邊的總次數為 O(E)。兩階段相加即為線性的 O(V + E)。",
             ),
             InterviewFAQ(
-                question="Q2：面試遇到二維網格題（如迷宮或島嶼數量），什麼時候該選 BFS？什麼時候該選 DFS？",
-                answer=(
-                    "判斷準則非常明確："
-                    "(1) 只要題目問「最少步數」、「最短距離」、「最少經過幾個轉折」或「多源同時擴散需要幾分鐘（如腐爛橘子 LeetCode #994）」，**100% 必選 BFS**，因為 DFS 第一條走到終點的路徑往往是繞遠路的；"
-                    "(2) 若題目問「連通區塊總數（島嶼數量 #200）」、「是否存在任一合法路徑」或「列出所有可能路徑（Backtracking）」，DFS 程式碼更簡短直覺；但若網格高達 1000 × 1000，Python 遞迴 DFS 會觸發 RecursionError，此時改用迭代版 BFS 或顯式 Stack DFS 更為安全。"
-                ),
+                question="在工程程式碼中，為什麼要把鄰接串列 `_adj` 封裝在 `Graph[T]` 類別內，而不是直接把 `dict[str, list[str]]` 裸露在外面操作？",
+                answer="這體現了物件導向設計（OOP）的「封裝（Encapsulation）」與「單一職責原則（SRP）」。若將裸字典暴露在外，每個呼叫處都必須自己處理「頂點尚未存在於字典時的 KeyError」、「無向邊忘記同時寫入雙向 u->v 與 v->u」以及「重複加入相同邊」等瑣碎細節；封裝於 Graph[T] 類別後，資料不變量由 add_vertex 與 add_edge 統一把關，且 neighbors() 回傳淺拷貝 list(self._adj.get(vertex, []))，防止外部程式意外竄改圖的內部結構。",
             ),
             InterviewFAQ(
-                question="Q3：什麼是「拓樸排序（Topological Sort）」？它在軟體工程實務中有哪些核心應用？",
-                answer=(
-                    "拓樸排序是針對「有向無環圖（Directed Acyclic Graph, DAG）」的一種線性排序：如果圖中存在一條從 u 指向 v 的有向邊（代表 u 必須先於 v 完成），那麼在排序結果中 u 必定排在 v 前面。"
-                    "實務上最常見的實作是 **Kahn 演算法（BFS + 入度表 In-degree）**：先將所有入度為 0（沒有任何前置依賴）的節點推入佇列，每次彈出節點時將其下游鄰居的入度減 1，一旦鄰居入度歸零就推入佇列。"
-                    "這正是大學選課擋修檢查（LeetCode #207）、套件管理員（pip / cargo）安裝順序解析、CI/CD Pipeline 任務排程與試算表公式重算引擎的核心演算法。"
-                ),
+                question="什麼是「多源點 BFS（Multi-source BFS）」？它跟跑好幾次單源 BFS 有什麼差別？",
+                answer="當題目有多個起點同時向外擴散（例如 LeetCode #994 多顆腐爛橘子同時傳染新鮮橘子，或 #542 01 矩陣求每個 1 到最近 0 的距離）時，若對每個起點各跑一次 BFS，時間複雜度會高達 O(K * V * E) 而超時。正確做法是在 BFS 初始化時，直接把「所有起點」一起放進同一個 deque 佇列中作為第 0 層，然後啟動唯一一次 BFS 同心圓擴散，就能在 O(V + E) 時間內算出所有節點到最近起點的最短距離。",
             ),
         ),
     ),
-    # =========================================================================
-    # Ch.06 動態規劃與記憶化搜尋
-    # =========================================================================
     ChapterSpec(
         id="ch06",
         badge="Ch.06",
         title="動態規劃與記憶化搜尋（Dynamic Programming & Memoization）",
-        complexity="爬樓梯 O(n) 時間 / O(1) 空間 ・ 0/1 背包 O(N×W) 時間 / O(W) 空間 ・ LIS O(n log n)",
-        summary="破除動態規劃（DP）心魔：從暴力遞迴的重疊子問題出發，掌握狀態轉移方程式、空間壓縮技巧、0/1 背包問題與最長遞增子序列（LIS）。",
+        complexity="爬樓梯狀態壓縮 O(n) 時間 / O(1) 空間 ・ 0/1 背包 O(N×W) ・ LIS 最長遞增子序列 O(n log n)",
+        summary="破除暴力遞迴 O(2^n) 指數級爆炸瓶頸，掌握重疊子問題、最優子結構、一維滾動陣列狀態壓縮與二分優化 LIS。",
         concepts=(
-            "動態規劃兩大核心要素 — 重疊子問題（Overlapping Subproblems）與最佳子結構（Optimal Substructure）：當大問題的最佳解可由子問題的最佳解組合而成，且遞迴過程中不斷重複計算相同子問題時，透過記憶化（Memoization）或自底向上填表（Tabulation）即可將指數級 O(2ⁿ) 時間暴降至多項式時間。",
-            "0/1 背包問題（0/1 Knapsack）一維空間壓縮關鍵：將二維 dp[i][w] 壓縮為一維 dp[w] 時，內層容量迴圈必須「由後往前（capacity 遞減至 weight）」更新，確保每件物品在同一輪只被選取一次；若正序更新則會變成每件物品可無限次選取的「完全背包問題（Unbounded Knapsack）」。",
-            "最長遞增子序列（LIS）從 O(n²) 到 O(n log n) 的維度躍遷：利用貪婪原則維護各長度遞增子序列的「最小結尾元素陣列 tails」，由於 tails 天然嚴格遞增，每次只需以 bisect_left 二分搜尋更新對應位置。",
+            "動態規劃兩大核心條件：「重疊子問題（Overlapping Subproblems）」與「最優子結構（Optimal Substructure）」。透過記錄已算過的子問題答案，避免像暴力遞迴一樣重複計算成千上萬次相同的分支。",
+            "Top-Down 記憶化搜尋 vs. Bottom-Up 狀態轉移表：由上而下（Top-Down）直接在遞迴函式加上快取（如 Python `@functools.cache`）；由下而上（Bottom-Up）則從基底狀態 `dp[0]` 依序往後填表，且常能進一步利用「滾動變數／一維陣列」將空間複雜度壓縮至 O(1) 或 O(W)。",
+            "0/1 背包一維逆序更新關鍵：當將二維 `dp[i][w]` 壓縮為一維 `dp[w]` 時，內層容量迴圈必須「由大到小（capacity -> weight）逆序走訪」，才能確保每件物品在讀取 `dp[cap - w]` 時拿到的是「上一輪尚未放入當前物品」的舊狀態。",
         ),
         file="examples/ch06_dynamic_programming.py",
         lastmod="2026-11-17",
         keywords=(
-            "Python 動態規劃",
-            "Dynamic Programming",
+            "動態規劃",
+            "Dynamic Programming DP",
             "記憶化搜尋 Memoization",
             "0/1 背包問題 Knapsack",
             "最長遞增子序列 LIS",
-            "爬樓梯問題 Climbing Stairs",
+            "爬樓梯 Climbing Stairs",
             "狀態轉移方程式",
-            "LeetCode 300",
+            "LeetCode 70 300 322",
         ),
         deep_intro=(
-            "「動態規劃（Dynamic Programming, DP）」往往是轉職者與學生在準備大廠技術面試時最恐懼的大魔王。"
-            "許多人看到解答直接寫出一行神祕的狀態轉移方程式 dp[i] = dp[i-1] + dp[i-2]，卻不知道這個式子是怎麼推導出來的。"
-            "其實，動態規劃一點都不神祕——它的本質就是**「不重複算已經算過的事」**！"
-            "以爬樓梯問題（每次走 1 或 2 階，問爬到第 n 階有幾種走法）為例：若直接寫暴力遞迴 f(n) = f(n-1) + f(n-2)，計算 f(40) 時 f(38)、f(37) 等相同子問題會被重複展開上億次，時間複雜度高達 O(2ⁿ)。"
-            "只要我們遵循 DP 解題四部曲：(1) 定義狀態意義、(2) 寫出狀態轉移方程式、(3) 確立基底條件（Base Cases）、(4) 決定計算順序與空間壓縮，"
-            "就能從自頂向下的記憶化搜尋（Top-Down Memoization，搭配 Python 3 標準庫 `@functools.cache`），平滑演進到自底向上的填表法（Bottom-Up Tabulation），甚至將空間複雜度壓縮至極致的 O(1)。"
-            "本章一次帶你實作三大經典模型：線性 DP（爬樓梯 O(1) 空間）、區間容量型 DP（0/1 背包問題一維滾動陣列）與子序列型 DP（O(n log n) 最長遞增子序列 LIS）。"
+            "許多初學者與轉職工程師聽到「動態規劃（Dynamic Programming, 簡稱 DP）」就心生畏懼，"
+            "但其實 DP 的本質非常單純：**「記住算過的答案，用空間換取時間，並按照依賴順序由小到大推導出最終解答」**。"
+            "以經典的爬樓梯（Climbing Stairs）為例：要爬到第 n 階，最後一步一定是從第 n-1 階跨 1 步、或是從第 n-2 階跨 2 步上來，"
+            "因此方法數滿足狀態轉移方程式 `f(n) = f(n-1) + f(n-2)`。若直接寫純遞迴，`f(40)` 會重複計算 `f(20)` 上萬次，時間複雜度為恐怖的指數級 O(2^n)；"
+            "但只要我們由下而上從第 0 階、第 1 階開始往後累加，而且只保留前兩階的數值（`prev2`, `prev1`），"
+            "就能在 O(n) 時間、O(1) 額外空間內瞬間算出答案！"
+            "本章進一步帶你掌握面試最常考的兩大進階模型：**0/1 背包一維滾動陣列**與 **O(n log n) 二分搜尋優化之最長嚴格遞增子序列（LIS）**。"
         ),
         comparison_table=ComparisonTable(
-            caption="表 6-1：暴力遞迴、Top-Down 記憶化搜尋、Bottom-Up 表格法與空間壓縮 DP 全方位對照表",
-            headers=(
-                "實作方法 / DP 演進階段",
-                "時間複雜度（以爬樓梯/背包為例）",
-                "空間複雜度",
-                "呼叫堆疊風險（RecursionError）",
-                "實戰選型建議與優缺點",
-            ),
+            caption="動態規劃實作策略（暴力遞迴、記憶化搜尋、二維/一維 DP 與滾動變數壓縮）完整對照表",
+            headers=("實作策略 ／ 演算法模型", "時間複雜度", "空間複雜度", "核心實作機制", "工程與白板題適用場景"),
             rows=(
-                (
-                    "暴力遞迴（Brute-Force Recursion）",
-                    "O(2ⁿ)（指數級爆炸）",
-                    "O(n)（遞迴深度）",
-                    "高（n > 1000 崩潰）",
-                    "僅用於白板題初期推導遞迴關係，n >= 35 即嚴重超時。",
-                ),
-                (
-                    "自頂向下記憶化（Top-Down + @cache）",
-                    "O(n) 或 O(N × W)",
-                    "O(n) 或 O(N × W)（快取表 + 堆疊）",
-                    "中（受限於 sys.getrecursionlimit）",
-                    "思考最直覺！直接照題意寫遞迴加上 @functools.cache，且只會計算真正用到的稀疏子狀態。",
-                ),
-                (
-                    "自底向上填表法（Bottom-Up 2D/1D Array）",
-                    "O(n) 或 O(N × W)",
-                    "O(n) 或 O(N × W)",
-                    "零（純迴圈迭代，絕不爆堆疊）",
-                    "工業級與大測資標準寫法，無函式呼叫開銷且 CPU 快取極為友善。",
-                ),
-                (
-                    "滾動陣列 / 變數狀態壓縮（Space-Optimized）",
-                    "O(n) 或 O(N × W)",
-                    "爬樓梯 O(1) ／ 0/1 背包 O(W)",
-                    "零（純迴圈迭代）",
-                    "面試加分殺手鐧！當第 i 輪狀態只依賴第 i-1 輪時，即可捨棄舊維度大幅節省記憶體。",
-                ),
-                (
-                    "貪婪 + 二分搜尋最佳化 DP（如 LIS tails）",
-                    "O(n log n)（傳統 DP 為 O(n²)）",
-                    "O(n)",
-                    "零（純迴圈 + bisect_left）",
-                    "針對最長遞增子序列（LIS），維護單調 tails 陣列將內層 O(n) 狀態轉移壓縮為 O(log n)。",
-                ),
+                ("暴力遞迴 (Naive Recursion)", "O(2^n) 指數級爆炸", "O(n) 呼叫堆疊", "直接遞迴展開所有分支，無快取", "僅適合 n <= 20 的極小規模枚舉，大測資必 TLE"),
+                ("Top-Down 記憶化搜尋 (Memoization)", "O(狀態總數 × 轉移成本)", "O(狀態總數 + 遞迴深度)", "遞迴搭配 dict 或 @functools.cache", "狀態轉移方向複雜、不需算滿所有狀態的子樹型／區間型 DP"),
+                ("Bottom-Up 標準填表法 (Tabulation)", "O(狀態總數 × 轉移成本)", "O(狀態總數)", "建立一維或二維 dp 陣列由基底迭代填表", "零遞迴呼叫開銷，無 RecursionError 風險，邏輯最直觀"),
+                ("Bottom-Up 空間狀態壓縮 (Space-Optimized)", "O(狀態總數 × 轉移成本)", "O(1) 或降一維 O(W)", "僅保留上一輪計算所需的少數變數或單列陣列", "爬樓梯 O(1) 空間、0/1 背包一維 O(W) 空間面試加分寫法"),
+                ("LIS 二分貪婪優化 (Patience Sorting)", "O(n log n)", "O(n) 維護 tails 陣列", "以 bisect_left 維護各長度遞增子序列之最小結尾", "當 n 高達 10^5 時取代傳統 O(n²) DP 的唯一正解"),
             ),
         ),
-        walkthrough_title="逐步拆解：0/1 背包一維逆序更新（weights=[10,20,30], values=[60,100,120], cap=50）與 LIS 追蹤",
+        walkthrough_title="0/1 背包問題一維滾動陣列逆序更新（knapsack_01）逐步狀態追蹤",
         walkthrough_steps=(
             WalkthroughStep(
-                step_label="Step 1：0/1 背包初始化一維陣列 dp[0..50] 全為 0，處理物品 1（重 10, 價值 60）",
-                state_snapshot="物品 1 (w=10, v=60) 逆序更新 cap=50..10 -> dp[10..50] 全部變為 60",
-                explanation=(
-                    "初始化 dp = [0] * 51，其中 dp[c] 代表「在背包容量上限為 c 時所能獲得的最大價值」。"
-                    "放入第一件物品（w=10, v=60），curr_cap 從 50 逆序往下走到 10，由於 dp[curr_cap - 10] 原本皆為 0，更新後所有容量 >= 10 的格位 dp[10..50] 值皆為 60。"
-                ),
+                step_label="Step 1：初始化一維 DP 陣列（背包容量 capacity = 50）",
+                state_snapshot="dp = [0, 0, ..., 0]（長度 51，代表容量 0 ~ 50 在尚未放入任何物品時最大價值皆為 0）",
+                explanation="建立長度為 capacity + 1 的一維陣列 dp，其中 dp[cap] 代表「在背包容量上限為 cap 時所能獲得的最大總價值」。初始狀態全部填 0。",
             ),
             WalkthroughStep(
-                step_label="Step 2：處理物品 2（重 20, 價值 100）— 為何必須「由後往前（50 -> 20）」更新？",
-                state_snapshot="curr_cap=50..30: max(60, dp[cap-20]+100) = 160 | curr_cap=29..20: max(60, dp[0..9]+100) = 100",
-                explanation=(
-                    "當 curr_cap = 50 時，我們讀取的是「尚未放入物品 2 的上一輪狀態」dp[30]（值為 60），因此 dp[50] = max(60, 60 + 100) = 160（同時選物品 1 與物品 2）；"
-                    "接著當 curr_cap 降到 20 時，讀取 dp[0] = 0，更新 dp[20] = 100。"
-                    "關鍵洞察：若我們「由前往後（20 -> 50）」正序更新，會先把 dp[20] 改成 100，等算到 dp[40] 時就會讀到剛剛改過的 dp[20]=100 再加 100 變成 200（把同一件物品 2 重複放了兩次！）。"
-                ),
+                step_label="Step 2：處理第 1 件物品（重量 w=10, 價值 v=60）— 由 cap=50 逆序更新至 10",
+                state_snapshot="cap = 50..10: dp[cap] = max(dp[cap], dp[cap - 10] + 60) => dp[10..50] 全數更新為 60",
+                explanation="內層迴圈從 cap = 50 往回走到 10。因為讀取的 dp[cap - 10] 都是尚未被本輪修改過的 0，所以容量 10 以上的格子都放入一件物品 1，價值變為 60（不會發生同一件物品被放兩次變成 120 的錯誤）。",
             ),
             WalkthroughStep(
-                step_label="Step 3：處理物品 3（重 30, 價值 120）決策出最終最大價值 220",
-                state_snapshot="curr_cap=50: max(原 dp[50]=160, dp[50-30]+120 = dp[20]+120 = 100+120 = 220) -> dp[50] = 220",
-                explanation=(
-                    "進入物品 3（w=30, v=120）：當 curr_cap = 50 時，比較「不拿物品 3（維持原值 160）」與「拿物品 3（剩餘容量 50 - 30 = 20 的最佳解 dp[20]=100 加上 120 = 220）」，"
-                    "選取較大者 220（即選取物品 2 + 物品 3，總重 20 + 30 = 50，總價值 100 + 120 = 220），最終回傳 dp[50] == 220。"
-                ),
+                step_label="Step 3：處理第 2 件物品（重量 w=20, 價值 v=100）— 逆序決策選或不選",
+                state_snapshot="dp[50..30] = dp[20..0] + 100 = 160（同時裝入物品 1 與 2）| dp[20..29] = 100 | dp[10..19] = 60",
+                explanation="當 cap >= 30 時，比較「不放物品 2（維持 60）」與「空出 20 容量放物品 2（dp[cap-20] + 100 = 60 + 100 = 160）」，更新為 160；當 20 <= cap < 30 時，則更新為單獨放物品 2 的價值 100。",
             ),
             WalkthroughStep(
-                step_label="Step 4：LIS 最長遞增子序列 [10, 9, 2, 5, 3, 7, 101, 18] 的 tails 貪婪演進",
-                state_snapshot="10->[10] | 9->[9] | 2->[2] | 5->[2,5] | 3->[2,3] | 7->[2,3,7] | 101->[2,3,7,101] | 18->[2,3,7,18] (長度 4)",
-                explanation=(
-                    "在 length_of_lis 中，tails[i] 紀錄「長度為 i+1 的遞增子序列中，最小的結尾數字」（結尾越小，後面越容易接上其他數字）。"
-                    "當讀到 3 時，以 bisect_left 在 [2, 5] 中找到索引 1，將 5 替換為更小的結尾 3（變成 [2, 3]）；"
-                    "後續 7 與 101 接在尾端使長度增至 4，最後 18 替換 101 成為 [2, 3, 7, 18]，最終回傳 len(tails) == 4。"
-                ),
+                step_label="Step 4：處理第 3 件物品（重量 w=30, 價值 v=120）— 得出最終最大價值 dp[50] = 220",
+                state_snapshot="cap = 50: max(原 dp[50]=160, dp[50-30] + 120 = 100 + 120 = 220) => dp[50] = 220",
+                explanation="最後處理重量 30、價值 120 的物品 3。在 cap = 50 時，讀取上一輪的 dp[20]（價值 100，代表只放物品 2）加上物品 3 的 120，得到 220 > 160，成功找出最佳組合（選取物品 2 與物品 3，總重 50、總價值 220）。",
             ),
         ),
         pitfalls=(
             PitfallItem(
-                title="陷阱一：混淆「0/1 背包（逆序迴圈）」與「完全背包（正序迴圈）」的內層容量遍歷方向",
-                symptom="在寫硬幣找零（Coin Change，每種硬幣可無限使用）或 0/1 背包（每件物品限用一次）時，憑感覺亂寫 range(w, capacity + 1) 或 range(capacity, w - 1, -1)。",
-                root_cause_and_fix=(
-                    "根因分析：一維滾動陣列 dp[c] 中，左邊的 dp[c - w] 若在同一輪已經被更新過，就代表「已經拿過當前物品一次了」。"
-                    "正確口訣：**「0/1 背包每物限拿一次，容量由大到小逆序跑（避免覆蓋上一輪舊狀態）；完全背包每物可無限拿，容量由小到大正序跑（刻意累加本輪已拿狀態）」**。"
-                ),
+                title="陷阱一：0/1 背包一維陣列將內層容量迴圈寫成「由小到大（正序）」，意外變成無限背包",
+                symptom="在每件物品只能選一次的 0/1 背包題中，內層寫 for cap in range(w, capacity + 1):，算出來的最大價值遠超過正確答案。",
+                root_cause_and_fix="若由小到大正序更新，當計算 dp[10] 時放入了物品 1（重量 10），接著計算 dp[20] 時讀取 dp[20 - 10] 就會讀到「剛剛已經放入過物品 1 的 dp[10]」，導致同一件物品被無限次重複放入！口訣請記牢：0/1 背包一維陣列內層容量必「逆序（由大到小）」；完全背包（每件物品可無限選取）內層容量才用「正序（由小到大）」。",
             ),
             PitfallItem(
-                title="陷阱二：誤以為 LIS 演算法最後的 tails 陣列內容就是「原始的最長遞增子序列本身」",
-                symptom="面試官追問：「請印出最長遞增子序列的實際元素」，候選人直接 return tails，結果當輸入為 [2, 5, 3, 4] 時應是 [2, 3, 4]，但若有個極小值在最後如 [2, 5, 6, 1] 時，tails 會變成 [1, 5, 6]（1 在原陣列明明在 5 和 6 後面！）。",
-                root_cause_and_fix=(
-                    "根因分析：tails[i] 的定義是「長度為 i+1 的遞增子序列之最小結尾值」，用後面的小數字覆寫 tails[0] 只是為了看未來能不能接出更長的序列，並不會改變 tails 的總長度 len(tails)，但 tails 本身並非合法的單一子序列。"
-                    "正確對策：len(tails) 保證 100% 等於 LIS 的正確長度；若題目要求還原實際序列，需額外維護一個 parent_idx 陣列記錄每個元素接在哪個前驅索引後面。"
-                ),
+                title="陷阱二：定義了狀態轉移方程式，卻漏掉或設錯基底狀態（Base Cases）與非法狀態初始化",
+                symptom="在湊零錢（Coin Change）求最少硬幣數時，將 dp 陣列全部初始化為 0，結果所有 min() 計算出來永遠是 0。",
+                root_cause_and_fix="初始化的值必須根據目標是求 max 還是 min 來決定：求最大價值（如背包問題）時，可初始化為 0；但求最小成本／最少步數（如 Coin Change LeetCode #322）時，除基底 dp[0] = 0 外，其餘位置必須初始化為正無限大 float('inf')（或 capacity + 1），否則 min(dp[i], ...) 永遠會被 0 吃掉。",
             ),
             PitfallItem(
-                title="陷阱三：使用 Python 二維陣列初始化時寫出 dp = [[0] * cols] * rows 導致整排連動修改 Bug",
-                symptom="建立二維 DP 表格後執行 dp[0][1] = 99，卻驚見 dp[1][1]、dp[2][1] 每一列的第 1 欄全部同時變成 99！",
-                root_cause_and_fix=(
-                    "根因分析：外層的 * rows 只是將同一個內層 list 物件的參照（Reference）複製了 rows 份，所有列其實指向記憶體中的同一個 list！"
-                    "正確對策：初始化二維 DP 表時，永遠使用串列生成式（List Comprehension）：dp = [[0] * cols for _ in range(rows)]，確保每一列都是獨立配置的 list 物件。"
-                ),
+                title="陷阱三：在最長遞增子序列（LIS）中誤以為 tails 陣列本身的內容就是最終的子序列",
+                symptom="執行 length_of_lis([10, 9, 2, 5, 3, 7, 101, 18]) 時直接把 tails 陣列當成答案印出，發現元素出現順序與原陣列不符。",
+                root_cause_and_fix="在 O(n log n) 的二分貪婪 LIS 演算法中，tails[k] 的嚴格定義是「所有長度為 k+1 的遞增子序列中，結尾最小的那個數值」。用較小的新數值覆蓋 tails 中間元素是為了讓未來更容易接上新數字，這不會改變 tails 的總長度，因此 len(tails) 100% 保證等於 LIS 長度；若題目要求輸出實際子序列本身，則需額外搭配 prev_idx 陣列記錄每個元素的前驅索引再回溯。",
             ),
         ),
         leetcode_problems=(
-            LeetCodeProblem(
-                number=70,
-                title="Climbing Stairs（爬樓梯）",
-                difficulty="Easy",
-                pattern="線性動態規劃與滾動變數空間壓縮 ・ 時間 O(n) / 空間 O(1)",
-            ),
-            LeetCodeProblem(
-                number=322,
-                title="Coin Change（零錢兌換）",
-                difficulty="Medium",
-                pattern="完全背包型一維動態規劃（正序更新最小硬幣數） ・ 時間 O(S × n) / 空間 O(S)",
-            ),
-            LeetCodeProblem(
-                number=300,
-                title="Longest Increasing Subsequence（最長遞增子序列 LIS）",
-                difficulty="Medium",
-                pattern="貪婪單調 tails 陣列 + bisect_left 二分搜尋 ・ 時間 O(n log n) / 空間 O(n)",
-            ),
+            LeetCodeProblem(70, "Climbing Stairs（爬樓梯）", "Easy", "一維線性 DP 與滾動變數 O(1) 空間狀態壓縮 ・ 時間 O(n) / 空間 O(1)"),
+            LeetCodeProblem(198, "House Robber（打家劫捨）", "Medium", "選與不選的狀態轉移 dp[i] = max(dp[i-1], dp[i-2] + nums[i]) ・ 時間 O(n) / 空間 O(1)"),
+            LeetCodeProblem(322, "Coin Change（零錢兌換）", "Medium", "完全背包模型求最少硬幣數 ・ 時間 O(amount * len(coins)) / 空間 O(amount)"),
+            LeetCodeProblem(300, "Longest Increasing Subsequence（最長嚴格遞增子序列）", "Medium", "贪婪維護最小結尾 tails ＋ 二分搜尋 bisect_left ・ 時間 O(n log n)"),
         ),
         interview_faqs=(
             InterviewFAQ(
-                question="Q1：面試時要怎麼快速分辨一道求極值（最大／最小）的題目，應該用「貪婪演算法（Greedy）」還是「動態規劃（Dynamic Programming）」？",
-                answer=(
-                    "關鍵在於檢查「局部最佳選擇（Locally Optimal Choice）是否保證導向全局最佳解」。"
-                    "可以嘗試舉一個簡單的 3～4 元素反例：以硬幣找零為例，若硬幣面額為 [1, 3, 4] 要湊出 6 元，貪婪法每次優先拿最大面額會選出 4 + 1 + 1（共 3 枚），"
-                    "但真正的全局最佳解是 3 + 3（只需 2 枚）！這證明眼前的最大面額會卡死後續組合（不具備貪婪選擇性質），此時就必須使用動態規劃窮舉各子狀態的最佳轉移。"
-                ),
+                question="在白板面試時，面對一道沒見過的動態規劃（DP）題目，標準的「破題四部曲」是什麼？",
+                answer="建議嚴格按照以下四個步驟向面試官闡述思路：1. 定義狀態（State Definition）：明確說出 dp[i]（或 dp[i][j]）代表什麼物理意義（例如「考慮前 i 件物品、容量上限為 j 時的最大價值」）；2. 推導狀態轉移方程式（State Transition）：找出當前狀態如何由規模更小的子問題決策而來（例如「選第 i 件」vs「不選第 i 件」取 max）；3. 確定基底與初始化（Base Cases）：設定 dp[0] 等最小邊界值；4. 決定計算順序與空間壓縮（Iteration Order & Space Optimization）：確認填表方向能保證用到的子問題皆已算出，並評估能否用滾動變數降維。",
             ),
             InterviewFAQ(
-                question="Q2：在 Python 3.9+ 中，使用 @functools.cache（或 @lru_cache(None)）寫 Top-Down 記憶化搜尋有什麼需要注意的記憶體陷阱？",
-                answer=(
-                    "@functools.cache 會將函式所有呼叫過的參數組合 tuple 作為 dict 的 key 永久快取在記憶體中。"
-                    "(1) 所有傳入遞迴函式的參數都必須是可雜湊的（Hashable，不能傳 list，需轉成索引或 tuple）；"
-                    "(2) 若在 LeetCode 的 Solution 類別方法外層或長駐伺服器中使用 @cache，快取不會跨測資自動清空，可能導致記憶體洩漏（Memory Leak）。"
-                    "建議將 @cache 標註在解題方法內部定義的巢狀輔助函式 def dfs(i, rem): 上，讓快取隨單次方法結束自動釋放，或改寫為可做空間壓縮的 Bottom-Up 迭代法。"
-                ),
+                question="Top-Down 記憶化搜尋（Memoization）跟 Bottom-Up 填表法（Tabulation）在實戰中該如何選擇？",
+                answer="若在時間緊迫的線上測驗（OA）或狀態轉移依賴關係較不規則（例如樹形 DP、博弈型區間 DP）時，使用 Python 3.9+ 內建的 `@functools.cache` 裝飾器搭配 Top-Down 遞迴最快且不會算到無效狀態；但在正式技術面試中，將解法改寫為 Bottom-Up 填表法並進一步展示「空間複雜度從 O(n) 壓縮至 O(1)（或從二維 O(N*W) 壓縮至一維 O(W)）」是極具說服力的 Senior 加分亮點，且能徹底免除遞迴呼叫堆疊溢位（RecursionError）的風險。",
             ),
             InterviewFAQ(
-                question="Q3：0/1 背包問題的時間複雜度 O(N × W) 看起來是兩個數字相乘，為什麼在計算複雜度理論中它卻被稱為「偽多項式時間（Pseudo-Polynomial Time）」？",
-                answer=(
-                    "在嚴格的計算理論中，時間複雜度是衡量「運算步數相對於『輸入資料編碼位元長度（Input Bit Length）』的成長率」。"
-                    "物品數量 N 確實代表輸入陣列有 N 個元素，但背包容量 W 是一個「數值（Magnitude）」，在電腦二進位中表示整數 W 只需要 B = log₂(W) 個位元。"
-                    "因此，O(N × W) 若換算成輸入位元長度 B，其實是 O(N × 2ᴮ)（相對於容量位元數呈指數成長！）。所以當題目給定 capacity 高達 10⁹ 時，一維 DP 陣列 O(W) 會直接爆記憶體，此時必須改用折半枚舉（Meet in the Middle）或改以價值總和作為 DP 狀態。"
-                ),
+                question="為什麼求「最長嚴格遞增子序列（LIS）」能從傳統 DP 的 O(n²) 加速到 O(n log n)？關鍵直覺是什麼？",
+                answer="關鍵直覺來自「貪婪（Greedy）思維」：假設目前有兩個長度同為 3 的遞增子序列 `[2, 5, 100]` 與 `[2, 5, 7]`，為了讓後面出現的數字（例如 `8`）更容易接上去變成長度 4，我們永遠只關心「相同長度下，結尾數字越小越好」的那個代表！當我們維護一個記錄各長度最小結尾的陣列 `tails` 時，可以證明 `tails` 必然保持嚴格單調遞增，因此每讀入一個新數字 `x`，就不必像傳統 DP 往回線性掃描 O(n) 個元素，而是直接對 `tails` 執行 O(log n) 的二分搜尋（`bisect_left`）找到替換或擴展位置。",
             ),
         ),
     ),
-    # =========================================================================
-    # Ch.07 堆積、優先佇列與 Top-K 演算法
-    # =========================================================================
     ChapterSpec(
         id="ch07",
         badge="Ch.07",
         title="堆積、優先佇列與 Top-K 演算法（Heap, Priority Queue & Top-K Elements）",
-        complexity="Insert / Pop O(log n) ・ Peek O(1) ・ Top-K 篩選 O(n log k) ・ K 路合併 O(N log K)",
-        summary="深入理解完全二元樹陣列映射與上浮／下沉（Sift-Up / Sift-Down）機制，親手實作泛型 MinHeap 並掌握大數據 Top-K 與多路歸併技巧。",
+        complexity="堆積 Push / Pop O(log n) ・ Top-K 篩選 O(n log k) ・ 合併 K 個排序序列 O(N log K)",
+        summary="深入理解完全二元樹陣列映射與 Sift-Up / Sift-Down 機制，手寫泛型 MinHeap 並實作海量資料 Top-K 與多路合併演算法。",
         concepts=(
-            "完全二元樹的陣列零指標映射：二元堆積（Binary Heap）雖然邏輯上是一棵完全二元樹（Complete Binary Tree），但底層不需配置任何 left/right 指標節點，直接存放在一般陣列（Python list）中！對任意 0-based 索引 i，其父節點必為 (i - 1) // 2，左子節點必為 2*i + 1，右子節點必為 2*i + 2。",
-            "海量資料 Top-K 問題的黃金法則：要在 n 筆資料中找出前 k 大元素，切勿直接對全體資料執行 sorted(nums)[:k]（耗時 O(n log n)、空間 O(n)）；應維護一個容量固定為 k 的「最小堆積（Min-Heap）」，堆頂即為目前前 k 大俱樂部的最低門檻，時間複雜度降至 O(n log k)、空間僅需 O(k)。",
-            "多路歸併（Merge K Sorted Lists / Streams）：利用優先佇列同時追蹤 K 個已排序資料流的當前最小元素，每次在 O(log K) 時間內彈出全局最小值並推入該串列的下一個元素，是分散式資料庫外部排序與日誌時間軸合併的核心演算法。",
+            "二元堆積（Binary Heap）與陣列索引映射：堆積是一棵「完全二元樹（Complete Binary Tree）」，不需使用指標節點，直接用單一陣列即可零浪費儲存：索引 `i` 的父節點為 `(i - 1) // 2`，左子節點為 `2 * i + 1`，右子節點為 `2 * i + 2`。",
+            "海量資料 Top-K 問題的最佳解：若要在 1 億筆資料中找出最大的前 K 筆（例如 K = 10），不需將全部資料排序（耗時 O(n log n) 且塞爆記憶體），只需維護一個容量固定為 K 的「最小堆積（Min-Heap）」，當新元素大於堆頂最小值時即替換下沉，時間複雜度僅 O(n log k)、空間僅 O(k)。",
+            "多路合併（K-Way Merge）：當需要將 K 個已排序的資料流或鏈結串列合併為單一有序序列時，利用最小堆積存放每個序列當前的最小代表元素，每次彈出全局最小值後推入該序列的下一個元素，即可在 O(N log K) 時間內完成。",
         ),
         file="examples/ch07_heap_priority_queue.py",
         lastmod="2026-11-17",
         keywords=(
-            "Python 堆積 Heap",
+            "二元堆積 Binary Heap",
             "優先佇列 Priority Queue",
-            "heapq 教學",
-            "Top-K 問題",
+            "Python heapq 教學",
+            "Top-K 問題演算法",
             "MinHeap 實作",
-            "Merge K Sorted Lists",
-            "完全二元樹",
-            "LeetCode 347",
+            "合併 K 個排序串列",
+            "LeetCode 215 23 347",
+            "Sift-Up Sift-Down",
         ),
         deep_intro=(
-            "在真實世界的後端系統與演算法面試中，我們經常面臨這類動態極值問題：「即時統計全站搜尋量最高的前 10 大熱門關鍵字（Top-K）」、「在急診室或作業系統排程中永遠優先處理權重最高的任務（Priority Queue）」、"
-            "或是「將 50 台伺服器各自按時間排序好的日誌檔合併成單一全局時間軸（Merge K Sorted Streams）」。"
-            "如果使用未排序陣列，每次插入雖只要 O(1)，但要找出最小值卻得掃描全表 O(n)；如果每次插入都重新排序整個陣列，單次更新成本又高達 O(n log n)。"
-            "「二元堆積（Binary Heap）」正是為了打破這個兩難而生的精妙結構：它不要求整棵樹像 BST 那樣完全區分左右大小，只要求滿足一個極簡的**堆積序性質（Heap Property）**——"
-            "在最小堆積（Min-Heap）中，**任何父節點的值永遠小於或等於其左右子節點的值**。"
-            "這保證了全局最小元素永遠穩坐陣列索引 0 的堆頂（O(1) 讀取），且因為完全二元樹的高度嚴格限制為 ⌊log₂ n⌋，無論是插入新元素向上調整（Sift-Up）還是彈出堆頂後向下調整（Sift-Down），最多只需交換 O(log n) 次！"
+            "在作業系統排程、急診室檢傷分類、遊戲尋路演算法（A* / Dijkstra）與即時排行榜系統中，"
+            "我們需要的不是先進先出的普通佇列，而是**「誰的優先順序最高（或數值最小／最大），誰就優先出列」的優先佇列（Priority Queue）**。"
+            "若使用未排序陣列實作，每次插入雖為 O(1)，但每次找最小值卻要花 O(n)；若每次插入都重新完整排序，單次維護又高達 O(n)。"
+            "「二元堆積（Binary Heap）」完美折衷了這兩者：它規定我們不需要讓整棵樹完全排序，只需要維持「每個父節點的值都小於等於（最小堆 Min-Heap）或大於等於（最大堆 Max-Heap）其左右子節點」的堆積序性質（Heap Order Property）。"
+            "如此一來，全局最小（或最大）值永遠穩坐陣列索引 `0` 的堆頂位置（讀取 O(1)），而插入新元素的上浮（Sift-Up）與彈出堆頂後的下沉（Sift-Down）都只需沿著樹高走訪，時間複雜度嚴格控制在對數級 O(log n)！"
         ),
         comparison_table=ComparisonTable(
-            caption="表 7-1：二元堆積（Binary Heap）與其他容器在優先佇列及 Top-K 場景下之複雜度對照表",
-            headers=(
-                "操作項目 / 應用場景",
-                "二元最小堆積（MinHeap / heapq）",
-                "未排序陣列（Unsorted list）",
-                "維持全排序陣列（Sorted list）",
-                "複雜度成因與工程決策",
-            ),
+            caption="優先佇列底層實作方案（二元堆積、未排序陣列、有序陣列與完整排序）效能對照表",
+            headers=("操作項目 ／ 應用場景", "二元堆積（MinHeap / heapq）", "未排序陣列（Unsorted list）", "維持排序陣列（Sorted list）", "一次性完整排序（sorted()）"),
             rows=(
-                (
-                    "查看最小值（peek min）",
-                    "O(1)（直接讀取 heap[0]）",
-                    "O(n)（需全表掃描 min()）",
-                    "O(1)（讀取首尾端）",
-                    "Min-Heap 保證堆頂索引 0 必為全局最小元素。",
-                ),
-                (
-                    "插入新元素（push / insert）",
-                    "O(log n)（尾端附加 + _sift_up）",
-                    "攤銷 O(1)",
-                    "O(n)（bisect 定位 O(log n) + 搬移 O(n)）",
-                    "堆積只需沿父節點路徑向上交換，路徑長度不超過樹高 log₂ n。",
-                ),
-                (
-                    "彈出最小值（pop min）",
-                    "O(log n)（末尾補頂 + _sift_down）",
-                    "O(n)（尋找並搬移）",
-                    "pop(0) 為 O(n) / 逆序 pop() 為 O(1)",
-                    "把最後一個元素移到根節點再向下與較小子節點交換，避免 O(n) 陣列搬移。",
-                ),
-                (
-                    "將現有 n 個元素原地建堆（heapify）",
-                    "O(n)（自底向上 Sift-Down）",
-                    "O(1)（無須處理）",
-                    "O(n log n)（完整排序）",
-                    "heapq.heapify(lst) 級數收斂證明其時間複雜度為線性 O(n)，非 O(n log n)！",
-                ),
-                (
-                    "從 n 筆串流資料求前 k 大（Top-K）",
-                    "時間 O(n log k) ／ 空間 O(k)",
-                    "不適用",
-                    "時間 O(n log n) ／ 空間 O(n)",
-                    "當 n = 10⁸、k = 10 時，大小為 10 的 Min-Heap 僅需極小記憶體即可即時篩選。",
-                ),
+                ("查看極值 (Peek Min / Max)", "O(1) — 直接讀取 _data[0]", "O(n) — 需全陣列線性掃描", "O(1) — 讀取首或尾元素", "排序後 O(1)"),
+                ("插入新元素 (Push / Insert)", "O(log n) — 尾端附加並 _sift_up", "均攤 O(1) — 直接 append", "O(n) — 二分搜尋 O(log n) + 搬移 O(n)", "不支援動態串流插入"),
+                ("彈出極值 (Pop Min / Max)", "O(log n) — 尾端補頂並 _sift_down", "O(n) — 搜尋極值並搬移刪除", "移除尾端 O(1) ／ 移除首端 O(n)", "不支援動態高效重排"),
+                ("將 N 筆現有資料建構為結構", "O(n) — Floyd 自底向上 heapify", "O(n) — 直接複製", "O(n log n)", "O(n log n)"),
+                ("N 筆海量資料求前 K 大 (Top-K)", "時間 O(n log k) ・ 空間 O(k)", "不適用", "時間 O(n * k) ・ 空間 O(k)", "時間 O(n log n) ・ 空間 O(n)"),
+                ("合併 K 個已排序串列（總長 N）", "時間 O(N log K) ・ 空間 O(K)", "時間 O(N * K)", "時間 O(N * K)", "時間 O(N log N) ・ 空間 O(N)"),
             ),
         ),
-        walkthrough_title="逐步拆解：MinHeap 上浮／下沉操作與 Top-K 最大元素篩選四步驟狀態追蹤",
+        walkthrough_title="MinHeap 上浮／下沉維護與固定大小 K 最小堆積篩選 Top-K 逐步追蹤",
         walkthrough_steps=(
             WalkthroughStep(
-                step_label="Step 1：MinHeap 陣列索引映射與插入上浮（_sift_up）",
-                state_snapshot="依序 push 5, 1, 8, 3 -> 插入 1 時與父節點 5 交換：[1, 5] -> 插入 8：[1, 5, 8] -> 插入 3 與父 5 交換：[1, 3, 8, 5]",
-                explanation=(
-                    "當我們對 [1, 5, 8] 執行 push(3) 時，3 先被放到陣列末尾索引 idx = 3。"
-                    "計算其父節點索引 parent = (3 - 1) // 2 = 1（對應值為 5）。因為 3 < 5 違反最小堆積性質，將兩者交換，陣列變為 [1, 3, 8, 5]；"
-                    "繼續向上比較索引 1 的父節點 (1 - 1) // 2 = 0（值為 1），因為 3 >= 1 滿足性質，立即結束上浮。"
-                ),
+                step_label="Step 1：MinHeap 依序插入 [5, 1, 8, 3] — 觀察上浮（_sift_up）過程",
+                state_snapshot="push(5) -> [5] | push(1): 1 < 5 上浮交換 -> [1, 5] | push(8) -> [1, 5, 8] | push(3): 3 < 5 上浮 -> [1, 3, 8, 5]",
+                explanation="當 push(3) 附加至索引 3 時，計算其父節點索引 parent = (3 - 1) // 2 = 1（值為 5）。因為 3 < 5 違反最小堆性質，將 3 與 5 交換；接著比較索引 1 與根節點索引 0（值為 1），1 <= 3 滿足性質，停止上浮。",
             ),
             WalkthroughStep(
-                step_label="Step 2：MinHeap 彈出堆頂與末尾補頂下沉（_sift_down）",
-                state_snapshot="對 [1, 3, 8, 5] 執行 pop() -> 取出堆頂 1，將末尾 5 移至索引 0：[5, 3, 8] -> 與較小子節點 3 交換 -> [3, 5, 8]",
-                explanation=(
-                    "若直接刪除 _data[0] 會造成 O(n) 搬移，因此 pop() 的絕招是：先記下堆頂 top = 1，再用 _data.pop() O(1) 取出最後一個元素 5 覆寫到 _data[0]，變成 [5, 3, 8]。"
-                    "接著從 idx = 0 執行 _sift_down：比較左子節點 (索引 1, 值 3) 與右子節點 (索引 2, 值 8)，挑出較小的子節點 3 與 5 交換，變成 [3, 5, 8]，瞬間恢復合法堆積！"
-                ),
+                step_label="Step 2：呼叫 MinHeap.pop() 彈出堆頂 1 — 尾端元素補位並下沉（_sift_down）",
+                state_snapshot="取出堆頂 1 | 尾端 5 移至索引 0 -> [5, 3, 8] | 5 與較小子節點 3 交換 -> [3, 5, 8]",
+                explanation="彈出最小值 1 後，為了不破壞完全二元樹結構，將陣列最後一個元素 5 移到索引 0。接著執行 _sift_down(0)：比較左子節點 3（索引 1）與右子節點 8（索引 2），選出較小的 3 與 5 交換，堆頂更新為次小值 3。",
             ),
             WalkthroughStep(
-                step_label="Step 3：Top-K 最大元素 — 為什麼找「前 k 大」卻要用「最小堆積（Min-Heap）」？",
-                state_snapshot="nums = [64, 34, 25, 12, 22, 11, 90, -5], k = 3 | 前 3 個入堆後 min_heap = [25, 64, 34]（堆頂守門員 = 25）",
-                explanation=(
-                    "想像我們要選拔全校分數最高的 3 名學生進資優班（容量 k = 3）。我們只需要知道目前班上「第 3 名（最低分守門員）」是幾分即可！"
-                    "用 Min-Heap 存這 3 個人時，堆頂 min_heap[0] 剛好就是目前前 3 大裡面的最小值（25）。"
-                    "接下來讀到 12、22、11 時，因為都沒超過守門員 25，連進堆的資格都沒有，在 O(1) 時間內直接淘汰！"
-                ),
+                step_label="Step 3：Top-3 最大元素篩選（nums = [64, 34, 25, 12, 22, 11, 90]）— 建立容量 3 守門員",
+                state_snapshot="前 3 個元素直接入堆: min_heap = [25, 64, 34]（堆頂 min_heap[0] == 25 為目前第 3 大守門員）",
+                explanation="要找「前 K 大」，我們反而要使用「最小堆積（Min-Heap）」！因為最小堆的堆頂 min_heap[0] 正好是「目前暫居前 K 名當中最弱的守門員（第 K 大）」。後續遇到的 12、22、11 皆小於守門員 25，直接淘汰不入堆。",
             ),
             WalkthroughStep(
-                step_label="Step 4：強者挑戰成功（heapreplace）與 K 路歸併（merge_k_sorted_lists）",
-                state_snapshot="讀到 90 > 堆頂 25 -> heapreplace 踢掉 25 換入 90 -> min_heap 內為 {34, 64, 90}（堆頂新守門員 = 34）",
-                explanation=(
-                    "當讀到 90 時，90 > min_heap[0] (25)，呼叫 heapq.heapreplace(min_heap, 90) 在單次 O(log k) 下沉操作中踢掉 25 並換入 90，新守門員升為 34。"
-                    "最後將這 k 個元素排好即得 [90, 64, 34]。同理，在 merge_k_sorted_lists 中，堆積內永遠只放 K 個串列各自當前的頭元素 (val, list_idx, elem_idx)，"
-                    "每次彈出最小者後，立刻把該串列的下一個元素補進堆積，僅需 O(N log K) 時間即可完成合併。"
-                ),
+                step_label="Step 4：遇到強者 90 > 守門員 25 — 執行 heapreplace 替換並輸出結果",
+                state_snapshot="90 > 25 => heapreplace(min_heap, 90) => min_heap = [34, 64, 90] => 降序輸出 [90, 64, 34]",
+                explanation="掃描到最後一個數字 90 時，90 > min_heap[0] (25)，呼叫 heapq.heapreplace 將 25 踢出並放入 90 下沉調整，最終堆積內留下的 [34, 64, 90] 即為全陣列最大的前 3 名。",
             ),
         ),
         pitfalls=(
             PitfallItem(
-                title="陷阱一：Python 標準庫 heapq 只有「最小堆積」，誤以為可以直接傳 reverse=True 變成最大堆積",
-                symptom="想在 Python 使用最大堆積（Max-Heap，每次彈出最大值），卻發現 heapq.heappush 根本不接受 key 或 reverse 參數。",
-                root_cause_and_fix=(
-                    "根因分析：為了極致效能，Python 標準庫 heapq 僅實作了最小堆積（Min-Heap）。"
-                    "正確對策：若元素為數值（int / float），在 push 入堆時將數值**取負號（heapq.heappush(max_heap, -val)）**，彈出時再取負號還原（-heapq.heappop(max_heap)），"
-                    "原本最大的正數（如 100）取負號後變成最小的負數（-100），就會自動浮上 Min-Heap 的堆頂！"
-                ),
+                title="陷阱一：要找「前 K 大（Top-K Largest）」卻誤用最大堆積，或搞混最小堆／最大堆方向",
+                symptom="把全部 N 個元素都丟進最大堆積再 pop K 次，在串流資料（Data Stream）情境下把記憶體塞爆。",
+                root_cause_and_fix="請記住反向口訣：「求前 K 大，用大小為 K 的最小堆積（Min-Heap 淘汰太小的數）；求前 K 小，用大小為 K 的最大堆積（Max-Heap 淘汰太大的數）」。這樣堆積中永遠只需要保留 K 個元素，空間複雜度嚴格控制在 O(k)。",
             ),
             PitfallItem(
-                title="陷阱二：在 heapq 中推入 (priority, task_object) Tuple 時，因 priority 平手而觸發 TypeError",
-                symptom="在實作合併 K 個鏈結串列或 Dijkstra 時，推入 (node.val, node)，一旦遇到兩個節點 val 相等，立即拋出 TypeError: '<' not supported between instances of 'ListNode' and 'ListNode'。",
-                root_cause_and_fix=(
-                    "根因分析：Python 的 Tuple 比較是按字典序逐欄比對的：當第 0 欄 val 相等時，會自動比較第 1 欄；若第 1 欄是未定義 __lt__ 的自訂物件或 dict，就會直接報錯。"
-                    "正確對策：像本章範例第 102 行那樣，在 Tuple 中間加入一個保證唯一且可比較的整數（如串列索引 list_idx 或遞增序號 tie_breaker）：(val, list_idx, node)，徹底阻斷比較落入自訂物件。"
-                ),
+                title="陷阱二：Python 標準庫 heapq 只有最小堆積（Min-Heap），需要最大堆積時不知所措",
+                symptom="在實作雙堆積求資料流中位數（LeetCode #295）或最大優先佇列時，找不到 MaxHeap 類別可用。",
+                root_cause_and_fix="Python 的 heapq 模組僅實作了最小堆積。若需要數值型別的最大堆積，最簡潔的工程慣用法是「存入時將數值取負號 `heapq.heappush(max_heap, -val)`，取出時再加負號還原 `-heapq.heappop(max_heap)`」；因為數值越大，加上負號後越小，就會自動浮到最小堆的堆頂！",
             ),
             PitfallItem(
-                title="陷阱三：把 heap 當作已排序陣列直接切片或索引（以為 heap[1] 就是第二小元素）",
-                symptom="對一個已經 heapify 的陣列執行 heap[0], heap[1], heap[2]，以為這樣就能依序拿到第 1 小、第 2 小、第 3 小的元素。",
-                root_cause_and_fix=(
-                    "根因分析：最小堆積只保證「父節點 <= 子節點（所以 heap[0] 必為第 1 小）」，但完全不保證左子節點 heap[1] 與右子節點 heap[2] 誰大誰小，更不保證同層節點的順序！"
-                    "正確對策：若要依序取出最小元素，必須透過迴圈不斷呼叫 heapq.heappop(heap)（每次耗時 O(log n)），才能觸發 _sift_down 將真正的次小元素推舉至堆頂。"
-                ),
+                title="陷阱三：將 `(priority, obj)` 放入 heapq 時，當 priority 相同卻因 obj 無法比較大小而拋出 TypeError",
+                symptom="在合併 K 個鏈結串列（LeetCode #23）或自訂任務排程時寫 `heappush(heap, (node.val, node))`，當兩個節點的 val 相等時拋出 `TypeError: '<' not supported between instances of 'ListNode' and 'ListNode'`。",
+                root_cause_and_fix="Python 比較 Tuple 時是逐欄由左往右比對：當第 0 欄的數值相等（Tie）時，會自動比較第 1 欄！若第 1 欄是不支援 `<` 運算子的自訂物件就會崩潰。標準解法是在中間插入一個永不重複的遞增序號或列表索引 `(val, list_idx, node)`（正如本章 `merge_k_sorted_lists` 的實作），讓平手時在第 2 欄就分出勝負。",
             ),
         ),
         leetcode_problems=(
-            LeetCodeProblem(
-                number=215,
-                title="Kth Largest Element in an Array（陣列中的第 K 個最大元素）",
-                difficulty="Medium",
-                pattern="大小固定為 K 之最小堆積（Min-Heap）或 Quickselect ・ 時間 O(n log k) / 空間 O(k)",
-            ),
-            LeetCodeProblem(
-                number=347,
-                title="Top K Frequent Elements（前 K 個高頻元素）",
-                difficulty="Medium",
-                pattern="Counter 雜湊計數 + 大小為 K 之最小堆積篩選 (freq, num) ・ 時間 O(n log k) / 空間 O(n)",
-            ),
-            LeetCodeProblem(
-                number=23,
-                title="Merge k Sorted Lists（合併 K 個升序鏈結串列）",
-                difficulty="Hard",
-                pattern="優先佇列（Min-Heap）維護 K 個串列頭指標 ・ 時間 O(N log K) / 空間 O(K)",
-            ),
+            LeetCodeProblem(215, "Kth Largest Element in an Array（陣列中的第 K 個最大元素）", "Medium", "維護大小為 K 的最小堆積（Min-Heap） ・ 時間 O(n log k) / 空間 O(k)"),
+            LeetCodeProblem(347, "Top K Frequent Elements（前 K 個高頻元素）", "Medium", "Counter 雜湊計數 ＋ 大小為 K 的最小堆積篩選頻率 ・ 時間 O(n log k)"),
+            LeetCodeProblem(23, "Merge k Sorted Lists（合併 K 個升序鏈結串列）", "Hard", "Min-Heap 存放 (val, list_idx, elem_idx) 多路合併 ・ 時間 O(N log K)"),
+            LeetCodeProblem(295, "Find Median from Data Stream（資料流的中位數）", "Hard", "對頂雙堆積（左半最大堆 + 右半最小堆平衡大小） ・ 插入 O(log n) / 查詢 O(1)"),
         ),
         interview_faqs=(
             InterviewFAQ(
-                question="Q1：為什麼將現有長度為 n 的無序陣列原地轉為堆積（heapq.heapify），時間複雜度是線性的 O(n)，而不是 n 次插入的 O(n log n)？",
-                answer=(
-                    "如果從空堆積開始逐一呼叫 n 次 push（由下而上 Sift-Up），因為佔總數一半的底層葉節點都需要往上交換 log₂ n 層，總時間確實是 O(n log n)。"
-                    "但 heapq.heapify(arr) 採用的是「Floyd 自底向上下沉法（Bottom-Up Sift-Down）」：從最後一個非葉節點（索引 n // 2 - 1）開始往索引 0 逆序執行 _sift_down。"
-                    "關鍵在於：佔節點總數 50% 的最底層葉節點根本不需要下沉（0 步），佔 25% 的倒數第二層最多只下沉 1 步，佔 12.5% 的倒數第三層最多下沉 2 步……"
-                    "根據錯位相減級數求和 Σ (n / 2^(h+1)) * h ≤ n * Σ (h / 2^h) = 2n，總交換次數上限嚴格不超過 2n，因此時間複雜度是極速的線性 O(n)！"
-                ),
+                question="為什麼完全二元樹（Complete Binary Tree）可以直接用一維陣列儲存，而一般的二元搜尋樹（BST）卻必須用指標節點（Node.left / Node.right）？",
+                answer="因為二元堆積嚴格規定樹的結構必須是「完全二元樹」——除了最後一層外每一層都完全填滿，且最後一層的節點全部緊靠左側排列，中間絕不會出現任何空洞。在沒有空洞的前提下，若按廣度優先（由上到下、由左到右）為節點編號 0, 1, 2...，就能用純數學公式 `left = 2*i + 1`、`right = 2*i + 2` 與 `parent = (i - 1) // 2` 精確算出父子關係，完全省去指標記憶體開銷；相反地，一般 BST 可能呈現任意歪斜形狀，若硬用陣列存會產生大量空白浪費。",
             ),
             InterviewFAQ(
-                question="Q2：在面試被問到「從 1 億筆資料中找出前 10 大（Top-10）」時，為什麼用大小為 k 的最小堆積 O(n log k) 比先 heapify 全體再 pop k 次 O(n + k log n) 更受青睞？",
-                answer=(
-                    "關鍵在於**「記憶體限制（Space Complexity）與串流處理能力（Streaming）」**！"
-                    "若採用 heapify 全體資料，你必須先把 1 億筆資料全部載入記憶體（耗費數 GB 空間），且無法處理源源不絕的即時資料流；"
-                    "反之，維護一個大小固定為 k = 10 的最小堆積，記憶體中永遠只需要存放 10 個元素（空間複雜度 O(k)），每讀進一筆新資料只需與堆頂比較（99.99% 的資料甚至連堆都進不去就在 O(1) 被過濾掉），完美契合大數據與分散式系統的工程需求。"
-                ),
+                question="將 N 個無序元素逐一呼叫 push() 塞進空堆積需要 O(n log n)，為什麼呼叫 `heapq.heapify(arr)` 原地建堆只需要線性的 O(n) 時間？",
+                answer="因為 `heapify()` 採用的是「Floyd 自底向上下沉法（Bottom-Up Sift-Down）」：陣列後半部（約 N/2 個元素）全都是沒有子節點的葉節點，根本不需要調整（耗時 0）；倒數第二層（約 N/4 個節點）最多只需下沉 1 層；倒數第三層（約 N/8 個節點）最多只需下沉 2 層……只有唯一的根節點最多需要下沉 log2(N) 層。根據級數求和 `Σ (N / 2^(h+1)) * h`，當 h 從 1 加到 log N 時，級數收斂上界為 2N，因此總時間複雜度是嚴格的線性 O(n)！",
             ),
             InterviewFAQ(
-                question="Q3：Python 標準庫裡同時有 heapq 跟 queue.PriorityQueue，在寫演算法與後端開發時該如何選擇？",
-                answer=(
-                    "queue.PriorityQueue 其實只是在 heapq 外層包了一層 threading.Lock 互斥鎖，以提供多執行緒安全（Thread-Safety）。"
-                    "在單執行緒的演算法面試（LeetCode）、資料分析或 asyncio 協程中，每次呼叫 PriorityQueue.put() / get() 都會平白付出鎖競爭與函式封裝的沉重開銷，速度比直接使用 heapq 慢上數倍。"
-                    "因此：除非你正在撰寫多執行緒（threading）共享佇列，否則一律直接使用輕量高效的 heapq 模組。"
-                ),
+                question="在 `top_k_largest` 中，為什麼當 `num > min_heap[0]` 時呼叫 `heapq.heapreplace(min_heap, num)` 比先 `heappop` 再 `heappush` 更快？",
+                answer="若先呼叫 `heappop()` 再呼叫 `heappush()`，會先經歷一次完整的下沉（Sift-Down），再經歷一次從底部的上浮（Sift-Up），共兩趟樹高調整。而當我們已經確定新元素 `num` 比堆頂 `min_heap[0]` 更大時，直接呼叫 `heapq.heapreplace(min_heap, num)` 會一步到位把堆頂替換成 `num` 並只執行唯一一次下沉（Sift-Down），常數時間開銷直接減半。",
             ),
         ),
     ),

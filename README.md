@@ -30,13 +30,13 @@ https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd
 
 | 章節 | 主題名稱 | 核心學習重點 | 對應範例程式 |
 | :---: | :--- | :--- | :--- |
-| **Ch.01** | **陣列與單向鏈結串列（Array & Singly Linked List）** | 連續記憶體存取 $O(1)$ vs. 節點指標串接、插入與刪除、原地反轉 | `examples/ch01_array_linked_list.py` |
-| **Ch.02** | **堆疊與佇列（Stack & Queue）** | 後進先出（LIFO）括號匹配檢查 vs. 先進先出（FIFO）雙端佇列模型 | `examples/ch02_stack_queue.py` |
-| **Ch.03** | **搜尋與排序演算法（Search & Sort）** | 二分搜尋法 $O(\log n)$、合併排序法（Merge Sort）$O(n \log n)$ | `examples/ch03_search_sort.py` |
-| **Ch.04** | **雜湊表與二元搜尋樹（Hash Table & BST）** | 鏈結法碰撞處理、Two Sum $O(n)$ 解法、二元搜尋樹中序走訪 | `examples/ch04_hash_bst.py` |
-| **Ch.05** | **圖論走訪與物件導向設計（Graph BFS / DFS & OOP）** | 泛型鄰接表封裝、廣度優先搜尋最短路徑、深度優先搜尋走訪 | `examples/ch05_graph_oop.py` |
-| **Ch.06** | **動態規劃與記憶化搜尋（Dynamic Programming & Memoization）** | 爬樓梯狀態壓縮 $O(1)$ 空間、0/1 背包一維逆序更新、最長遞增子序列 LIS $O(n \log n)$ | `examples/ch06_dynamic_programming.py` |
-| **Ch.07** | **堆積、優先佇列與 Top-K 演算法（Heap, Priority Queue & Top-K）** | 完全二元樹陣列映射 `MinHeap` 上浮/下沉、Top-K 篩選 $O(n \log k)$、合併 K 個排序串列 | `examples/ch07_heap_priority_queue.py` |
+| **Ch.01** | **陣列與單向鏈結串列（Array & Singly Linked List）** | 連續記憶體存取 $O(1)$ vs. 節點指標串接、插入、刪除與三指標原地反轉 | `examples/ch01_array_linked_list.py` |
+| **Ch.02** | **堆疊與佇列（Stack & Queue）** | 後進先出（LIFO）括號匹配檢查 vs. 先進先出（FIFO）雙端佇列排隊模型 | `examples/ch02_stack_queue.py` |
+| **Ch.03** | **搜尋與排序演算法（Search & Sort）** | 二分搜尋法 $O(\log n)$、合併排序法（Merge Sort）$O(n \log n)$ 分治實作 | `examples/ch03_search_sort.py` |
+| **Ch.04** | **雜湊表與二元搜尋樹（Hash Table & BST）** | 鏈結法碰撞處理、Two Sum $O(n)$ 解法、二元搜尋樹中序遞增走訪 | `examples/ch04_hash_bst.py` |
+| **Ch.05** | **圖論走訪與物件導向設計（Graph BFS / DFS & OOP）** | 泛型鄰接表封裝、廣度優先搜尋無權重最短路徑、深度優先搜尋走訪 | `examples/ch05_graph_oop.py` |
+| **Ch.06** | **動態規劃與記憶化搜尋（Dynamic Programming & Memoization）** | 爬樓梯 $O(1)$ 空間狀態壓縮、0/1 背包一維滾動陣列、二分優化 LIS $O(n \log n)$ | `examples/ch06_dynamic_programming.py` |
+| **Ch.07** | **堆積、優先佇列與 Top-K 演算法（Heap, Priority Queue & Top-K）** | 手寫泛型最小二元堆積 `MinHeap`、海量資料 Top-K 篩選、合併 $K$ 個排序序列 | `examples/ch07_heap_priority_queue.py` |
 
 ## 執行範例、單元測試與靜態網站建置
 
@@ -53,6 +53,6 @@ python3 examples/ch07_heap_priority_queue.py
 # 執行完整單元測試套件
 python3 -W error -m unittest discover -s tests -v
 
-# 建置 GitHub Pages 靜態教學網站至 _site/
+# 建置 GitHub Pages 靜態教學網站至 _site/index.html 與 _site/ch01.html..ch07.html
 python3 build_site.py -o _site
 ```

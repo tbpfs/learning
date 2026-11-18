@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 """
 build_site.py - Static Site Generator for GitHub Pages (`tbpfs/learning`).
-Zero external dependencies. Reads examples/ch01..ch07 and structured deep-dive content from
-`chapter_content.py`, executes each script once to capture live stdout, and renders:
-  - `_site/index.html` (Course Hub with executable sandbox & deep-dive callouts)
-  - `_site/ch01.html` .. `_site/ch07.html` (Standalone 1,200+ CJK char deep-dive tutorials)
-  - `_site/llms.txt`, `_site/llms-full.txt`, `_site/sitemap.xml`, `_site/robots.txt`, `_site/ads.txt`
+Zero external dependencies. Reads examples/ch01..ch07, executes each once to capture live output,
+and renders an SEO/GEO-optimized tutorial portal (`index.html` Hub + `ch01.html`..`ch07.html` Deep-Dive Spokes).
 """
 
 from __future__ import annotations
@@ -28,6 +25,7 @@ ADSENSE_PUBLISHER_ID = "pub-6485917848711473"
 ADSENSE_CLIENT_ID = f"ca-{ADSENSE_PUBLISHER_ID}"
 ADSENSE_IN_ARTICLE_SLOT_ID = "1673180799"
 INDEXNOW_KEY = "7f4e9c2a8b1d6035e4a92c7f1b8d3e60"
+SITE_LASTMOD = "2026-11-17"
 
 
 def run_example(rel_path: str) -> tuple[str, str]:
@@ -46,7 +44,7 @@ def run_example(rel_path: str) -> tuple[str, str]:
 
 
 def execute_all_examples(chapters: Sequence[ChapterSpec]) -> dict[str, tuple[str, str]]:
-    """Execute each chapter script exactly once and cache (source_code, live_output) by chapter ID."""
+    """Execute each chapter script exactly once and cache (source_code, live_output) in memory."""
     cache: dict[str, tuple[str, str]] = {}
     for ch in chapters:
         cache[ch.id] = run_example(ch.file)
@@ -75,13 +73,23 @@ def render_ad_slot(slot_label: str) -> str:
 
 
 def render_json_ld_script(payload: dict[str, Any]) -> str:
-    """Serialize Schema.org JSON-LD safely via json.dumps."""
-    dumped = json.dumps(payload, ensure_ascii=False, indent=2)
-    return f'  <script type="application/ld+json">\n{dumped}\n  </script>'
+    """Serialize structured data safely via json.dumps to prevent broken JSON quotes."""
+    serialized = json.dumps(payload, ensure_ascii=False, indent=2)
+    indented = "\n".join(f"  {line}" for line in serialized.splitlines())
+    return f'  <script type="application/ld+json">\n{indented}\n  </script>'
 
 
 def build_index_json_ld(chapters: Sequence[ChapterSpec], chapter_titles_short: str) -> dict[str, Any]:
-    """Build Course + hasPart JSON-LD for the root index page."""
+    """Build Schema.org Course JSON-LD with hasPart linking to all standalone chapter TechArticles."""
+    has_part = [
+        {
+            "@type": "TechArticle",
+            "@id": f"https://learn.ai-purplemaple.com/{ch.id}.html#article",
+            "headline": f"{ch.badge} {ch.title}",
+            "url": f"https://learn.ai-purplemaple.com/{ch.id}.html",
+        }
+        for ch in chapters
+    ]
     return {
         "@context": "https://schema.org",
         "@type": "Course",
@@ -90,6 +98,7 @@ def build_index_json_ld(chapters: Sequence[ChapterSpec], chapter_titles_short: s
         "description": f"紫楓（AI王紫楓 / Purple Maple）開設之 Python 3.12 資料結構、演算法與物件導向實戰教學課程，涵蓋 {chapter_titles_short}。",
         "url": "https://learn.ai-purplemaple.com/",
         "inLanguage": "zh-TW",
+        "dateModified": SITE_LASTMOD,
         "isPartOf": {
             "@type": "WebSite",
             "@id": "https://ai-purplemaple.com/#website",
@@ -102,20 +111,12 @@ def build_index_json_ld(chapters: Sequence[ChapterSpec], chapter_titles_short: s
             "name": "紫楓 (AI王紫楓 / Purple Maple)",
             "url": "https://ai-purplemaple.com/",
         },
-        "hasPart": [
-            {
-                "@type": "TechArticle",
-                "@id": f"https://learn.ai-purplemaple.com/{ch.id}.html#article",
-                "name": f"{ch.badge} {ch.title}",
-                "url": f"https://learn.ai-purplemaple.com/{ch.id}.html",
-            }
-            for ch in chapters
-        ],
+        "hasPart": has_part,
     }
 
 
 def build_chapter_json_ld(ch: ChapterSpec) -> dict[str, Any]:
-    """Build @graph JSON-LD (TechArticle + FAQPage + BreadcrumbList) for a standalone chapter page."""
+    """Build per-chapter Schema.org @graph with TechArticle, FAQPage, and BreadcrumbList."""
     ch_url = f"https://learn.ai-purplemaple.com/{ch.id}.html"
     creator_ref = {
         "@type": "Person",
@@ -186,7 +187,173 @@ def build_chapter_json_ld(ch: ChapterSpec) -> dict[str, Any]:
     }
 
 
-SHARED_CSS = """    :root {
+def render_comparison_table(table: ComparisonTable) -> str:
+    """Render an accessible, mobile-scrollable HTML comparison table."""
+    ths = "".join(f'<th scope="col">{html.escape(h)}</th>' for h in table.headers)
+    body_rows: list[str] = []
+    for row in table.rows:
+        first_cell = f'<th scope="row">{html.escape(row[0])}</th>'
+        other_cells = "".join(f"<td>{html.escape(cell)}</td>" for cell in row[1:])
+        body_rows.append(f"              <tr>{first_cell}{other_cells}</tr>")
+    rows_html = "\n".join(body_rows)
+    return f"""
+        <div class="table-responsive">
+          <table class="comparison-table">
+            <caption>📊 {html.escape(table.caption)}</caption>
+            <thead>
+              <tr>{ths}</tr>
+            </thead>
+            <tbody>
+{rows_html}
+            </tbody>
+          </table>
+        </div>"""
+
+
+def render_walkthrough(ch: ChapterSpec) -> str:
+    """Render step-by-step memory & pointer state walkthrough cards."""
+    steps_html: list[str] = []
+    for step in ch.walkthrough_steps:
+        steps_html.append(
+            f"""
+          <div class="step-card">
+            <div class="step-title">{html.escape(step.step_label)}</div>
+            <div class="state-pill"><code>{html.escape(step.state_snapshot)}</code></div>
+            <p class="step-desc">{html.escape(step.explanation)}</p>
+          </div>"""
+        )
+    return f"""
+      <section class="chapter-card" id="walkthrough">
+        <h2>🔍 {html.escape(ch.walkthrough_title)}</h2>
+        <div class="walkthrough-grid">
+{"".join(steps_html)}
+        </div>
+      </section>"""
+
+
+def render_pitfalls(ch: ChapterSpec) -> str:
+    """Render CPython 3.12 runtime internals & common implementation pitfalls."""
+    items_html: list[str] = []
+    for pf in ch.pitfalls:
+        items_html.append(
+            f"""
+          <div class="pitfall-card">
+            <h3>⚠️ {html.escape(pf.title)}</h3>
+            <p class="pitfall-symptom"><strong>常見錯誤現象：</strong>{html.escape(pf.symptom)}</p>
+            <p class="pitfall-fix"><strong>CPython 底層根因與正確對策：</strong>{html.escape(pf.root_cause_and_fix)}</p>
+          </div>"""
+        )
+    return f"""
+      <section class="chapter-card" id="pitfalls">
+        <h2>🛠️ Python 3.12 底層實作原理與常見實戰陷阱</h2>
+        <div class="pitfall-list">
+{"".join(items_html)}
+        </div>
+      </section>"""
+
+
+def render_interview_section(ch: ChapterSpec) -> str:
+    """Render LeetCode problem mapping table and expandable interview FAQs."""
+    lc_rows: list[str] = []
+    for lc in ch.leetcode_problems:
+        lc_rows.append(
+            f"              <tr>"
+            f'<th scope="row">LeetCode #{lc.number}</th>'
+            f"<td>{html.escape(lc.title)}</td>"
+            f"<td><span class=\"diff-badge\">{html.escape(lc.difficulty)}</span></td>"
+            f"<td>{html.escape(lc.pattern)}</td>"
+            f"</tr>"
+        )
+    lc_rows_html = "\n".join(lc_rows)
+
+    faq_items: list[str] = []
+    for faq in ch.interview_faqs:
+        faq_items.append(
+            f"""
+          <details class="faq-item" open>
+            <summary>💬 {html.escape(faq.question)}</summary>
+            <div class="faq-answer">
+              <p>{html.escape(faq.answer)}</p>
+            </div>
+          </details>"""
+        )
+
+    return f"""
+      <section class="chapter-card" id="interview-faq">
+        <h2>🎯 LeetCode 經典必刷題號與軟體工程師技術面試 FAQ</h2>
+        <div class="table-responsive">
+          <table class="comparison-table">
+            <caption>💼 {html.escape(ch.badge)} 對應 LeetCode 必考白板題與解題模板</caption>
+            <thead>
+              <tr>
+                <th scope="col">題號</th>
+                <th scope="col">題目名稱</th>
+                <th scope="col">難度</th>
+                <th scope="col">核心解題模式與複雜度</th>
+              </tr>
+            </thead>
+            <tbody>
+{lc_rows_html}
+            </tbody>
+          </table>
+        </div>
+        <div class="faq-list">
+{"".join(faq_items)}
+        </div>
+      </section>"""
+
+
+def render_deep_dive_callout(ch: ChapterSpec) -> str:
+    """Render an asymmetric information-gain callout on index.html linking to the standalone deep-dive page."""
+    faq_previews = "\n".join(
+        f'            <li><a href="{ch.id}.html#interview-faq">{html.escape(faq.question)}</a></li>'
+        for faq in ch.interview_faqs
+    )
+    lc_badges = " ・ ".join(f"LeetCode #{lc.number}" for lc in ch.leetcode_problems)
+    return f"""
+        <div class="deep-dive-callout">
+          <div class="deep-dive-callout-header">
+            <strong>📖 {html.escape(ch.badge)} 獨立深度講義獨家收錄內容（點擊展開完整教學專論）</strong>
+            <span class="lc-tag-row">{html.escape(lc_badges)}</span>
+          </div>
+          <p class="deep-dive-table-hint">📊 <strong>完整結構化對照表：</strong><a href="{ch.id}.html#comparison">{html.escape(ch.comparison_table.caption)}</a></p>
+          <p class="deep-dive-table-hint">🎯 <strong>本章軟體工程師面試必考問答預告：</strong></p>
+          <ul class="deep-dive-faq-preview">
+{faq_previews}
+          </ul>
+          <div class="deep-dive-action">
+            <a class="btn btn-primary" href="{ch.id}.html">閱讀 {html.escape(ch.badge)} 完整深度講義（複雜度表 ＋ 逐步圖解 ＋ 面試詳解） →</a>
+          </div>
+        </div>"""
+
+
+def render_chapter_pager(idx: int, chapters: Sequence[ChapterSpec]) -> str:
+    """Render Prev / Home (/) / Next navigation bar at the bottom of standalone chapter pages."""
+    prev_ch = chapters[idx - 1] if idx > 0 else None
+    next_ch = chapters[idx + 1] if idx + 1 < len(chapters) else None
+
+    prev_html = (
+        f'<a class="pager-link" href="{prev_ch.id}.html">← 上一章：{html.escape(prev_ch.badge + " " + prev_ch.title.split("（")[0])}</a>'
+        if prev_ch
+        else '<span class="pager-link pager-disabled">← 已是第一章</span>'
+    )
+    next_html = (
+        f'<a class="pager-link" href="{next_ch.id}.html">下一章：{html.escape(next_ch.badge + " " + next_ch.title.split("（")[0])} →</a>'
+        if next_ch
+        else '<span class="pager-link pager-disabled">已是最後一章 →</span>'
+    )
+    return f"""
+      <nav class="chapter-pager" aria-label="上下章節導覽">
+        {prev_html}
+        <a class="pager-link pager-home" href="/">🏠 返回全章節總目錄</a>
+        {next_html}
+      </nav>"""
+
+
+def render_shared_styles() -> str:
+    """Return shared CSS styles including RWD .table-responsive and deep-dive components."""
+    return """  <style>
+    :root {
       --bg: #0f101a;
       --surface: #181a29;
       --surface-alt: #1f2235;
@@ -235,8 +402,8 @@ SHARED_CSS = """    :root {
     }
     .hero h1 {
       margin: 0 0 0.75rem;
-      font-size: clamp(1.55rem, 3.2vw, 2.2rem);
-      line-height: 1.32;
+      font-size: clamp(1.6rem, 3.2vw, 2.25rem);
+      line-height: 1.3;
     }
     .hero p {
       margin: 0.5rem 0;
@@ -271,11 +438,11 @@ SHARED_CSS = """    :root {
       color: var(--text);
       border: 1px solid var(--border);
     }
-    nav.toc {
+    nav.toc, nav.chapter-switcher {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 0.9rem;
-      margin-bottom: 2.25rem;
+      margin-bottom: 1.75rem;
     }
     .toc-item {
       background: var(--surface);
@@ -283,13 +450,14 @@ SHARED_CSS = """    :root {
       border-radius: 12px;
       padding: 0.95rem 1.15rem;
       display: block;
-      transition: border-color 0.15s ease;
+      transition: border-color 0.15s ease, background 0.15s ease;
     }
-    .toc-item:hover, .toc-item[aria-current="page"] {
+    .toc-item:hover {
       border-color: var(--accent);
       text-decoration: none;
     }
     .toc-item[aria-current="page"] {
+      border-color: var(--accent);
       background: rgba(167, 139, 250, 0.12);
     }
     .toc-item strong {
@@ -298,27 +466,26 @@ SHARED_CSS = """    :root {
       margin-top: 0.25rem;
       font-size: 0.95rem;
     }
-    .section-toc {
+    .section-subnav {
       display: flex;
       flex-wrap: wrap;
       gap: 0.6rem;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 0.85rem 1.1rem;
-      margin-bottom: 1.75rem;
+      padding: 0.75rem 1rem;
+      margin-bottom: 2rem;
       font-size: 0.88rem;
     }
-    .section-toc a {
+    .section-subnav a {
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
       background: var(--surface-alt);
-      border: 1px solid var(--border);
-      padding: 0.3rem 0.75rem;
-      border-radius: 999px;
       color: var(--text);
     }
-    .section-toc a:hover {
-      border-color: var(--accent);
-      color: var(--accent);
+    .section-subnav a:hover {
+      background: var(--accent-strong);
+      color: #ffffff;
       text-decoration: none;
     }
     .chapter-card {
@@ -327,6 +494,11 @@ SHARED_CSS = """    :root {
       border-radius: 16px;
       padding: 1.75rem;
       margin-bottom: 2rem;
+    }
+    .chapter-card h2 {
+      margin: 0 0 1rem;
+      font-size: 1.32rem;
+      color: var(--text);
     }
     .chapter-header {
       display: flex;
@@ -348,15 +520,10 @@ SHARED_CSS = """    :root {
       margin: 0;
       font-size: 1.35rem;
     }
-    .chapter-summary {
+    .chapter-summary, .deep-intro-text {
       color: var(--muted);
-      margin: 0.5rem 0 1rem;
-    }
-    .deep-intro-text {
-      color: var(--text);
-      margin: 0.75rem 0 1.25rem;
-      font-size: 0.98rem;
-      line-height: 1.78;
+      margin: 0.5rem 0 1.15rem;
+      font-size: 0.97rem;
     }
     .meta-bar {
       display: flex;
@@ -368,6 +535,193 @@ SHARED_CSS = """    :root {
       padding: 0.65rem 1rem;
       border-radius: 10px;
       margin-bottom: 1rem;
+    }
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 1rem 0 1.35rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-alt);
+    }
+    table.comparison-table {
+      width: 100%;
+      min-width: 560px;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      text-align: left;
+    }
+    table.comparison-table caption {
+      caption-side: top;
+      text-align: left;
+      padding: 0.75rem 1rem;
+      font-weight: 700;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border);
+      background: rgba(167, 139, 250, 0.08);
+    }
+    table.comparison-table th,
+    table.comparison-table td {
+      padding: 0.72rem 1rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      color: var(--muted);
+    }
+    table.comparison-table thead th {
+      color: var(--text);
+      background: rgba(17, 19, 31, 0.65);
+      font-weight: 700;
+    }
+    table.comparison-table tbody th {
+      color: var(--text);
+      font-weight: 600;
+      width: 24%;
+    }
+    .diff-badge {
+      display: inline-block;
+      padding: 0.12rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: rgba(52, 211, 153, 0.14);
+      color: var(--success);
+      border: 1px solid rgba(52, 211, 153, 0.35);
+    }
+    .walkthrough-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+    .step-card {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+    }
+    .step-title {
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.45rem;
+    }
+    .state-pill {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.45rem 0.75rem;
+      margin-bottom: 0.55rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.84rem;
+      color: var(--success);
+      overflow-x: auto;
+    }
+    .step-desc {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .pitfall-list {
+      display: grid;
+      gap: 1rem;
+    }
+    .pitfall-card {
+      background: rgba(251, 191, 36, 0.05);
+      border: 1px solid rgba(251, 191, 36, 0.28);
+      border-radius: 12px;
+      padding: 1.1rem 1.25rem;
+    }
+    .pitfall-card h3 {
+      margin: 0 0 0.5rem;
+      font-size: 1.02rem;
+      color: var(--warning);
+    }
+    .pitfall-symptom, .pitfall-fix {
+      margin: 0.4rem 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .faq-list {
+      display: grid;
+      gap: 0.9rem;
+      margin-top: 1.25rem;
+    }
+    .faq-item {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.95rem 1.2rem;
+    }
+    .faq-item summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--text);
+      font-size: 0.98rem;
+    }
+    .faq-answer p {
+      margin: 0.65rem 0 0;
+      color: var(--muted);
+      font-size: 0.93rem;
+    }
+    .deep-dive-callout {
+      margin-top: 1.25rem;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(31, 34, 53, 0.9));
+      border: 1px solid rgba(167, 139, 250, 0.38);
+      border-radius: 12px;
+      padding: 1.15rem 1.3rem;
+    }
+    .deep-dive-callout-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.55rem;
+    }
+    .lc-tag-row {
+      font-size: 0.8rem;
+      color: var(--accent);
+      background: rgba(167, 139, 250, 0.14);
+      padding: 0.18rem 0.6rem;
+      border-radius: 999px;
+    }
+    .deep-dive-table-hint {
+      margin: 0.35rem 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .deep-dive-faq-preview {
+      margin: 0.35rem 0 0.95rem;
+      padding-left: 1.25rem;
+      font-size: 0.89rem;
+      color: var(--muted);
+    }
+    .deep-dive-faq-preview li {
+      margin-bottom: 0.25rem;
+    }
+    .deep-dive-action {
+      display: flex;
+      justify-content: flex-start;
+    }
+    .chapter-pager {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.85rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.1rem 1.35rem;
+      margin-top: 2rem;
+    }
+    .pager-link {
+      font-weight: 600;
+      font-size: 0.93rem;
+    }
+    .pager-disabled {
+      color: var(--muted);
+      opacity: 0.55;
     }
     .code-container {
       border: 1px solid var(--border);
@@ -411,7 +765,6 @@ SHARED_CSS = """    :root {
       border: 1px solid rgba(52, 211, 153, 0.3);
       border-radius: 10px;
       padding: 0.75rem 1rem;
-      margin-bottom: 1rem;
     }
     .output-label {
       font-size: 0.82rem;
@@ -440,156 +793,10 @@ SHARED_CSS = """    :root {
       margin: 0;
       padding-left: 1.2rem;
       color: var(--muted);
-      font-size: 0.92rem;
+      font-size: 0.9rem;
     }
     .concepts-box li {
-      margin-bottom: 0.4rem;
-    }
-    .deep-dive-callout {
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(31, 34, 53, 0.85));
-      border: 1px solid rgba(167, 139, 250, 0.38);
-      border-radius: 12px;
-      padding: 1rem 1.25rem;
-      margin-top: 1.1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.55rem;
-    }
-    .deep-dive-callout strong {
-      color: var(--accent);
-      font-size: 0.95rem;
-    }
-    .deep-dive-callout p {
-      margin: 0;
-      font-size: 0.88rem;
-      color: var(--muted);
-    }
-    .table-responsive {
-      width: 100%;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      margin: 1rem 0 1.5rem;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--surface-alt);
-    }
-    table.comparison-table {
-      width: 100%;
-      min-width: 560px;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-      text-align: left;
-    }
-    table.comparison-table caption {
-      caption-side: top;
-      text-align: left;
-      padding: 0.75rem 1rem;
-      font-weight: 700;
-      color: var(--accent);
-      border-bottom: 1px solid var(--border);
-      background: rgba(167, 139, 250, 0.08);
-    }
-    table.comparison-table th, table.comparison-table td {
-      padding: 0.72rem 1rem;
-      border-bottom: 1px solid var(--border);
-      vertical-align: top;
-    }
-    table.comparison-table thead th {
-      background: #16192b;
-      color: var(--text);
-      font-weight: 700;
-    }
-    table.comparison-table tbody th {
-      color: var(--text);
-      font-weight: 600;
-      width: 22%;
-    }
-    table.comparison-table tbody td {
-      color: var(--muted);
-    }
-    .walkthrough-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 0.95rem;
-      margin: 1rem 0;
-    }
-    .step-card {
-      background: var(--surface-alt);
-      border: 1px solid var(--border);
-      border-left: 4px solid var(--success);
-      border-radius: 10px;
-      padding: 1rem 1.2rem;
-    }
-    .step-card h3 {
-      margin: 0 0 0.45rem;
-      font-size: 0.98rem;
-      color: var(--success);
-    }
-    .state-pill {
-      display: block;
-      background: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 0.45rem 0.75rem;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.84rem;
-      color: #d1fae5;
-      margin-bottom: 0.55rem;
-      overflow-x: auto;
-    }
-    .step-card p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.92rem;
-    }
-    .pitfall-card {
-      background: rgba(251, 191, 36, 0.05);
-      border: 1px solid rgba(251, 191, 36, 0.3);
-      border-left: 4px solid var(--warning);
-      border-radius: 10px;
-      padding: 1rem 1.2rem;
-      margin-bottom: 1rem;
-    }
-    .pitfall-card h3 {
-      margin: 0 0 0.45rem;
-      font-size: 0.98rem;
-      color: var(--warning);
-    }
-    .pitfall-card p {
-      margin: 0.35rem 0;
-      font-size: 0.92rem;
-      color: var(--muted);
-    }
-    details.faq-item {
-      background: var(--surface-alt);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 0.95rem 1.2rem;
-      margin-bottom: 0.9rem;
-    }
-    details.faq-item summary {
-      cursor: pointer;
-      font-weight: 700;
-      color: var(--accent);
-      font-size: 0.96rem;
-    }
-    .faq-answer {
-      margin-top: 0.65rem;
-      color: var(--muted);
-      font-size: 0.93rem;
-      line-height: 1.72;
-    }
-    .chapter-pager {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 0.85rem;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 1.15rem 1.4rem;
-      margin-top: 2rem;
+      margin-bottom: 0.35rem;
     }
     .ad-slot-card {
       background: rgba(24, 26, 41, 0.75);
@@ -657,10 +864,13 @@ SHARED_CSS = """    :root {
       margin-top: 3rem;
       padding-top: 1.5rem;
       border-top: 1px solid var(--border);
-    }"""
+    }
+  </style>"""
 
 
-FOOTER_HTML = """    <footer id="privacy">
+def render_footer() -> str:
+    """Render shared privacy policy & ecosystem footer."""
+    return """    <footer id="privacy">
       <div class="privacy-policy-card">
         <h3>隱私權政策與 Cookie 聲明 (Privacy Policy)</h3>
         <p>本網站（learn.ai-purplemaple.com）使用 Google AdSense 第三方廣告服務與 Google Analytics (GA4)／Google Tag Manager 網站流量分析服務。Google 及其合作夥伴會使用 Cookie（包含 DART Cookie），根據使用者造訪本站或其他網站的紀錄提供個人化廣告與匿名流量統計。您可隨時前往 <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google 廣告設定頁面</a> 停用個人化廣告，或查閱 <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">Google 廣告與隱私權政策</a>。本站程式碼複製功能均於瀏覽器本機執行，不會收集或儲存您的個人識別資料。</p>
@@ -669,317 +879,19 @@ FOOTER_HTML = """    <footer id="privacy">
     </footer>"""
 
 
-COPY_BUTTON_JS = """    function bindCopyButtons() {
-      document.querySelectorAll('.copy-btn').forEach(function (btn) {
-        if (btn.getAttribute('data-bound') === '1') return;
-        btn.setAttribute('data-bound', '1');
-        btn.addEventListener('click', function () {
-          var targetId = btn.getAttribute('data-target');
-          var codeEl = document.getElementById(targetId);
-          if (!codeEl || !navigator.clipboard) return;
-          navigator.clipboard.writeText(codeEl.textContent || '').then(function () {
-            var orig = btn.textContent;
-            btn.textContent = '已複製 ✓';
-            if (typeof window.gtag === 'function') {
-              window.gtag('event', 'copy_code', { chapter_target: targetId });
-            }
-            setTimeout(function () { btn.textContent = orig; }, 1500);
-          });
-        });
-      });
-    }
-    bindCopyButtons();"""
-
-
-def render_comparison_table(table: ComparisonTable) -> str:
-    """Render semantic HTML comparison table wrapped in .table-responsive."""
-    ths = "\n".join(f'              <th scope="col">{html.escape(h)}</th>' for h in table.headers)
-    body_rows: list[str] = []
-    for row in table.rows:
-        first_cell = f'              <th scope="row">{html.escape(row[0])}</th>'
-        rest_cells = "\n".join(f"              <td>{html.escape(c)}</td>" for c in row[1:])
-        body_rows.append(f"            <tr>\n{first_cell}\n{rest_cells}\n            </tr>")
-    rows_html = "\n".join(body_rows)
-    return f"""        <div class="table-responsive">
-          <table class="comparison-table">
-            <caption>{html.escape(table.caption)}</caption>
-            <thead>
-              <tr>
-{ths}
-              </tr>
-            </thead>
-            <tbody>
-{rows_html}
-            </tbody>
-          </table>
-        </div>"""
-
-
-def render_walkthrough(ch: ChapterSpec) -> str:
-    """Render Step-by-Step algorithm state walkthrough cards."""
-    steps_html: list[str] = []
-    for step in ch.walkthrough_steps:
-        steps_html.append(
-            f"""          <div class="step-card">
-            <h3>{html.escape(step.step_label)}</h3>
-            <code class="state-pill">{html.escape(step.state_snapshot)}</code>
-            <p>{html.escape(step.explanation)}</p>
-          </div>"""
-        )
-    joined = "\n".join(steps_html)
-    return f'        <div class="walkthrough-grid">\n{joined}\n        </div>'
-
-
-def render_pitfalls(ch: ChapterSpec) -> str:
-    """Render CPython 3.12 runtime internals & common pitfalls cards."""
-    items: list[str] = []
-    for pf in ch.pitfalls:
-        items.append(
-            f"""        <div class="pitfall-card">
-          <h3>{html.escape(pf.title)}</h3>
-          <p><strong>常見錯誤現象：</strong>{html.escape(pf.symptom)}</p>
-          <p><strong>底層根因與正確對策：</strong>{html.escape(pf.root_cause_and_fix)}</p>
-        </div>"""
-        )
-    return "\n".join(items)
-
-
-def render_interview_section(ch: ChapterSpec) -> str:
-    """Render LeetCode problem mapping table and expandable Interview FAQ cards."""
-    lc_rows: list[str] = []
-    for lc in ch.leetcode_problems:
-        lc_rows.append(
-            f"""            <tr>
-              <th scope="row">LeetCode #{lc.number}</th>
-              <td>{html.escape(lc.title)}</td>
-              <td>{html.escape(lc.difficulty)}</td>
-              <td>{html.escape(lc.pattern)}</td>
-            </tr>"""
-        )
-    lc_table = f"""        <div class="table-responsive">
-          <table class="comparison-table">
-            <caption>{html.escape(ch.badge)} 對應必刷 LeetCode 經典白板題號與破題模板</caption>
-            <thead>
-              <tr>
-                <th scope="col">題號</th>
-                <th scope="col">題目名稱</th>
-                <th scope="col">難度</th>
-                <th scope="col">核心解題模板與複雜度</th>
-              </tr>
-            </thead>
-            <tbody>
-{chr(10).join(lc_rows)}
-            </tbody>
-          </table>
-        </div>"""
-
-    faq_blocks: list[str] = []
-    for faq in ch.interview_faqs:
-        faq_blocks.append(
-            f"""        <details class="faq-item" open>
-          <summary>{html.escape(faq.question)}</summary>
-          <div class="faq-answer">{html.escape(faq.answer)}</div>
-        </details>"""
-        )
-    return lc_table + "\n" + "\n".join(faq_blocks)
-
-
-def render_deep_dive_callout(ch: ChapterSpec) -> str:
-    """Render the asymmetric information-gain callout panel on index.html pointing to ch0X.html."""
-    faq_titles = " ／ ".join(html.escape(faq.question.split("：")[0]) for faq in ch.interview_faqs)
-    lc_nums = "、".join(f"#{lc.number}" for lc in ch.leetcode_problems)
-    return f"""        <div class="deep-dive-callout">
-          <strong>📖 {html.escape(ch.badge)} 獨立深度專論講義（含完整表格與白板題詳解）</strong>
-          <p>內含「{html.escape(ch.comparison_table.caption)}」、4 步記憶體狀態拆解、CPython 3.12 底層陷阱剖析，以及 LeetCode {html.escape(lc_nums)} 與 3 道面試必考問答（{faq_titles}）。</p>
-          <div>
-            <a class="btn btn-primary" href="{ch.id}.html">閱讀 {html.escape(ch.badge)} 完整深度講義與面試題解 →</a>
-          </div>
-        </div>"""
-
-
-def render_chapter_pager(idx: int, chapters: Sequence[ChapterSpec]) -> str:
-    """Render previous / course hub / next navigation bar at the bottom of standalone chapter pages."""
-    prev_html = (
-        f'<a class="btn btn-secondary" href="{chapters[idx - 1].id}.html">← 上一章：{html.escape(chapters[idx - 1].badge)}</a>'
-        if idx > 0
-        else '<span></span>'
-    )
-    hub_html = '<a class="btn btn-secondary" href="/">🏠 返回全章節總目錄</a>'
-    next_html = (
-        f'<a class="btn btn-primary" href="{chapters[idx + 1].id}.html">下一章：{html.escape(chapters[idx + 1].badge)} →</a>'
-        if idx + 1 < len(chapters)
-        else '<a class="btn btn-primary" href="/">🎉 完成全系列！返回總目錄 →</a>'
-    )
-    return f"""      <nav class="chapter-pager" aria-label="上下章節導覽">
-        {prev_html}
-        {hub_html}
-        {next_html}
-      </nav>"""
-
-
-def render_index_page(
-    chapters: Sequence[ChapterSpec],
-    exec_cache: dict[str, tuple[str, str]],
-) -> str:
-    """Render `_site/index.html` (Course Hub + executable code preview + deep-dive callouts)."""
-    chapter_titles_short = "、".join(f"{ch.badge} {ch.title.split('（')[0]}" for ch in chapters)
-    index_desc_esc = html.escape(
-        f"紫楓（AI王紫楓 / Purple Maple / tbpfs）開設之 Python 3.12 資料結構、演算法與物件導向基本功鐵人賽教學網站，完整收錄 {chapter_titles_short} 實機執行範例。"
-    )
-    index_og_desc_esc = html.escape(
-        f"紫楓（AI王紫楓 / Purple Maple）Python 3.12 資料結構與演算法互動教學講義（{chapter_titles_short}）。"
-    )
-    all_keywords = ["紫楓", "AI王紫楓", "Purple Maple", "tbpfs", "Python教學", "資料結構", "演算法", "物件導向", "OOP"]
-    for ch in chapters:
-        for kw in ch.keywords:
-            if kw not in all_keywords:
-                all_keywords.append(kw)
-    keywords_esc = html.escape(", ".join(all_keywords))
-    json_ld_block = render_json_ld_script(build_index_json_ld(chapters, chapter_titles_short))
-
-    toc_items_html = "\n".join(
-        f"""      <a class="toc-item" href="#{ch.id}">
-        <span class="badge">{html.escape(ch.badge)}</span>
-        <strong>{html.escape(ch.title.split('（')[0])}</strong>
-      </a>"""
-        for ch in chapters
-    )
-
-    cards_html: list[str] = []
-    for idx, ch in enumerate(chapters, start=1):
-        source_code, live_output = exec_cache[ch.id]
-        escaped_code = html.escape(source_code)
-        escaped_out = html.escape(live_output)
-        escaped_title = html.escape(ch.title)
-        escaped_summary = html.escape(ch.summary)
-        escaped_complexity = html.escape(ch.complexity)
-        escaped_file = html.escape(ch.file)
-        concepts_items = "\n".join(f"            <li>{html.escape(pt)}</li>" for pt in ch.concepts)
-        callout_html = render_deep_dive_callout(ch)
-
-        cards_html.append(
-            f"""      <article class="chapter-card" id="{ch.id}">
-        <div class="chapter-header">
-          <span class="badge">{ch.badge}</span>
-          <h2><a href="{ch.id}.html" style="color: inherit;">{escaped_title}</a></h2>
-          <a href="{ch.id}.html" style="margin-left: auto; font-size: 0.86rem;">🔗 獨立章節講義 ↗</a>
-        </div>
-        <p class="chapter-summary">{escaped_summary}</p>
-        <div class="concepts-box">
-          <h3>💡 核心觀念與面試重點解析</h3>
-          <ul>
-{concepts_items}
-          </ul>
-        </div>
-        <div class="meta-bar">
-          <span>⏱️ <strong>時間／空間複雜度：</strong>{escaped_complexity}</span>
-          <span>📄 <strong>原始碼路徑：</strong><code>{escaped_file}</code></span>
-        </div>
-        <div class="code-container">
-          <div class="code-toolbar">
-            <span>Python 3.12 範例實作（{escaped_file}）</span>
-            <button type="button" class="copy-btn" data-target="code-{ch.id}">複製程式碼</button>
-          </div>
-          <pre><code id="code-{ch.id}">{escaped_code}</code></pre>
-        </div>
-        <div class="output-box">
-          <div class="output-label">▶ 實機執行輸出驗證（CI 自動實測結果）</div>
-          <pre class="output-pre">{escaped_out}</pre>
-        </div>
-{callout_html}
-      </article>"""
-        )
-        cards_html.append(render_ad_slot(f"Ch.0{idx} 章節間廣告單元"))
-
-    all_cards = "\n".join(cards_html)
-
-    return f"""<!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-  <script async src="https://www.googletagmanager.com/gtm.js?id=GTM-WNSFQT5V"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){{dataLayer.push(arguments);}}
-    gtag('js', new Date());
-    gtag('config', 'G-B24GXZ32MW');
-  </script>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B24GXZ32MW"></script>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (AI王紫楓 / Purple Maple)</title>
-  <meta name="description" content="{index_desc_esc}">
-  <meta name="keywords" content="{keywords_esc}">
-  <meta name="google-adsense-account" content="{ADSENSE_CLIENT_ID}">
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADSENSE_CLIENT_ID}" crossorigin="anonymous"></script>
-  <link rel="canonical" href="https://learn.ai-purplemaple.com/">
-  <link rel="alternate" type="text/markdown" href="https://learn.ai-purplemaple.com/llms.txt" title="LLM Chapter Index">
-  <link rel="alternate" type="text/markdown" href="https://learn.ai-purplemaple.com/llms-full.txt" title="LLM Full Tutorial & Code Corpus">
-  <meta property="og:site_name" content="紫楓 Purple Maple Python 程式教學">
-  <meta property="og:url" content="https://learn.ai-purplemaple.com/">
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)">
-  <meta property="og:description" content="{index_og_desc_esc}">
-  <meta property="og:image" content="https://ai-purplemaple.com/assets/gallery/aily_03.jpg">
-  <meta property="og:image:alt" content="紫楓（AI王紫楓 / @tbpfs1）Python 資料結構與演算法互動教學｜原創看板娘白瀬アイリ（左紅 #fb7185、右藍 #38bdf8）">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:site" content="@tbpfs1">
-  <meta name="twitter:creator" content="@tbpfs1">
-  <meta name="twitter:title" content="從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)">
-  <meta name="twitter:description" content="{index_og_desc_esc}">
-  <meta name="twitter:image" content="https://ai-purplemaple.com/assets/gallery/aily_03.jpg">
-  <meta name="twitter:image:alt" content="紫楓（AI王紫楓 / @tbpfs1）Python 資料結構與演算法互動教學｜原創看板娘白瀬アイリ（左紅 #fb7185、右藍 #38bdf8）">
-{json_ld_block}
-  <style>
-{SHARED_CSS}
-  </style>
-</head>
-<body>
-  <div class="container">
-    <header class="hero">
-      <span class="hero-eyebrow">鐵人賽基本功系列・資料結構 ＆ 演算法 ＆ 物件導向</span>
-      <h1>從零開始寫程式，輕鬆搞懂資料結構，演算法</h1>
-      <p>大家好，我是<strong>紫楓</strong>！不管是學生、想轉職軟體工程師、還是想精益求精的夥伴，練好「資料結構、演算法、物件導向」就是克服迷惘最紮實的基本功。</p>
-      <div class="cta-group">
-        <a class="btn btn-primary" href="https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd" target="_blank" rel="noopener noreferrer">▶ 觀看 YouTube 完整教學播放清單</a>
-        <a class="btn btn-secondary" href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer">🌸 紫楓 Purple Maple 官方作品集（AI 音樂 ＆ 白瀬アイリ Aily）</a>
-        <a class="btn btn-secondary" href="https://www.facebook.com/groups/914880435669061" target="_blank" rel="noopener noreferrer">💬 加入程式新手學習發問區（FB 社團）</a>
-        <a class="btn btn-secondary" href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer">💻 GitHub 原始碼儲存庫</a>
-      </div>
-    </header>
-
-    <nav class="toc" aria-label="章節快速導覽">
-{toc_items_html}
-    </nav>
-
-    <main>
-      <div id="cms-tutorials-container"></div>
-{all_cards}
-
-      <section class="study-guide-card" id="study-guide">
-        <h2>🧭 軟體工程師基本功修煉指南與常見問答（FAQ）</h2>
-        <p>許多初學者與轉職者在刷題（LeetCode）或準備技術面試時，常陷入「背題目卻不懂底層原理」的困境。建議依照以下三階段循序漸進：</p>
-        <ul>
-          <li><strong>第一階段（記憶體模型與線性結構）：</strong>先親手實作 Ch.01 的單向鏈結串列與 Ch.02 的 Stack / Queue，徹底理解指標（Reference / Pointer）操作與時間複雜度 <code>O(1)</code> vs. <code>O(n)</code> 的差異。</li>
-          <li><strong>第二階段（遞迴分治、雜湊查找、樹與圖論架構）：</strong>透過 Ch.03 的二分搜尋與合併排序（Merge Sort）、Ch.04 的雜湊表（Hash Table / Two Sum）與二元搜尋樹（BST），再到 Ch.05 的圖論走訪（Graph BFS / DFS 最短路徑）與物件導向封裝（OOP），掌握分治法與空間換取時間的核心精神。</li>
-          <li><strong>第三階段（面試壓軸進階：動態規劃與堆積 Top-K）：</strong>挑戰 Ch.06 的動態規劃（爬樓梯狀態壓縮、0/1 背包一維逆序更新、LIS 最長遞增子序列）與 Ch.07 的二元最小堆積（MinHeap、Top-K 篩選與 K 路歸併），並點入各章獨立講義研讀複雜度對照表與白板題詳解。</li>
-        </ul>
-      </section>
-    </main>
-
-{FOOTER_HTML}
-  </div>
-
-  <script>
-{COPY_BUTTON_JS}
-
-    if (typeof fetch === 'function') {{
+def render_copy_script(*, include_cms_fetch: bool) -> str:
+    """Render copy button handler and (on index.html only) the CMS dynamic tutorials loader."""
+    cms_block = ""
+    if include_cms_fetch:
+        cms_block = """
+    if (typeof fetch === 'function') {
       fetch('https://ai-purplemaple.com/api/v1/content')
-        .then(function (r) {{ return r && r.ok ? r.json() : null; }})
-        .then(function (payload) {{
+        .then(function (r) { return r && r.ok ? r.json() : null; })
+        .then(function (payload) {
           if (!payload || !payload.ok || !payload.content || !Array.isArray(payload.content.tutorials) || payload.content.tutorials.length === 0) return;
           var container = document.getElementById('cms-tutorials-container');
           if (!container) return;
-          payload.content.tutorials.forEach(function (tut, idx) {{
+          payload.content.tutorials.forEach(function (tut, idx) {
             var sec = document.createElement('section');
             sec.className = 'chapter-card';
             var codeId = 'cms-code-' + idx;
@@ -1032,12 +944,183 @@ def render_index_page(
             sec.appendChild(compRow);
             sec.appendChild(wrap);
             container.appendChild(sec);
-          }});
+          });
           bindCopyButtons();
-        }})
-        .catch(function () {{}});
+        })
+        .catch(function () {});
+    }"""
+
+    return f"""  <script>
+    function bindCopyButtons() {{
+      document.querySelectorAll('.copy-btn').forEach(function (btn) {{
+        if (btn.getAttribute('data-bound') === '1') return;
+        btn.setAttribute('data-bound', '1');
+        btn.addEventListener('click', function () {{
+          var targetId = btn.getAttribute('data-target');
+          var codeEl = document.getElementById(targetId);
+          if (!codeEl || !navigator.clipboard) return;
+          navigator.clipboard.writeText(codeEl.textContent || '').then(function () {{
+            var orig = btn.textContent;
+            btn.textContent = '已複製 ✓';
+            if (typeof window.gtag === 'function') {{
+              window.gtag('event', 'copy_code', {{ chapter_target: targetId }});
+            }}
+            setTimeout(function () {{ btn.textContent = orig; }}, 1500);
+          }});
+        }});
+      }});
     }}
+    bindCopyButtons();{cms_block}
+  </script>"""
+
+
+def render_index_page(
+    chapters: Sequence[ChapterSpec],
+    exec_cache: dict[str, tuple[str, str]],
+    chapter_titles_short: str,
+) -> str:
+    """Render the Course Hub index.html (summary cards + live code sandbox + deep-dive callouts)."""
+    cards_html: list[str] = []
+    toc_items_html: list[str] = []
+
+    for idx, ch in enumerate(chapters, start=1):
+        source_code, live_output = exec_cache[ch.id]
+        escaped_code = html.escape(source_code)
+        escaped_out = html.escape(live_output)
+        escaped_title = html.escape(ch.title)
+        escaped_summary = html.escape(ch.summary)
+        escaped_complexity = html.escape(ch.complexity)
+        escaped_file = html.escape(ch.file)
+        concepts_items = "\n".join(f"            <li>{html.escape(pt)}</li>" for pt in ch.concepts)
+        short_name = html.escape(ch.title.split("（")[0])
+
+        toc_items_html.append(
+            f"""      <a class="toc-item" href="#{ch.id}">
+        <span class="badge">{ch.badge}</span>
+        <strong>{short_name}</strong>
+      </a>"""
+        )
+
+        cards_html.append(
+            f"""
+      <article class="chapter-card" id="{ch.id}">
+        <div class="chapter-header">
+          <span class="badge">{ch.badge}</span>
+          <h2><a href="{ch.id}.html" style="color: inherit;">{escaped_title}</a></h2>
+          <a href="{ch.id}.html" style="margin-left: auto; font-size: 0.86rem;">🔗 獨立章節深度講義 ↗</a>
+        </div>
+        <p class="chapter-summary">{escaped_summary}</p>
+        <div class="concepts-box">
+          <h3>💡 核心觀念與面試重點解析</h3>
+          <ul>
+{concepts_items}
+          </ul>
+        </div>
+        <div class="meta-bar">
+          <span>⏱️ <strong>時間／空間複雜度：</strong>{escaped_complexity}</span>
+          <span>📄 <strong>原始碼路徑：</strong><code>{escaped_file}</code></span>
+        </div>
+        <div class="code-container">
+          <div class="code-toolbar">
+            <span>Python 3.12 範例實作（{escaped_file}）</span>
+            <button type="button" class="copy-btn" data-target="code-{ch.id}">複製程式碼</button>
+          </div>
+          <pre><code id="code-{ch.id}">{escaped_code}</code></pre>
+        </div>
+        <div class="output-box">
+          <div class="output-label">▶ 實機執行輸出驗證（CI 自動實測結果）</div>
+          <pre class="output-pre">{escaped_out}</pre>
+        </div>
+{render_deep_dive_callout(ch)}
+      </article>"""
+        )
+        cards_html.append(render_ad_slot(f"Ch.0{idx} 章節間廣告單元"))
+
+    all_cards = "\n".join(cards_html)
+    toc_block = "\n".join(toc_items_html)
+    index_desc_esc = html.escape(
+        f"紫楓（AI王紫楓 / Purple Maple / tbpfs）開設之 Python 3.12 資料結構、演算法與物件導向基本功鐵人賽教學網站，完整收錄 {chapter_titles_short} 實機執行範例。"
+    )
+    index_og_desc_esc = html.escape(
+        f"紫楓（AI王紫楓 / Purple Maple）Python 3.12 資料結構與演算法互動教學講義（{chapter_titles_short}）。"
+    )
+    json_ld_block = render_json_ld_script(build_index_json_ld(chapters, chapter_titles_short))
+
+    return f"""<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <script async src="https://www.googletagmanager.com/gtm.js?id=GTM-WNSFQT5V"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){{dataLayer.push(arguments);}}
+    gtag('js', new Date());
+    gtag('config', 'G-B24GXZ32MW');
   </script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B24GXZ32MW"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (AI王紫楓 / Purple Maple)</title>
+  <meta name="description" content="{index_desc_esc}">
+  <meta name="keywords" content="紫楓, AI王紫楓, Purple Maple, tbpfs, Python教學, 資料結構, 演算法, 鏈結串列, 堆疊, 佇列, 二分搜尋, Merge Sort, 雜湊表, Hash Table, 二元搜尋樹, BST, 圖論, BFS, DFS, 動態規劃, Dynamic Programming, 堆積, Heap, Priority Queue, Top-K, 物件導向, OOP">
+  <meta name="google-adsense-account" content="{ADSENSE_CLIENT_ID}">
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADSENSE_CLIENT_ID}" crossorigin="anonymous"></script>
+  <link rel="canonical" href="https://learn.ai-purplemaple.com/">
+  <link rel="alternate" type="text/markdown" href="https://learn.ai-purplemaple.com/llms.txt" title="LLM Chapter Index">
+  <link rel="alternate" type="text/markdown" href="https://learn.ai-purplemaple.com/llms-full.txt" title="LLM Full Tutorial & Code Corpus">
+  <meta property="og:site_name" content="紫楓 Purple Maple Python 程式教學">
+  <meta property="og:url" content="https://learn.ai-purplemaple.com/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)">
+  <meta property="og:description" content="{index_og_desc_esc}">
+  <meta property="og:image" content="https://ai-purplemaple.com/assets/gallery/aily_03.jpg">
+  <meta property="og:image:alt" content="紫楓（AI王紫楓 / @tbpfs1）Python 資料結構與演算法互動教學｜原創看板娘白瀬アイリ（左紅 #fb7185、右藍 #38bdf8）">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@tbpfs1">
+  <meta name="twitter:creator" content="@tbpfs1">
+  <meta name="twitter:title" content="從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)">
+  <meta name="twitter:description" content="{index_og_desc_esc}">
+  <meta name="twitter:image" content="https://ai-purplemaple.com/assets/gallery/aily_03.jpg">
+  <meta name="twitter:image:alt" content="紫楓（AI王紫楓 / @tbpfs1）Python 資料結構與演算法互動教學｜原創看板娘白瀬アイリ（左紅 #fb7185、右藍 #38bdf8）">
+{json_ld_block}
+{render_shared_styles()}
+</head>
+<body>
+  <div class="container">
+    <header class="hero">
+      <span class="hero-eyebrow">鐵人賽基本功系列・資料結構 ＆ 演算法 ＆ 物件導向</span>
+      <h1>從零開始寫程式，輕鬆搞懂資料結構，演算法</h1>
+      <p>大家好，我是<strong>紫楓</strong>！不管是學生、想轉職軟體工程師、還是想精益求精的夥伴，練好「資料結構、演算法、物件導向」就是克服迷惘最紮實的基本功。</p>
+      <div class="cta-group">
+        <a class="btn btn-primary" href="https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd" target="_blank" rel="noopener noreferrer">▶ 觀看 YouTube 完整教學播放清單</a>
+        <a class="btn btn-secondary" href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer">🌸 紫楓 Purple Maple 官方作品集（AI 音樂 ＆ 白瀬アイリ Aily）</a>
+        <a class="btn btn-secondary" href="https://www.facebook.com/groups/914880435669061" target="_blank" rel="noopener noreferrer">💬 加入程式新手學習發問區（FB 社團）</a>
+        <a class="btn btn-secondary" href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer">💻 GitHub 原始碼儲存庫</a>
+      </div>
+    </header>
+
+    <nav class="toc" aria-label="章節快速導覽">
+{toc_block}
+    </nav>
+
+    <main>
+      <div id="cms-tutorials-container"></div>
+{all_cards}
+
+      <section class="study-guide-card" id="study-guide">
+        <h2>🧭 軟體工程師基本功修煉指南與常見問答（FAQ）</h2>
+        <p>許多初學者與轉職者在刷題（LeetCode）或準備技術面試時，常陷入「背題目卻不懂底層原理」的困境。建議依照以下三階段循序漸進：</p>
+        <ul>
+          <li><strong>第一階段（記憶體模型與線性結構）：</strong>先親手實作 <a href="ch01.html">Ch.01 的單向鏈結串列</a>與 <a href="ch02.html">Ch.02 的 Stack / Queue</a>，徹底理解指標（Reference / Pointer）操作與時間複雜度 <code>O(1)</code> vs. <code>O(n)</code> 的差異。</li>
+          <li><strong>第二階段（分治搜尋、雜湊查找、樹與圖論架構）：</strong>透過 <a href="ch03.html">Ch.03 的二分搜尋與合併排序（Merge Sort）</a>、<a href="ch04.html">Ch.04 的雜湊表（Hash Table / Two Sum）與二元搜尋樹（BST）</a>，再到 <a href="ch05.html">Ch.05 的圖論走訪（Graph BFS / DFS 最短路徑）與物件導向封裝（OOP）</a>，掌握分治法、空間換取時間與抽象化模組設計的核心精神。</li>
+          <li><strong>第三階段（進階動態規劃、優先佇列與白板題實戰）：</strong>深入 <a href="ch06.html">Ch.06 動態規劃與記憶化搜尋（0/1 背包與 LIS）</a>及 <a href="ch07.html">Ch.07 二元堆積與 Top-K 多路合併演算法</a>，搭配各章獨立講義內的複雜度對照表、CPython 底層陷阱解析與 YouTube 鐵人賽教學影片完成實戰修煉。</li>
+        </ul>
+      </section>
+    </main>
+
+{render_footer()}
+  </div>
+
+{render_copy_script(include_cms_fetch=True)}
 </body>
 </html>
 """
@@ -1048,35 +1131,28 @@ def render_chapter_page(
     chapters: Sequence[ChapterSpec],
     exec_cache: dict[str, tuple[str, str]],
 ) -> str:
-    """Render standalone deep-dive chapter page (`_site/ch01.html` .. `_site/ch07.html`)."""
+    """Render a standalone deep-dive tutorial page (ch01.html .. ch07.html) with >75% unique information gain."""
     ch = chapters[idx]
     source_code, live_output = exec_cache[ch.id]
     ch_url = f"https://learn.ai-purplemaple.com/{ch.id}.html"
     ch_title_esc = html.escape(f"{ch.badge} {ch.title} | 紫楓 (AI王紫楓 / Purple Maple) Python 教學")
     ch_desc_esc = html.escape(f"紫楓（AI王紫楓 / Purple Maple）Python 3.12 教學講義：{ch.badge} {ch.title}。{ch.summary}")
-    ch_keywords_esc = html.escape(", ".join(("紫楓", "AI王紫楓", "Purple Maple", "Python 3.12", *ch.keywords)))
+    ch_keywords_esc = html.escape("紫楓, AI王紫楓, Purple Maple, Python 3.12 教學, " + ", ".join(ch.keywords))
     json_ld_block = render_json_ld_script(build_chapter_json_ld(ch))
 
     switcher_items: list[str] = []
     for item in chapters:
         current_attr = ' aria-current="page"' if item.id == ch.id else ""
+        short_label = html.escape(item.title.split("（")[0])
         switcher_items.append(
             f"""      <a class="toc-item" href="{item.id}.html"{current_attr}>
-        <span class="badge">{html.escape(item.badge)}</span>
-        <strong>{html.escape(item.title.split('（')[0])}</strong>
+        <span class="badge">{item.badge}</span>
+        <strong>{short_label}</strong>
       </a>"""
         )
     switcher_html = "\n".join(switcher_items)
 
     concepts_items = "\n".join(f"            <li>{html.escape(pt)}</li>" for pt in ch.concepts)
-    table_html = render_comparison_table(ch.comparison_table)
-    walkthrough_html = render_walkthrough(ch)
-    pitfalls_html = render_pitfalls(ch)
-    interview_html = render_interview_section(ch)
-    pager_html = render_chapter_pager(idx, chapters)
-    ad_mid = render_ad_slot(f"{ch.badge} 獨立講義中段廣告單元")
-    ad_bottom = render_ad_slot(f"{ch.badge} 獨立講義結尾廣告單元")
-
     escaped_code = html.escape(source_code)
     escaped_out = html.escape(live_output)
     escaped_complexity = html.escape(ch.complexity)
@@ -1116,14 +1192,12 @@ def render_chapter_page(
   <meta name="twitter:image" content="https://ai-purplemaple.com/assets/gallery/aily_03.jpg">
   <meta name="twitter:image:alt" content="紫楓（AI王紫楓 / @tbpfs1）Python 資料結構與演算法互動教學｜原創看板娘白瀬アイリ（左紅 #fb7185、右藍 #38bdf8）">
 {json_ld_block}
-  <style>
-{SHARED_CSS}
-  </style>
+{render_shared_styles()}
 </head>
 <body>
   <div class="container">
     <header class="hero">
-      <span class="hero-eyebrow">鐵人賽基本功系列・{html.escape(ch.badge)} 獨立深度講義</span>
+      <span class="hero-eyebrow">{html.escape(ch.badge)} 獨立深度講義・Python 3.12 資料結構與演算法實戰</span>
       <h1>{html.escape(ch.badge + " " + ch.title)}</h1>
       <p><a href="/">← 返回《從零開始寫程式，輕鬆搞懂資料結構，演算法》全章節總目錄</a></p>
       <p>{html.escape(ch.summary)}</p>
@@ -1134,96 +1208,84 @@ def render_chapter_page(
       </div>
     </header>
 
-    <nav class="toc" aria-label="全課程章節切換">
+    <nav class="chapter-switcher" aria-label="全課程章節切換">
 {switcher_html}
     </nav>
 
-    <nav class="section-toc" aria-label="本章段落導覽">
-      <a href="#overview">📖 背景導論與核心觀念</a>
-      <a href="#comparison">📊 複雜度與特性對照表</a>
-      <a href="#walkthrough">🔍 演算法逐步狀態拆解</a>
-      <a href="#code-section">💻 Python 3.12 完整實作</a>
-      <a href="#pitfalls">⚠️ CPython 底層原理與陷阱</a>
-      <a href="#interview-faq">🎯 LeetCode 題號與面試 FAQ</a>
+    <nav class="section-subnav" aria-label="本章段落導覽">
+      <span>📑 本章快速跳轉：</span>
+      <a href="#intro">核心觀念與背景導論</a>
+      <a href="#comparison">複雜度與特性對照表</a>
+      <a href="#walkthrough">逐步狀態拆解</a>
+      <a href="#code-section">Python 3.12 完整實作</a>
+      <a href="#pitfalls">CPython 底層陷阱</a>
+      <a href="#interview-faq">LeetCode 題號與面試 FAQ</a>
     </nav>
 
     <main>
-      <article class="chapter-card" id="{ch.id}">
-        <section id="overview">
-          <h2>📖 本章背景導論與核心觀念解析</h2>
-          <p class="deep-intro-text">{html.escape(ch.deep_intro)}</p>
-          <div class="concepts-box">
-            <h3>💡 核心觀念與面試重點解析</h3>
-            <ul>
+      <article class="chapter-card" id="intro">
+        <h2>📘 本章背景導論與工程應用場景</h2>
+        <p class="deep-intro-text">{html.escape(ch.deep_intro)}</p>
+        <div class="concepts-box">
+          <h3>💡 核心觀念與面試重點解析</h3>
+          <ul>
 {concepts_items}
-            </ul>
-          </div>
-          <div class="meta-bar">
-            <span>⏱️ <strong>時間／空間複雜度：</strong>{escaped_complexity}</span>
-            <span>📄 <strong>原始碼路徑：</strong><code>{escaped_file}</code></span>
-            <span>🔄 <strong>最後更新：</strong>{html.escape(ch.lastmod)}</span>
-          </div>
-        </section>
-
-        <section id="comparison">
-          <h2>📊 時間與空間複雜度及底層特性對照表</h2>
-{table_html}
-        </section>
-
-        <section id="walkthrough">
-          <h2>🔍 {html.escape(ch.walkthrough_title)}</h2>
-{walkthrough_html}
-        </section>
-
-{ad_mid}
-
-        <section id="code-section">
-          <h2>💻 Python 3.12 完整標準庫實作與實機輸出驗證</h2>
-          <div class="code-container">
-            <div class="code-toolbar">
-              <span>Python 3.12 範例實作（{escaped_file}）</span>
-              <button type="button" class="copy-btn" data-target="code-{ch.id}">複製程式碼</button>
-            </div>
-            <pre><code id="code-{ch.id}">{escaped_code}</code></pre>
-          </div>
-          <div class="output-box">
-            <div class="output-label">▶ 實機執行輸出驗證（CI 自動實測結果）</div>
-            <pre class="output-pre">{escaped_out}</pre>
-          </div>
-        </section>
-
-        <section id="pitfalls">
-          <h2>⚠️ Python 3.12 (CPython) 底層原理與實戰常見陷阱</h2>
-{pitfalls_html}
-        </section>
-
-        <section id="interview-faq">
-          <h2>🎯 LeetCode 必刷題號對照與技術面試 FAQ 詳解</h2>
-{interview_html}
-        </section>
+          </ul>
+        </div>
+        <div class="meta-bar">
+          <span>⏱️ <strong>時間／空間複雜度：</strong>{escaped_complexity}</span>
+          <span>📄 <strong>原始碼路徑：</strong><code>{escaped_file}</code></span>
+        </div>
       </article>
 
-{ad_bottom}
-{pager_html}
+      <section class="chapter-card" id="comparison">
+        <h2>📊 時間與空間複雜度暨底層結構對照表</h2>
+{render_comparison_table(ch.comparison_table)}
+      </section>
+
+{render_walkthrough(ch)}
+
+{render_ad_slot(f"{ch.badge} 深度講義中段廣告單元")}
+
+      <section class="chapter-card" id="code-section">
+        <h2>💻 Python 3.12 標準庫完整範例實作與實機輸出</h2>
+        <div class="code-container">
+          <div class="code-toolbar">
+            <span>Python 3.12 範例實作（{escaped_file}）</span>
+            <button type="button" class="copy-btn" data-target="code-{ch.id}">複製程式碼</button>
+          </div>
+          <pre><code id="code-{ch.id}">{escaped_code}</code></pre>
+        </div>
+        <div class="output-box">
+          <div class="output-label">▶ 實機執行輸出驗證（CI 自動實測結果）</div>
+          <pre class="output-pre">{escaped_out}</pre>
+        </div>
+      </section>
+
+{render_pitfalls(ch)}
+
+{render_interview_section(ch)}
+
+{render_ad_slot(f"{ch.badge} 獨立講義文末廣告單元")}
+
+{render_chapter_pager(idx, chapters)}
     </main>
 
-{FOOTER_HTML}
+{render_footer()}
   </div>
 
-  <script>
-{COPY_BUTTON_JS}
-  </script>
+{render_copy_script(include_cms_fetch=False)}
 </body>
 </html>
 """
 
 
 def format_markdown_table(table: ComparisonTable) -> str:
-    """Format ComparisonTable as GitHub Flavored Markdown for llms-full.txt."""
+    """Convert ComparisonTable into GitHub Flavored Markdown table for llms-full.txt."""
     header_line = "| " + " | ".join(table.headers) + " |"
     sep_line = "| " + " | ".join("---" for _ in table.headers) + " |"
     row_lines = ["| " + " | ".join(row) + " |" for row in table.rows]
-    return f"#### {table.caption}\n" + "\n".join([header_line, sep_line, *row_lines])
+    return "\n".join([f"#### {table.caption}", header_line, sep_line, *row_lines])
 
 
 def build_site(out_dir: Path) -> Path:
@@ -1267,7 +1329,7 @@ def build_site(out_dir: Path) -> Path:
     llms_chapter_lines: list[str] = []
     llms_full_sections: list[str] = []
     sitemap_urls: list[tuple[str, str, str]] = [
-        ("https://learn.ai-purplemaple.com/", "1.0", "2026-11-17")
+        ("https://learn.ai-purplemaple.com/", "1.0", SITE_LASTMOD)
     ]
 
     for ch in CHAPTERS:
@@ -1280,18 +1342,21 @@ def build_site(out_dir: Path) -> Path:
 
         concept_md = "\n".join(f"  - {pt}" for pt in ch.concepts)
         walkthrough_md = "\n".join(
-            f"  - **{st.step_label}** (`{st.state_snapshot}`): {st.explanation}"
+            f"  - **{st.step_label}** (`{st.state_snapshot}`)：{st.explanation}"
             for st in ch.walkthrough_steps
         )
-        pitfall_md = "\n".join(
+        pitfalls_md = "\n".join(
             f"  - **{pf.title}**：{pf.symptom} → {pf.root_cause_and_fix}"
             for pf in ch.pitfalls
         )
+        leetcode_md = "\n".join(
+            f"  - **LeetCode #{lc.number} {lc.title}** ({lc.difficulty})：{lc.pattern}"
+            for lc in ch.leetcode_problems
+        )
         faq_md = "\n".join(
-            f"  - **{faq.question}**\n    {faq.answer}"
+            f"  - **Q: {faq.question}**\n    - A: {faq.answer}"
             for faq in ch.interview_faqs
         )
-        table_md = format_markdown_table(ch.comparison_table)
 
         llms_full_sections.append(
             f"## {ch.badge} {ch.title}\n"
@@ -1299,20 +1364,25 @@ def build_site(out_dir: Path) -> Path:
             f"- **原始碼路徑**：`{ch.file}`\n"
             f"- **時間／空間複雜度**：{ch.complexity}\n"
             f"- **章節摘要**：{ch.summary}\n"
-            f"- **背景導論**：{ch.deep_intro}\n"
+            f"- **深度導論**：{ch.deep_intro}\n"
             f"- **核心觀念與面試重點**：\n{concept_md}\n\n"
-            f"{table_md}\n\n"
-            f"### {ch.walkthrough_title}\n{walkthrough_md}\n\n"
-            f"### Python 3.12 底層原理與常見陷阱\n{pitfall_md}\n\n"
-            f"### 技術面試必考 FAQ\n{faq_md}\n\n"
+            f"### 結構化複雜度對照表\n"
+            f"{format_markdown_table(ch.comparison_table)}\n\n"
+            f"### {ch.walkthrough_title}\n"
+            f"{walkthrough_md}\n\n"
+            f"### Python 3.12 底層原理與實戰陷阱\n"
+            f"{pitfalls_md}\n\n"
+            f"### 對應 LeetCode 經典題號與技術面試 FAQ\n"
+            f"{leetcode_md}\n\n"
+            f"{faq_md}\n\n"
             f"### Python 3.12 完整範例原始碼 (`{ch.file}`)\n"
             f"```python\n{source_code.rstrip()}\n```\n\n"
             f"### CI 實機執行輸出驗證\n"
             f"```text\n{live_output}\n```"
         )
 
-    sitemap_urls.append(("https://learn.ai-purplemaple.com/llms.txt", "0.7", "2026-11-17"))
-    sitemap_urls.append(("https://learn.ai-purplemaple.com/llms-full.txt", "0.8", "2026-11-17"))
+    sitemap_urls.append(("https://learn.ai-purplemaple.com/llms.txt", "0.7", SITE_LASTMOD))
+    sitemap_urls.append(("https://learn.ai-purplemaple.com/llms-full.txt", "0.8", SITE_LASTMOD))
     sitemap_entries = "\n".join(
         f"  <url>\n    <loc>{loc}</loc>\n    <lastmod>{lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>{prio}</priority>\n  </url>"
         for loc, prio, lastmod in sitemap_urls
@@ -1349,14 +1419,14 @@ def build_site(out_dir: Path) -> Path:
     )
     (out_dir / "llms-full.txt").write_text(
         "# 紫楓 (AI王紫楓 / Purple Maple) — Python 3.12 資料結構、演算法與物件導向完整教學語料庫 (llms-full.txt)\n\n"
-        f"> 本文件收錄 `https://learn.ai-purplemaple.com/` 全部 {len(CHAPTERS)} 章節（{chapter_titles_short}）之核心觀念、複雜度比較表、逐步狀態追蹤、Python 3.12 底層陷阱、面試 FAQ、完整標準庫實作原始碼及 CI 實機執行驗證輸出。精簡索引請見 `https://learn.ai-purplemaple.com/llms.txt`。\n\n"
+        f"> 本文件收錄 `https://learn.ai-purplemaple.com/` 全部 {len(CHAPTERS)} 章節（{chapter_titles_short}）之核心觀念、結構化複雜度對照表、逐步狀態追蹤、CPython 底層陷阱、LeetCode 面試 FAQ、完整 Python 3.12 標準庫實作原始碼及 CI 實機執行驗證輸出。精簡索引請見 `https://learn.ai-purplemaple.com/llms.txt`。\n\n"
         + "\n\n---\n\n".join(llms_full_sections)
         + "\n\n---\n\n"
         + ecosystem_footer_md,
         encoding="utf-8",
     )
 
-    index_html = render_index_page(CHAPTERS, exec_cache)
+    index_html = render_index_page(CHAPTERS, exec_cache, chapter_titles_short)
     index_path = out_dir / "index.html"
     index_path.write_text(index_html, encoding="utf-8")
 
