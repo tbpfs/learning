@@ -1010,7 +1010,7 @@ def render_footer() -> str:
         <h3>隱私權政策與 Cookie 聲明 (Privacy Policy)</h3>
         <p>本網站（learn.ai-purplemaple.com）使用 Google AdSense 第三方廣告服務與 Google Analytics (GA4)／Google Tag Manager 網站流量分析服務。Google 及其合作夥伴會使用 Cookie（包含 DART Cookie），根據使用者造訪本站或其他網站的紀錄提供個人化廣告與匿名流量統計。您可隨時前往 <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google 廣告設定頁面</a> 停用個人化廣告，或查閱 <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">Google 廣告與隱私權政策</a>。本站程式碼複製功能均於瀏覽器本機執行，不會收集或儲存您的個人識別資料。</p>
       </div>
-      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">紫楓 (AI王紫楓 / Purple Maple)</a></strong> ・ <a href="https://quote.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">插畫＆音樂委託試算</a> ・ <a href="https://game.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">白瀬アイリ占卜小遊戲</a> ・ <a href="https://fps.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">府城保衛戰 3D</a> ・ <a href="https://edu.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">時空守護者</a> ・ Powered by Python 3.12 &amp; GitHub Pages ・ <a href="ads.txt">ads.txt</a></p>
+      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">紫楓 (AI王紫楓 / Purple Maple)</a></strong> ・ <a href="https://quote.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">插畫＆音樂委託試算</a> ・ <a href="https://game.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">白瀬アイリ占卜小遊戲</a> ・ <a href="https://fps.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">府城保衛戰 3D</a> ・ <a href="https://edu.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">時空守護者</a> ・ <a href="https://muse.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">Muse 邀請碼・AI 教學</a> ・ Powered by Python 3.12 &amp; GitHub Pages ・ <a href="ads.txt">ads.txt</a></p>
     </footer>"""
 
 
@@ -1542,6 +1542,7 @@ def build_site(out_dir: Path) -> Path:
         "- [艾莉的秘密星空（今日星運占卜與星夜紅線抽籤 おみくじ）](https://game.ai-purplemaple.com/): 免費中日雙語瀏覽器互動小遊戲\n"
         "- [府城保衛戰（臺南巷戰 3D 戰術射擊）](https://fps.ai-purplemaple.com/): Three.js 3D 寫實巷戰遊戲\n"
         "- [時空守護者（國小八大國度・小甲魚大冒險）](https://edu.ai-purplemaple.com/): 108 課綱互動式冒險學習平台\n"
+        "- [Muse 邀請碼分享站・Muse AI 多語系教學指南](https://muse.ai-purplemaple.com/): 最新可用推薦碼即時看板與註冊兌換教學\n"
         "- [YouTube 完整教學播放清單](https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd)\n"
     )
     (out_dir / "llms.txt").write_text(
