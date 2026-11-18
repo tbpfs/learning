@@ -225,7 +225,7 @@ class TestLearningExamples(unittest.TestCase):
                     f"{ch_id}.html prose Chinese char count ({len(cjk_chars)}) is below 1200 threshold!",
                 )
 
-                # Verify per-chapter JSON-LD @graph (TechArticle + FAQPage + BreadcrumbList)
+                # Verify per-chapter JSON-LD @graph (TechArticle + VideoObject + FAQPage + BreadcrumbList)
                 ch_ld_match = re.search(
                     r'<script type="application/ld\+json">\s*(\{.*?\})\s*</script>',
                     ch_html,
@@ -236,11 +236,14 @@ class TestLearningExamples(unittest.TestCase):
                 self.assertIn("@graph", ch_ld)
                 graph_types = {node["@type"]: node for node in ch_ld["@graph"]}
                 self.assertIn("TechArticle", graph_types)
+                self.assertIn("VideoObject", graph_types)
                 self.assertIn("FAQPage", graph_types)
                 self.assertIn("BreadcrumbList", graph_types)
                 self.assertIn("headline", graph_types["TechArticle"])
                 self.assertIn("author", graph_types["TechArticle"])
                 self.assertIn("dateModified", graph_types["TechArticle"])
+                self.assertIn("embedUrl", graph_types["VideoObject"])
+                self.assertIn("https://www.youtube.com/embed/", ch_html)
                 self.assertGreaterEqual(len(graph_types["FAQPage"]["mainEntity"]), 3)
 
             # Root GEO links, JSON-LD, llms.txt, llms-full.txt, and IndexNow key
@@ -278,7 +281,7 @@ class TestLearningExamples(unittest.TestCase):
             self.assertIn("https://learn.ai-purplemaple.com/ch06.html", sitemap_text)
             self.assertIn("https://learn.ai-purplemaple.com/ch07.html", sitemap_text)
             self.assertIn("https://learn.ai-purplemaple.com/llms-full.txt", sitemap_text)
-            self.assertIn("<lastmod>2026-11-17</lastmod>", sitemap_text)
+            self.assertIn("<lastmod>2026-11-18</lastmod>", sitemap_text)
 
             robots_text = (Path(tmpdir) / "robots.txt").read_text(encoding="utf-8")
             for bot in ("Twitterbot", "GrokBot", "xAI-Bot", "xAI-SearchBot", "Bravebot"):

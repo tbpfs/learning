@@ -25,7 +25,80 @@ ADSENSE_PUBLISHER_ID = "pub-6485917848711473"
 ADSENSE_CLIENT_ID = f"ca-{ADSENSE_PUBLISHER_ID}"
 ADSENSE_IN_ARTICLE_SLOT_ID = "1673180799"
 INDEXNOW_KEY = "7f4e9c2a8b1d6035e4a92c7f1b8d3e60"
-SITE_LASTMOD = "2026-11-17"
+SITE_LASTMOD = "2026-11-18"
+
+CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
+    "ch01": {
+        "video_id": "-LmHUlozTqE",
+        "title": "[軟體工程師雜談] 輕鬆搞懂資料結構: Array(陣列), Linked list(連結串列) | IT鐵人賽",
+        "upload_date": "2020-09-12T12:00:00+08:00",
+        "views_label": "67,700+ 次觀看",
+        "related": [
+            ("7xBrPbmOsSs", "輕鬆搞懂資料結構總覽（28,200+ 觀看）"),
+            ("RObLhJlg2O8", "程式基礎語法：變數、資料型態、運算符號與陣列"),
+        ],
+    },
+    "ch02": {
+        "video_id": "0Kiunabmm0w",
+        "title": "[軟體工程師雜談] 輕鬆搞懂資料結構: 堆疊(Stack) 與佇列(Queue) | IT鐵人賽",
+        "upload_date": "2020-09-13T12:00:00+08:00",
+        "views_label": "35,500+ 次觀看",
+        "related": [
+            ("JSKtJqj2pwc", "輕鬆搞懂資料結構：佇列 Queue 詳解（23,900+ 觀看）"),
+            ("hWrZPqJZXyg", "Function 函式總整理：基礎、Overload 與 Recursive 遞迴呼叫堆疊"),
+        ],
+    },
+    "ch03": {
+        "video_id": "DVDoyB5qDC4",
+        "title": "[軟體工程師雜談] 輕鬆搞懂演算法: 快速排序(Quick Sort) 與搜尋排序複雜度 | IT鐵人賽",
+        "upload_date": "2020-09-23T12:00:00+08:00",
+        "views_label": "23,800+ 次觀看",
+        "related": [
+            ("C9Xes8wH6Co", "輕鬆搞懂演算法：合併排序 Merge Sort（20,500+ 觀看）"),
+            ("iwCUOKhIhAA", "演算法概論與 Big-O 時間複雜度（19,100+ 觀看）"),
+            ("zO8kaBEy0M4", "氣泡排序、選擇排序、插入排序詳解（18,100+ 觀看）"),
+            ("llSvc4rwxi0", "搜尋演算法：二元搜尋 Binary Search（13,300+ 觀看）"),
+        ],
+    },
+    "ch04": {
+        "video_id": "xDwFMffqLbw",
+        "title": "[軟體工程師雜談] 輕鬆搞懂資料結構: 樹(Tree) 與雜湊表(Hash Table) | IT鐵人賽",
+        "upload_date": "2020-09-16T12:00:00+08:00",
+        "views_label": "41,900+ 次觀看",
+        "related": [
+            ("vPvxEDyxI2w", "輕鬆搞懂資料結構：雜湊 Hash Table（28,000+ 觀看）"),
+            ("gA815MIEFg0", "輕鬆搞懂資料結構：集合 Set 與映射 Map（18,900+ 觀看）"),
+        ],
+    },
+    "ch05": {
+        "video_id": "c4R27mPT5kY",
+        "title": "[軟體工程師雜談] 輕鬆搞懂演算法: 深度優先搜尋(DFS) 與廣度優先搜尋(BFS) | IT鐵人賽",
+        "upload_date": "2020-09-27T12:00:00+08:00",
+        "views_label": "22,600+ 次觀看",
+        "related": [
+            ("V_ajcNni6wk", "資工系在學些什麼？資料結構、演算法、物件導向（22,600+ 觀看）"),
+            ("5hYwLTVK4pY", "資料結構的複雜度 Big-O 總整理（15,000+ 觀看）"),
+        ],
+    },
+    "ch06": {
+        "video_id": "M2kYdAA-FHY",
+        "title": "[軟體工程師雜談] 輕鬆搞懂演算法: 動態規劃(Dynamic Programming) | IT鐵人賽",
+        "upload_date": "2020-09-29T12:00:00+08:00",
+        "views_label": "31,700+ 次觀看",
+        "related": [
+            ("iLK48YAXjio", "常用演算法策略：暴力法、貪婪法、分治法、回溯法、分支限界法（26,800+ 觀看）"),
+        ],
+    },
+    "ch07": {
+        "video_id": "klbGg8dmYTM",
+        "title": "[軟體工程師雜談] 輕鬆搞懂資料結構: 堆積(Heap) 與優先佇列 | IT鐵人賽",
+        "upload_date": "2020-09-17T12:00:00+08:00",
+        "views_label": "26,800+ 次觀看",
+        "related": [
+            ("fHBw99bYLuo", "堆積排序 (Heap Sort)、基數排序、桶排序詳解（13,200+ 觀看）"),
+        ],
+    },
+}
 
 
 def run_example(rel_path: str) -> tuple[str, str]:
@@ -116,13 +189,31 @@ def build_index_json_ld(chapters: Sequence[ChapterSpec], chapter_titles_short: s
 
 
 def build_chapter_json_ld(ch: ChapterSpec) -> dict[str, Any]:
-    """Build per-chapter Schema.org @graph with TechArticle, FAQPage, and BreadcrumbList."""
+    """Build per-chapter Schema.org @graph with TechArticle, VideoObject, FAQPage, and BreadcrumbList."""
     ch_url = f"https://learn.ai-purplemaple.com/{ch.id}.html"
     creator_ref = {
         "@type": "Person",
         "@id": "https://ai-purplemaple.com/#creator",
         "name": "紫楓 (AI王紫楓 / Purple Maple)",
         "url": "https://ai-purplemaple.com/",
+    }
+    yt_meta = CHAPTER_YOUTUBE_VIDEOS.get(ch.id, CHAPTER_YOUTUBE_VIDEOS["ch01"])
+    vid_id = yt_meta["video_id"]
+    video_node = {
+        "@type": "VideoObject",
+        "@id": f"{ch_url}#video",
+        "name": yt_meta["title"],
+        "description": f"紫楓（AI王紫楓 / Purple Maple）IT 鐵人賽實戰教學影片：{ch.badge} {ch.title}。{ch.summary}",
+        "thumbnailUrl": [
+            f"https://i.ytimg.com/vi/{vid_id}/maxresdefault.jpg",
+            f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg",
+        ],
+        "uploadDate": yt_meta["upload_date"],
+        "inLanguage": "zh-TW",
+        "contentUrl": f"https://www.youtube.com/watch?v={vid_id}",
+        "embedUrl": f"https://www.youtube.com/embed/{vid_id}",
+        "author": creator_ref,
+        "publisher": creator_ref,
     }
     return {
         "@context": "https://schema.org",
@@ -143,6 +234,7 @@ def build_chapter_json_ld(ch: ChapterSpec) -> dict[str, Any]:
                 "keywords": ", ".join(ch.keywords),
                 "author": creator_ref,
                 "publisher": creator_ref,
+                "video": {"@id": f"{ch_url}#video"},
                 "isPartOf": {
                     "@type": "Course",
                     "@id": "https://learn.ai-purplemaple.com/#course",
@@ -150,6 +242,7 @@ def build_chapter_json_ld(ch: ChapterSpec) -> dict[str, Any]:
                     "url": "https://learn.ai-purplemaple.com/",
                 },
             },
+            video_node,
             {
                 "@type": "FAQPage",
                 "@id": f"{ch_url}#faq",
@@ -185,6 +278,48 @@ def build_chapter_json_ld(ch: ChapterSpec) -> dict[str, Any]:
             },
         ],
     }
+
+
+def render_video_lecture_section(ch: ChapterSpec) -> str:
+    """Render an embedded 16:9 YouTube lecture player and supplementary video links for the chapter."""
+    yt_meta = CHAPTER_YOUTUBE_VIDEOS.get(ch.id, CHAPTER_YOUTUBE_VIDEOS["ch01"])
+    vid_id = yt_meta["video_id"]
+    vid_title = html.escape(yt_meta["title"])
+    views_label = html.escape(yt_meta["views_label"])
+    related_items = "\n".join(
+        f'          <li>▶ <a href="https://www.youtube.com/watch?v={r_id}" target="_blank" rel="noopener noreferrer">{html.escape(r_title)}</a></li>'
+        for r_id, r_title in yt_meta.get("related", [])
+    )
+    related_block = (
+        f"""
+        <div class="concepts-box" style="margin-top: 1rem; margin-bottom: 0;">
+          <h3>📺 本章延伸 YouTube 鐵人賽專題教學影片</h3>
+          <ul>
+{related_items}
+          </ul>
+        </div>"""
+        if related_items
+        else ""
+    )
+    return f"""
+      <section class="chapter-card" id="video-lecture">
+        <h2>🎥 本章對應 YouTube 實戰教學影片（{views_label}）</h2>
+        <p class="chapter-summary">建議先觀看紫楓 IT 鐵人賽對應影片建立直覺圖像記憶，再對照下方複雜度表與 Python 3.12 標準庫程式碼動手實作：</p>
+        <div class="video-embed-container" style="position: relative; width: 100%; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; border: 1px solid var(--border); background: #0c0d14;">
+          <iframe
+            src="https://www.youtube.com/embed/{vid_id}"
+            title="{vid_title}"
+            loading="lazy"
+            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allowfullscreen></iframe>
+        </div>
+        <div class="meta-bar" style="margin-top: 0.85rem; margin-bottom: 0;">
+          <span>🎬 <strong>主講影片：</strong><a href="https://www.youtube.com/watch?v={vid_id}" target="_blank" rel="noopener noreferrer">{vid_title}</a></span>
+          <span>📂 <a href="https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd" target="_blank" rel="noopener noreferrer">31 集完整鐵人賽播放清單 ↗</a></span>
+        </div>{related_block}
+      </section>"""
 
 
 def render_comparison_table(table: ComparisonTable) -> str:
@@ -1215,6 +1350,7 @@ def render_chapter_page(
     <nav class="section-subnav" aria-label="本章段落導覽">
       <span>📑 本章快速跳轉：</span>
       <a href="#intro">核心觀念與背景導論</a>
+      <a href="#video-lecture">YouTube 實戰教學影片</a>
       <a href="#comparison">複雜度與特性對照表</a>
       <a href="#walkthrough">逐步狀態拆解</a>
       <a href="#code-section">Python 3.12 完整實作</a>
@@ -1237,6 +1373,8 @@ def render_chapter_page(
           <span>📄 <strong>原始碼路徑：</strong><code>{escaped_file}</code></span>
         </div>
       </article>
+
+{render_video_lecture_section(ch)}
 
       <section class="chapter-card" id="comparison">
         <h2>📊 時間與空間複雜度暨底層結構對照表</h2>
