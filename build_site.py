@@ -402,10 +402,11 @@ def render_interview_section(ch: ChapterSpec) -> str:
     lc_rows_html = "\n".join(lc_rows)
 
     faq_items: list[str] = []
-    for faq in ch.interview_faqs:
+    for faq_idx, faq in enumerate(ch.interview_faqs):
+        open_attr = " open" if faq_idx == 0 else ""
         faq_items.append(
             f"""
-          <details class="faq-item" open>
+          <details class="faq-item"{open_attr}>
             <summary>💬 {html.escape(faq.question)}</summary>
             <div class="faq-answer">
               <p>{html.escape(faq.answer)}</p>
@@ -446,11 +447,11 @@ def render_deep_dive_callout(ch: ChapterSpec) -> str:
     )
     lc_badges = " ・ ".join(f"LeetCode #{lc.number}" for lc in ch.leetcode_problems)
     return f"""
-        <div class="deep-dive-callout">
-          <div class="deep-dive-callout-header">
-            <strong>📖 {html.escape(ch.badge)} 獨立深度講義獨家收錄內容（點擊展開完整教學專論）</strong>
+        <details class="deep-dive-callout">
+          <summary class="deep-dive-callout-header">
+            <strong>📖 {html.escape(ch.badge)} 獨立深度講義獨家收錄內容（點擊展開／收合預覽）</strong>
             <span class="lc-tag-row">{html.escape(lc_badges)}</span>
-          </div>
+          </summary>
           <p class="deep-dive-table-hint">📊 <strong>完整結構化對照表：</strong><a href="{ch.id}.html#comparison">{html.escape(ch.comparison_table.caption)}</a></p>
           <p class="deep-dive-table-hint">🎯 <strong>本章軟體工程師面試必考問答預告：</strong></p>
           <ul class="deep-dive-faq-preview">
@@ -459,7 +460,7 @@ def render_deep_dive_callout(ch: ChapterSpec) -> str:
           <div class="deep-dive-action">
             <a class="btn btn-primary" href="{ch.id}.html">閱讀 {html.escape(ch.badge)} 完整深度講義（複雜度表 ＋ 逐步圖解 ＋ 面試詳解） →</a>
           </div>
-        </div>"""
+        </details>"""
 
 
 def render_chapter_pager(idx: int, chapters: Sequence[ChapterSpec]) -> str:
@@ -799,11 +800,11 @@ def render_shared_styles() -> str:
       font-size: 0.93rem;
     }
     .deep-dive-callout {
-      margin-top: 1.25rem;
+      margin-top: 1.1rem;
       background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(31, 34, 53, 0.9));
       border: 1px solid rgba(167, 139, 250, 0.38);
       border-radius: 12px;
-      padding: 1.15rem 1.3rem;
+      padding: 0.95rem 1.25rem;
     }
     .deep-dive-callout-header {
       display: flex;
@@ -811,7 +812,45 @@ def render_shared_styles() -> str:
       justify-content: space-between;
       align-items: center;
       gap: 0.5rem;
-      margin-bottom: 0.55rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    details.deep-dive-callout[open] .deep-dive-callout-header {
+      margin-bottom: 0.65rem;
+    }
+    .code-accordion {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.85rem 1.15rem;
+      margin-top: 0.75rem;
+    }
+    .code-accordion-summary {
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.94rem;
+      color: var(--accent);
+      user-select: none;
+    }
+    details.code-accordion[open] .code-accordion-summary {
+      margin-bottom: 0.85rem;
+    }
+    .study-guide-accordion {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.95rem 1.2rem;
+      margin-top: 0.75rem;
+    }
+    .study-guide-summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 0.96rem;
+      user-select: none;
+    }
+    details.study-guide-accordion[open] .study-guide-summary {
+      margin-bottom: 0.75rem;
     }
     .lc-tag-row {
       font-size: 0.8rem;
@@ -1010,7 +1049,7 @@ def render_footer() -> str:
         <h3>隱私權政策與 Cookie 聲明 (Privacy Policy)</h3>
         <p>本網站（learn.ai-purplemaple.com）使用 Google AdSense 第三方廣告服務與 Google Analytics (GA4)／Google Tag Manager 網站流量分析服務。Google 及其合作夥伴會使用 Cookie（包含 DART Cookie），根據使用者造訪本站或其他網站的紀錄提供個人化廣告與匿名流量統計。您可隨時前往 <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google 廣告設定頁面</a> 停用個人化廣告，或查閱 <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">Google 廣告與隱私權政策</a>。本站程式碼複製功能均於瀏覽器本機執行，不會收集或儲存您的個人識別資料。</p>
       </div>
-      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">紫楓 (AI王紫楓 / Purple Maple)</a></strong> ・ <a href="https://quote.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">插畫＆音樂委託試算</a> ・ <a href="https://game.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">白瀬アイリ占卜小遊戲</a> ・ <a href="https://fps.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">府城保衛戰 3D</a> ・ <a href="https://edu.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">時空守護者</a> ・ <a href="https://muse.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">Muse 邀請碼・AI 教學</a> ・ Powered by Python 3.12 &amp; GitHub Pages ・ <a href="ads.txt">ads.txt</a></p>
+      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">紫楓 (AI王紫楓 / Purple Maple)</a></strong> ・ <a href="https://quote.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">插畫＆音樂委託試算</a> ・ <a href="https://game.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">白瀬アイリ占卜小遊戲</a> ・ <a href="https://fps.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">府城保衛戰 3D</a> ・ <a href="https://edu.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">時空守護者</a> ・ <a href="https://astral.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">星界斷章</a> ・ <a href="https://muse.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">Muse 邀請碼・繆思的邀請函</a> ・ <a href="https://waifu.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">WaifuScan 鑑定</a> ・ Powered by Python 3.12 &amp; GitHub Pages ・ <a href="ads.txt">ads.txt</a></p>
     </footer>"""
 
 
@@ -1114,7 +1153,7 @@ def render_index_page(
     exec_cache: dict[str, tuple[str, str]],
     chapter_titles_short: str,
 ) -> str:
-    """Render the Course Hub index.html (summary cards + live code sandbox + deep-dive callouts)."""
+    """Render the Course Hub index.html (summary cards + progressive disclosure code sandbox + deep-dive callouts)."""
     cards_html: list[str] = []
     toc_items_html: list[str] = []
 
@@ -1128,6 +1167,7 @@ def render_index_page(
         escaped_file = html.escape(ch.file)
         concepts_items = "\n".join(f"            <li>{html.escape(pt)}</li>" for pt in ch.concepts)
         short_name = html.escape(ch.title.split("（")[0])
+        open_attr = " open" if idx == 1 else ""
 
         toc_items_html.append(
             f"""      <a class="toc-item" href="#{ch.id}">
@@ -1155,17 +1195,20 @@ def render_index_page(
           <span>⏱️ <strong>時間／空間複雜度：</strong>{escaped_complexity}</span>
           <span>📄 <strong>原始碼路徑：</strong><code>{escaped_file}</code></span>
         </div>
-        <div class="code-container">
-          <div class="code-toolbar">
-            <span>Python 3.12 範例實作（{escaped_file}）</span>
-            <button type="button" class="copy-btn" data-target="code-{ch.id}">複製程式碼</button>
+        <details class="code-accordion"{open_attr}>
+          <summary class="code-accordion-summary">💻 點擊展開／收合 {html.escape(ch.badge)} Python 3.12 完整實作原始碼與 CI 實機輸出（<code>{escaped_file}</code>）</summary>
+          <div class="code-container">
+            <div class="code-toolbar">
+              <span>Python 3.12 範例實作（{escaped_file}）</span>
+              <button type="button" class="copy-btn" data-target="code-{ch.id}">複製程式碼</button>
+            </div>
+            <pre><code id="code-{ch.id}">{escaped_code}</code></pre>
           </div>
-          <pre><code id="code-{ch.id}">{escaped_code}</code></pre>
-        </div>
-        <div class="output-box">
-          <div class="output-label">▶ 實機執行輸出驗證（CI 自動實測結果）</div>
-          <pre class="output-pre">{escaped_out}</pre>
-        </div>
+          <div class="output-box">
+            <div class="output-label">▶ 實機執行輸出驗證（CI 自動實測結果）</div>
+            <pre class="output-pre">{escaped_out}</pre>
+          </div>
+        </details>
 {render_deep_dive_callout(ch)}
       </article>"""
         )
@@ -1243,12 +1286,15 @@ def render_index_page(
 
       <section class="study-guide-card" id="study-guide">
         <h2>🧭 軟體工程師基本功修煉指南與常見問答（FAQ）</h2>
-        <p>許多初學者與轉職者在刷題（LeetCode）或準備技術面試時，常陷入「背題目卻不懂底層原理」的困境。建議依照以下三階段循序漸進：</p>
-        <ul>
-          <li><strong>第一階段（記憶體模型與線性結構）：</strong>先親手實作 <a href="ch01.html">Ch.01 的單向鏈結串列</a>與 <a href="ch02.html">Ch.02 的 Stack / Queue</a>，徹底理解指標（Reference / Pointer）操作與時間複雜度 <code>O(1)</code> vs. <code>O(n)</code> 的差異。</li>
-          <li><strong>第二階段（分治搜尋、雜湊查找、樹與圖論架構）：</strong>透過 <a href="ch03.html">Ch.03 的二分搜尋與合併排序（Merge Sort）</a>、<a href="ch04.html">Ch.04 的雜湊表（Hash Table / Two Sum）與二元搜尋樹（BST）</a>，再到 <a href="ch05.html">Ch.05 的圖論走訪（Graph BFS / DFS 最短路徑）與物件導向封裝（OOP）</a>，掌握分治法、空間換取時間與抽象化模組設計的核心精神。</li>
-          <li><strong>第三階段（進階動態規劃、優先佇列與白板題實戰）：</strong>深入 <a href="ch06.html">Ch.06 動態規劃與記憶化搜尋（0/1 背包與 LIS）</a>及 <a href="ch07.html">Ch.07 二元堆積與 Top-K 多路合併演算法</a>，搭配各章獨立講義內的複雜度對照表、CPython 底層陷阱解析與 YouTube 鐵人賽教學影片完成實戰修煉。</li>
-        </ul>
+        <p>許多初學者與轉職者在刷題（LeetCode）或準備技術面試時，常陷入「背題目卻不懂底層原理」的困境。點擊下方折疊面版展開三階段循序漸進路線圖：</p>
+        <details class="study-guide-accordion">
+          <summary class="study-guide-summary">📚 點擊展開／收合：三階段刷題路線圖與學習建議</summary>
+          <ul>
+            <li><strong>第一階段（記憶體模型與線性結構）：</strong>先親手實作 <a href="ch01.html">Ch.01 的單向鏈結串列</a>與 <a href="ch02.html">Ch.02 的 Stack / Queue</a>，徹底理解指標（Reference / Pointer）操作與時間複雜度 <code>O(1)</code> vs. <code>O(n)</code> 的差異。</li>
+            <li><strong>第二階段（分治搜尋、雜湊查找、樹與圖論架構）：</strong>透過 <a href="ch03.html">Ch.03 的二分搜尋與合併排序（Merge Sort）</a>、<a href="ch04.html">Ch.04 的雜湊表（Hash Table / Two Sum）與二元搜尋樹（BST）</a>，再到 <a href="ch05.html">Ch.05 的圖論走訪（Graph BFS / DFS 最短路徑）與物件導向封裝（OOP）</a>，掌握分治法、空間換取時間與抽象化模組設計的核心精神。</li>
+            <li><strong>第三階段（進階動態規劃、優先佇列與白板題實戰）：</strong>深入 <a href="ch06.html">Ch.06 動態規劃與記憶化搜尋（0/1 背包與 LIS）</a>及 <a href="ch07.html">Ch.07 二元堆積與 Top-K 多路合併演算法</a>，搭配各章獨立講義內的複雜度對照表、CPython 底層陷阱解析與 YouTube 鐵人賽教學影片完成實戰修煉。</li>
+          </ul>
+        </details>
       </section>
     </main>
 
@@ -1542,7 +1588,9 @@ def build_site(out_dir: Path) -> Path:
         "- [艾莉的秘密星空（今日星運占卜與星夜紅線抽籤 おみくじ）](https://game.ai-purplemaple.com/): 免費中日雙語瀏覽器互動小遊戲\n"
         "- [府城保衛戰（臺南巷戰 3D 戰術射擊）](https://fps.ai-purplemaple.com/): Three.js 3D 寫實巷戰遊戲\n"
         "- [時空守護者（國小八大國度・小甲魚大冒險）](https://edu.ai-purplemaple.com/): 108 課綱互動式冒險學習平台\n"
-        "- [Muse 邀請碼分享站・Muse AI 多語系教學指南](https://muse.ai-purplemaple.com/): 最新可用推薦碼即時看板與註冊兌換教學\n"
+        "- [星界斷章：星律前奏曲（機甲交鋒音遊）](https://astral.ai-purplemaple.com/): 73 位星律使 × 65 首原創曲目雙鍵網頁音遊\n"
+        "- [Muse 邀請碼分享站・繆思的邀請函](https://muse.ai-purplemaple.com/): 64 位繆思獨立圖鑑、推薦碼看板與教學指南\n"
+        "- [WaifuScan（二次元老婆屬性鑑定所）](https://waifu.ai-purplemaple.com/): 12 萌娘屬性百科與性向測驗\n"
         "- [YouTube 完整教學播放清單](https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd)\n"
     )
     (out_dir / "llms.txt").write_text(

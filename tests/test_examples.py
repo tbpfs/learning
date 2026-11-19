@@ -181,6 +181,10 @@ class TestLearningExamples(unittest.TestCase):
             self.assertIn("GTM-WNSFQT5V", html_text)
             self.assertEqual(html_text.count('class="ad-slot-card"'), len(CHAPTERS))
             self.assertEqual(html_text.count('data-ad-slot="1673180799"'), len(CHAPTERS))
+            self.assertEqual(html_text.count('<details class="code-accordion"'), len(CHAPTERS))
+            self.assertEqual(html_text.count('<details class="code-accordion" open>'), 1)
+            self.assertEqual(html_text.count('<details class="deep-dive-callout">'), len(CHAPTERS))
+            self.assertIn('<details class="study-guide-accordion">', html_text)
             self.assertIn("Privacy Policy", html_text)
 
             # Validate index.html JSON-LD syntax
