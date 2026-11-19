@@ -6,6 +6,7 @@ import re
 import sys
 import tempfile
 import unittest
+from html.parser import HTMLParser
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -165,6 +166,8 @@ class TestLearningExamples(unittest.TestCase):
             html_text = index_path.read_text(encoding="utf-8")
             self.assertIn("<!DOCTYPE html>", html_text)
             self.assertIn("從零開始寫程式，輕鬆搞懂資料結構，演算法", html_text)
+            self.assertNotIn('id="fbBox"', html_text)
+            self.assertIn("anonymous" if False else "私密提問", html_text)
             for marker in (
                 "Ch.01 SinglyLinkedList 範例結果:",
                 "Ch.02 括號平衡檢查",
@@ -216,6 +219,27 @@ class TestLearningExamples(unittest.TestCase):
                 self.assertIn('class="table-responsive"', ch_html)
                 self.assertIn('<table class="comparison-table">', ch_html)
                 self.assertEqual(ch_html.count('data-ad-slot="1673180799"'), 2)
+                for fb_tok in (
+                    f'data-chapter="{ch_id}"',
+                    'id="fbBox"',
+                    'aria-pressed="false"',
+                    'class="fb-ask"',
+                    'id="askForm"',
+                    'https://ai-purplemaple.com',
+                    '/api/v1/learn-feedback',
+                    '/api/v1/learn-question',
+                ):
+                    self.assertIn(fb_tok, ch_html, f"Missing {fb_tok} in {ch_id}.html")
+
+                class _DomCount(HTMLParser):
+                    def __init__(self):
+                        super().__init__()
+                        self.n = 0
+                    def handle_starttag(self, tag, attrs):
+                        self.n += 1
+                _dc = _DomCount()
+                _dc.feed(ch_html)
+                self.assertLess(_dc.n, 1500, f"{ch_id}.html DOM element count {_dc.n} >= 1500")
 
                 # Verify pure Chinese prose count >= 1,200 chars (excluding style, script, pre)
                 stripped = re.sub(r"<style\b[^>]*>.*?</style>", "", ch_html, flags=re.DOTALL)
@@ -266,6 +290,8 @@ class TestLearningExamples(unittest.TestCase):
             self.assertIn("https://learn.ai-purplemaple.com/ch06.html", llms_txt)
             self.assertIn("https://learn.ai-purplemaple.com/ch07.html", llms_txt)
             self.assertNotIn("肉球おみくじ", llms_txt)
+            self.assertNotIn("64 位繆思", llms_txt)
+            self.assertIn("Meta Muse 邀請碼分享站", llms_txt)
 
             llms_full = (Path(tmpdir) / "llms-full.txt").read_text(encoding="utf-8")
             for marker in (
@@ -285,7 +311,7 @@ class TestLearningExamples(unittest.TestCase):
             self.assertIn("https://learn.ai-purplemaple.com/ch06.html", sitemap_text)
             self.assertIn("https://learn.ai-purplemaple.com/ch07.html", sitemap_text)
             self.assertIn("https://learn.ai-purplemaple.com/llms-full.txt", sitemap_text)
-            self.assertIn("<lastmod>2026-11-18</lastmod>", sitemap_text)
+            self.assertIn("<lastmod>2026-11-19</lastmod>", sitemap_text)
 
             robots_text = (Path(tmpdir) / "robots.txt").read_text(encoding="utf-8")
             for bot in ("Twitterbot", "GrokBot", "xAI-Bot", "xAI-SearchBot", "Bravebot"):

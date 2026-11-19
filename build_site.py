@@ -25,7 +25,7 @@ ADSENSE_PUBLISHER_ID = "pub-6485917848711473"
 ADSENSE_CLIENT_ID = f"ca-{ADSENSE_PUBLISHER_ID}"
 ADSENSE_IN_ARTICLE_SLOT_ID = "1673180799"
 INDEXNOW_KEY = "7f4e9c2a8b1d6035e4a92c7f1b8d3e60"
-SITE_LASTMOD = "2026-11-18"
+SITE_LASTMOD = "2026-11-19"
 
 CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
     "ch01": {
@@ -439,6 +439,38 @@ def render_interview_section(ch: ChapterSpec) -> str:
       </section>"""
 
 
+def render_feedback_section(ch: ChapterSpec) -> str:
+    """Render minimalist helpfulness vote + collapsed private Q&A box on standalone chapter pages."""
+    return f"""
+      <section class="chapter-card fb-box" id="fbBox" data-chapter="{html.escape(ch.id)}">
+        <div class="fb-row">
+          <span class="fb-q">這篇講義對你有幫助嗎？</span>
+          <div class="fb-btns">
+            <button class="fb-chip" type="button" data-fb-vote="1" aria-pressed="false">👍 有幫助</button>
+            <button class="fb-chip" type="button" data-fb-vote="-1" aria-pressed="false">👎 待改進</button>
+          </div>
+        </div>
+        <form class="fb-note" id="fbNoteForm" hidden autocomplete="off">
+          <input id="fbNoteInput" maxlength="200" placeholder="選填：哪一段清楚或卡關？（最多 200 字，不公開）" aria-label="選填原因（不公開）">
+          <input class="fb-hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <button class="btn btn-secondary" id="fbNoteBtn" type="submit">送出回饋</button>
+        </form>
+        <p class="fb-status" id="fbStatus" aria-live="polite"></p>
+        <details class="fb-ask">
+          <summary>還有程式觀念卡關？匿名提問給紫楓（整理進本章 FAQ）</summary>
+          <p class="fb-ask-sub">為維持閱讀版面純淨、杜絕廣告留言，提問不會直接公開；站長審閱後會將高頻問題補入本章技術 FAQ。</p>
+          <form class="fb-ask-form" id="askForm" autocomplete="off">
+            <textarea id="askInput" rows="3" maxlength="400" placeholder="輸入你的疑問，例如：為什麼這段時間複雜度是 O(log n)…" aria-label="匿名提問內容" required></textarea>
+            <input class="fb-hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <div class="fb-ask-foot">
+              <button class="btn btn-primary" id="askSendBtn" type="submit">送出提問</button>
+              <span class="fb-status" id="askStatus" aria-live="polite"></span>
+            </div>
+          </form>
+        </details>
+      </section>"""
+
+
 def render_deep_dive_callout(ch: ChapterSpec) -> str:
     """Render an asymmetric information-gain callout on index.html linking to the standalone deep-dive page."""
     faq_previews = "\n".join(
@@ -557,9 +589,16 @@ def render_shared_styles() -> str:
       gap: 0.5rem;
       padding: 0.65rem 1.2rem;
       border-radius: 10px;
+      border: 1px solid transparent;
+      font-family: inherit;
       font-weight: 600;
       font-size: 0.95rem;
+      cursor: pointer;
       transition: transform 0.15s ease, background 0.15s ease;
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
     .btn:hover {
       transform: translateY(-1px);
@@ -1039,6 +1078,130 @@ def render_shared_styles() -> str:
       padding-top: 1.5rem;
       border-top: 1px solid var(--border);
     }
+    .fb-hp {
+      position: absolute !important;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      left: -9999px;
+    }
+    .fb-box {
+      padding: 1.25rem 1.5rem;
+    }
+    .fb-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .fb-q {
+      font-weight: 700;
+      font-size: 0.98rem;
+      color: var(--text);
+    }
+    .fb-btns {
+      display: flex;
+      gap: 0.55rem;
+      flex-wrap: wrap;
+    }
+    .fb-chip {
+      height: 36px;
+      padding: 0 0.95rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .fb-chip:hover {
+      color: var(--text);
+      border-color: var(--accent);
+    }
+    .fb-chip.on.up {
+      background: rgba(52, 211, 153, 0.16);
+      border-color: var(--success);
+      color: #d1fae5;
+    }
+    .fb-chip.on.down {
+      background: rgba(248, 113, 113, 0.18);
+      border-color: #f87171;
+      color: #fee2e2;
+    }
+    .fb-note {
+      display: flex;
+      gap: 0.6rem;
+      margin-top: 0.85rem;
+      flex-wrap: wrap;
+    }
+    .fb-note[hidden] {
+      display: none;
+    }
+    .fb-note input {
+      flex: 1;
+      min-width: min(100%, 190px);
+      height: 40px;
+      padding: 0 0.9rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--code-bg);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.9rem;
+    }
+    .fb-status {
+      margin: 0.55rem 0 0;
+      font-size: 0.86rem;
+      color: var(--success);
+      min-height: 1.1em;
+    }
+    .fb-status.err {
+      color: #f87171;
+    }
+    .fb-ask {
+      margin-top: 0.9rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.92rem;
+    }
+    .fb-ask summary {
+      cursor: pointer;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .fb-ask-sub {
+      margin: 0.55rem 0 0.7rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .fb-ask-form textarea {
+      width: 100%;
+      padding: 0.65rem 0.9rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--code-bg);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.92rem;
+      resize: vertical;
+    }
+    .fb-ask-foot {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 0.65rem;
+      flex-wrap: wrap;
+    }
+    @media (max-width: 640px) {
+      .fb-note input,
+      .fb-ask-form textarea {
+        font-size: 16px;
+      }
+    }
   </style>"""
 
 
@@ -1047,9 +1210,9 @@ def render_footer() -> str:
     return """    <footer id="privacy">
       <div class="privacy-policy-card">
         <h3>隱私權政策與 Cookie 聲明 (Privacy Policy)</h3>
-        <p>本網站（learn.ai-purplemaple.com）使用 Google AdSense 第三方廣告服務與 Google Analytics (GA4)／Google Tag Manager 網站流量分析服務。Google 及其合作夥伴會使用 Cookie（包含 DART Cookie），根據使用者造訪本站或其他網站的紀錄提供個人化廣告與匿名流量統計。您可隨時前往 <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google 廣告設定頁面</a> 停用個人化廣告，或查閱 <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">Google 廣告與隱私權政策</a>。本站程式碼複製功能均於瀏覽器本機執行，不會收集或儲存您的個人識別資料。</p>
+        <p>本網站（learn.ai-purplemaple.com）使用 Google AdSense 第三方廣告服務與 Google Analytics (GA4)／Google Tag Manager 網站流量分析服務。Google 及其合作夥伴會使用 Cookie（包含 DART Cookie），根據使用者造訪本站或其他網站的紀錄提供個人化廣告與匿名流量統計。您可隨時前往 <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google 廣告設定頁面</a> 停用個人化廣告，或查閱 <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">Google 廣告與隱私權政策</a>。本站程式碼複製功能均於瀏覽器本機執行；讀者於章節講義點擊「有幫助／待改進」或提交私密提問時，僅透過加密安全通道傳送匿名回饋內容與 HMAC 雜湊限流識別，絕不公開顯示留言或儲存原始 IP。</p>
       </div>
-      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">紫楓 (AI王紫楓 / Purple Maple)</a></strong> ・ <a href="https://quote.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">插畫＆音樂委託試算</a> ・ <a href="https://game.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">白瀬アイリ占卜小遊戲</a> ・ <a href="https://fps.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">府城保衛戰 3D</a> ・ <a href="https://edu.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">時空守護者</a> ・ <a href="https://astral.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">星界斷章</a> ・ <a href="https://muse.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">Muse 邀請碼・繆思的邀請函</a> ・ <a href="https://waifu.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">WaifuScan 鑑定</a> ・ Powered by Python 3.12 &amp; GitHub Pages ・ <a href="ads.txt">ads.txt</a></p>
+      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">紫楓 (AI王紫楓 / Purple Maple)</a></strong> ・ <a href="https://quote.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">插畫＆音樂委託試算</a> ・ <a href="https://game.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">白瀬アイリ占卜小遊戲</a> ・ <a href="https://fps.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">府城保衛戰 3D</a> ・ <a href="https://edu.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">時空守護者</a> ・ <a href="https://astral.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">星界斷章</a> ・ <a href="https://muse.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">Muse 邀請碼分享站</a> ・ <a href="https://waifu.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">WaifuScan 鑑定</a> ・ Powered by Python 3.12 &amp; GitHub Pages ・ <a href="ads.txt">ads.txt</a></p>
     </footer>"""
 
 
@@ -1144,7 +1307,143 @@ def render_copy_script(*, include_cms_fetch: bool) -> str:
         }});
       }});
     }}
-    bindCopyButtons();{cms_block}
+    bindCopyButtons();
+    (function () {{
+      var fbBox = document.getElementById('fbBox');
+      if (!fbBox || typeof fetch !== 'function') return;
+      var chId = fbBox.getAttribute('data-chapter') || '';
+      var apiBase = 'https://ai-purplemaple.com';
+      var fbKey = 'learnFb:' + chId;
+      var curVote = 0;
+
+      function setStatus(el, msg, isErr) {{
+        if (!el) return;
+        el.classList.toggle('err', Boolean(isErr));
+        el.textContent = msg || '';
+      }}
+
+      function errText(code) {{
+        if (code === 'rate_limited') return '今天的次數已用完，明天再來';
+        if (code === 'too_short') return '請至少輸入 5 個字描述你的疑問';
+        if (code === 'too_long') return '字數請控制在 400 字以內';
+        return '送出失敗，請稍後再試';
+      }}
+
+      function setFbBtns(v) {{
+        curVote = v;
+        fbBox.querySelectorAll('[data-fb-vote]').forEach(function (b) {{
+          var bv = Number(b.getAttribute('data-fb-vote'));
+          var on = bv === v;
+          b.classList.toggle('on', on);
+          b.classList.toggle('up', bv === 1 && on);
+          b.classList.toggle('down', bv === -1 && on);
+          b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        }});
+      }}
+
+      function postJson(path, body) {{
+        return fetch(apiBase + path, {{
+          method: 'POST',
+          headers: {{ 'Content-Type': 'application/json' }},
+          body: JSON.stringify(body)
+        }}).then(function (r) {{
+          return r.json().catch(function () {{ return {{}}; }}).then(function (d) {{
+            if (!r.ok) throw new Error((d && d.error) || 'error');
+            return d;
+          }});
+        }});
+      }}
+
+      try {{
+        var saved = Number(localStorage.getItem(fbKey) || 0);
+        if (saved === 1 || saved === -1) setFbBtns(saved);
+      }} catch (_) {{}}
+
+      var fbStatus = document.getElementById('fbStatus');
+      var noteForm = document.getElementById('fbNoteForm');
+
+      fbBox.querySelectorAll('[data-fb-vote]').forEach(function (btn) {{
+        btn.addEventListener('click', function () {{
+          var vote = Number(btn.getAttribute('data-fb-vote'));
+          var prevVote = curVote;
+          if (vote === prevVote) {{
+            if (noteForm) noteForm.hidden = false;
+            setStatus(fbStatus, '感謝回饋！歡迎選填一句原因幫助我們補強講義。', false);
+            return;
+          }}
+          setFbBtns(vote);
+          postJson('/api/v1/learn-feedback', {{ slug: chId, vote: vote, note: '' }})
+            .then(function () {{
+              try {{ localStorage.setItem(fbKey, String(vote)); }} catch (_) {{}}
+              if (noteForm) noteForm.hidden = false;
+              setStatus(fbStatus, '感謝回饋！歡迎選填一句原因幫助我們補強講義。', false);
+              if (typeof window.gtag === 'function') {{
+                window.gtag('event', 'chapter_feedback', {{ chapter_id: chId, vote: vote }});
+              }}
+            }})
+            .catch(function (err) {{
+              setFbBtns(prevVote);
+              setStatus(fbStatus, errText(err && err.message), true);
+            }});
+        }});
+      }});
+
+      if (noteForm) {{
+        noteForm.addEventListener('submit', function (e) {{
+          e.preventDefault();
+          var inp = document.getElementById('fbNoteInput');
+          var noteBtn = document.getElementById('fbNoteBtn');
+          var note = ((inp && inp.value) || '').trim();
+          if (!note) return;
+          var hp = noteForm.elements.website ? noteForm.elements.website.value : '';
+          if (noteBtn) noteBtn.disabled = true;
+          postJson('/api/v1/learn-feedback', {{ slug: chId, vote: curVote || 1, note: note, website: hp }})
+            .then(function () {{
+              if (inp) inp.value = '';
+              noteForm.hidden = true;
+              setStatus(fbStatus, '✓ 已收到你的回饋，謝謝！', false);
+            }})
+            .catch(function (err) {{
+              setStatus(fbStatus, errText(err && err.message), true);
+            }})
+            .finally(function () {{
+              if (noteBtn) noteBtn.disabled = false;
+            }});
+        }});
+      }}
+
+      var askForm = document.getElementById('askForm');
+      if (askForm) {{
+        askForm.addEventListener('submit', function (e) {{
+          e.preventDefault();
+          var inp = document.getElementById('askInput');
+          var askStatus = document.getElementById('askStatus');
+          var askBtn = document.getElementById('askSendBtn');
+          var text = ((inp && inp.value) || '').trim().replace(/\\s+/g, ' ');
+          if (text.length < 5) {{
+            setStatus(askStatus, errText('too_short'), true);
+            if (inp) inp.focus();
+            return;
+          }}
+          var hp = askForm.elements.website ? askForm.elements.website.value : '';
+          if (askBtn) askBtn.disabled = true;
+          postJson('/api/v1/learn-question', {{ slug: chId, text: text, website: hp }})
+            .then(function () {{
+              if (inp) inp.value = '';
+              setStatus(askStatus, '✓ 已收到提問！站長整理後會補充至本章 FAQ。', false);
+              if (typeof window.gtag === 'function') {{
+                window.gtag('event', 'chapter_question', {{ chapter_id: chId }});
+              }}
+            }})
+            .catch(function (err) {{
+              setStatus(askStatus, errText(err && err.message), true);
+            }})
+            .finally(function () {{
+              if (askBtn) askBtn.disabled = false;
+            }});
+        }});
+      }}
+    }})();{cms_block}
   </script>"""
 
 
@@ -1450,6 +1749,8 @@ def render_chapter_page(
 
 {render_interview_section(ch)}
 
+{render_feedback_section(ch)}
+
 {render_ad_slot(f"{ch.badge} 獨立講義文末廣告單元")}
 
 {render_chapter_pager(idx, chapters)}
@@ -1589,7 +1890,7 @@ def build_site(out_dir: Path) -> Path:
         "- [府城保衛戰（臺南巷戰 3D 戰術射擊）](https://fps.ai-purplemaple.com/): Three.js 3D 寫實巷戰遊戲\n"
         "- [時空守護者（國小八大國度・小甲魚大冒險）](https://edu.ai-purplemaple.com/): 108 課綱互動式冒險學習平台\n"
         "- [星界斷章：星律前奏曲（機甲交鋒音遊）](https://astral.ai-purplemaple.com/): 73 位星律使 × 65 首原創曲目雙鍵網頁音遊\n"
-        "- [Muse 邀請碼分享站・繆思的邀請函](https://muse.ai-purplemaple.com/): 64 位繆思獨立圖鑑、推薦碼看板與教學指南\n"
+        "- [Meta Muse 邀請碼分享站](https://muse.ai-purplemaple.com/): 支援 6 語系的 Meta Muse AI 邀請碼看板、48 小時 10 億 Token 兌換教學與失效回報系統\n"
         "- [WaifuScan（二次元老婆屬性鑑定所）](https://waifu.ai-purplemaple.com/): 12 萌娘屬性百科與性向測驗\n"
         "- [YouTube 完整教學播放清單](https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd)\n"
     )
