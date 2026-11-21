@@ -19,13 +19,17 @@ REPO_ROOT = Path(__file__).resolve().parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from affiliate_config import (  # noqa: E402
+    get_chapter_book_recommendation,
+    get_learning_resources,
+)
 from chapter_content import CHAPTERS, ChapterSpec, ComparisonTable  # noqa: E402
 
 ADSENSE_PUBLISHER_ID = "pub-6485917848711473"
 ADSENSE_CLIENT_ID = f"ca-{ADSENSE_PUBLISHER_ID}"
 ADSENSE_IN_ARTICLE_SLOT_ID = "1673180799"
 INDEXNOW_KEY = "7f4e9c2a8b1d6035e4a92c7f1b8d3e60"
-SITE_LASTMOD = "2026-11-19"
+SITE_LASTMOD = "2026-11-21"
 
 CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
     "ch01": {
@@ -184,6 +188,10 @@ def build_index_json_ld(chapters: Sequence[ChapterSpec], chapter_titles_short: s
             "name": "紫楓 (AI王紫楓 / Purple Maple)",
             "url": "https://ai-purplemaple.com/",
         },
+        "speakable": {
+            "@type": "SpeakableSpecification",
+            "cssSelector": [".aeo-capsule", "header.hero h1"],
+        },
         "hasPart": has_part,
     }
 
@@ -234,6 +242,10 @@ def build_chapter_json_ld(ch: ChapterSpec) -> dict[str, Any]:
                 "keywords": ", ".join(ch.keywords),
                 "author": creator_ref,
                 "publisher": creator_ref,
+                "speakable": {
+                    "@type": "SpeakableSpecification",
+                    "cssSelector": [".aeo-capsule", "header.hero h1"],
+                },
                 "video": {"@id": f"{ch_url}#video"},
                 "isPartOf": {
                     "@type": "Course",
@@ -493,6 +505,59 @@ def render_deep_dive_callout(ch: ChapterSpec) -> str:
             <a class="btn btn-primary" href="{ch.id}.html">閱讀 {html.escape(ch.badge)} 完整深度講義（複雜度表 ＋ 逐步圖解 ＋ 面試詳解） →</a>
           </div>
         </details>"""
+
+
+def render_affiliate_resources_section() -> str:
+    """Render centralized hot-swappable book & course comparison table with transparent disclosure."""
+    rows_html: list[str] = []
+    for item in get_learning_resources():
+        rel_val = "sponsored noopener noreferrer" if item.is_sponsored else "noopener noreferrer"
+        rows_html.append(
+            f"""              <tr>
+                <td><strong>{html.escape(item.title)}</strong></td>
+                <td>{html.escape(item.partner_label)}</td>
+                <td>{html.escape(item.audience)}</td>
+                <td>{html.escape(item.highlight)}</td>
+                <td><a class="btn btn-secondary aff-btn" href="{html.escape(item.url)}" target="_blank" rel="{rel_val}" data-affiliate-partner="{html.escape(item.partner_id)}" data-affiliate-placement="index_table">{html.escape(item.cta_label)}</a></td>
+              </tr>"""
+        )
+    rows_block = "\n".join(rows_html)
+    return f"""
+      <section class="study-guide-card affiliate-card" id="recommended-resources">
+        <h2>📚 紫楓嚴選：Python 資料結構與演算法實體書／線上課程比較表</h2>
+        <p class="affiliate-disclosure">合作揭露：以下部分連結為博客來策略聯盟（AP）或合作夥伴推廣連結，透過連結購書或報名課程不會增加您的任何費用，我們可能獲得微薄分潤以支持本站免費開源講義維護。</p>
+        <div class="table-responsive">
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th>推薦書籍／課程</th>
+                <th>平台</th>
+                <th>適合對象</th>
+                <th>與本站章節對應重點</th>
+                <th>前往查看</th>
+              </tr>
+            </thead>
+            <tbody>
+{rows_block}
+            </tbody>
+          </table>
+        </div>
+      </section>"""
+
+
+def render_chapter_book_callout(ch: ChapterSpec) -> str:
+    """Render a compact, zero-image contextual Books.com.tw AP reading card on standalone chapter pages."""
+    label, ap_url = get_chapter_book_recommendation(ch.id)
+    return f"""
+      <aside class="chapter-card affiliate-chapter-card" aria-label="本章延伸書單推薦">
+        <div class="aff-ch-row">
+          <div>
+            <strong>📚 {html.escape(label)}</strong>
+            <p class="affiliate-disclosure" style="margin: 0.3rem 0 0;">合作揭露：此為博客來策略聯盟推廣連結，購書價格與原價相同，您的支持將協助本站持續更新免費 Python 教學講義。</p>
+          </div>
+          <a class="btn btn-secondary aff-btn" href="{html.escape(ap_url)}" target="_blank" rel="sponsored noopener noreferrer" data-affiliate-partner="books_ap_{html.escape(ch.id)}" data-affiliate-placement="chapter_footer">前往博客來查找相關書單 ↗</a>
+        </div>
+      </aside>"""
 
 
 def render_chapter_pager(idx: int, chapters: Sequence[ChapterSpec]) -> str:
@@ -1202,6 +1267,34 @@ def render_shared_styles() -> str:
         font-size: 16px;
       }
     }
+    .aeo-capsule {
+      background: rgba(167, 139, 250, 0.08);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 12px 12px 0;
+      padding: 0.9rem 1.15rem;
+      margin: 0 0 1.5rem;
+      font-size: 0.94rem;
+      color: var(--text);
+      line-height: 1.72;
+    }
+    .aeo-capsule strong { color: var(--accent); }
+    .affiliate-disclosure {
+      font-size: 0.84rem;
+      color: var(--muted);
+      margin: 0.25rem 0 0.9rem;
+    }
+    .aff-btn {
+      white-space: nowrap;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.85rem;
+    }
+    .aff-ch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
   </style>"""
 
 
@@ -1308,6 +1401,17 @@ def render_copy_script(*, include_cms_fetch: bool) -> str:
       }});
     }}
     bindCopyButtons();
+    document.querySelectorAll('[data-affiliate-partner]').forEach(function (el) {{
+      el.addEventListener('click', function () {{
+        if (typeof window.gtag === 'function') {{
+          window.gtag('event', 'affiliate_click', {{
+            partner: el.getAttribute('data-affiliate-partner') || '',
+            site: 'learn',
+            placement: el.getAttribute('data-affiliate-placement') || 'unknown'
+          }});
+        }}
+      }});
+    }});
     (function () {{
       var fbBox = document.getElementById('fbBox');
       if (!fbBox || typeof fetch !== 'function') return;
@@ -1580,8 +1684,10 @@ def render_index_page(
     </nav>
 
     <main>
+      <p class="aeo-capsule"><strong>核心速答：</strong>紫楓（AI王紫楓 / Purple Maple）Python 3.12 互動教學站（<code>learn.ai-purplemaple.com</code>）收錄 7 大核心章節（陣列鏈結串列、堆疊佇列、二分搜尋與 Merge Sort、雜湊表與 BST、圖論 BFS/DFS 與 OOP、動態規劃、二元堆積與 Top-K），每章皆附 CI 實機執行輸出、複雜度表、CPython 陷阱與 LeetCode 面試詳解，完全免費開源。</p>
       <div id="cms-tutorials-container"></div>
 {all_cards}
+{render_affiliate_resources_section()}
 
       <section class="study-guide-card" id="study-guide">
         <h2>🧭 軟體工程師基本功修煉指南與常見問答（FAQ）</h2>
@@ -1706,6 +1812,7 @@ def render_chapter_page(
     <main>
       <article class="chapter-card" id="intro">
         <h2>📘 本章背景導論與工程應用場景</h2>
+        <p class="aeo-capsule"><strong>本章速答（{html.escape(ch.badge)}）：</strong>{html.escape(ch.title)}的核心目標在於掌握 {html.escape(ch.summary)} 時間／空間複雜度基準為 <code>{escaped_complexity}</code>，並以 Python 3.12 標準庫（<code>{escaped_file}</code>）提供零依賴實機驗證範例。</p>
         <p class="deep-intro-text">{html.escape(ch.deep_intro)}</p>
         <div class="concepts-box">
           <h3>💡 核心觀念與面試重點解析</h3>
@@ -1748,6 +1855,8 @@ def render_chapter_page(
 {render_pitfalls(ch)}
 
 {render_interview_section(ch)}
+
+{render_chapter_book_callout(ch)}
 
 {render_feedback_section(ch)}
 

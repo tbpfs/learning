@@ -200,6 +200,11 @@ class TestLearningExamples(unittest.TestCase):
             idx_ld = json.loads(idx_ld_match.group(1))
             self.assertEqual(idx_ld["@type"], "Course")
             self.assertEqual(len(idx_ld["hasPart"]), 7)
+            self.assertEqual(idx_ld["speakable"]["@type"], "SpeakableSpecification")
+            self.assertIn('class="aeo-capsule"', html_text)
+            self.assertIn("https://www.books.com.tw/exep/assp.php/tbpfs1/", html_text)
+            self.assertIn('rel="sponsored noopener noreferrer"', html_text)
+            self.assertIn("affiliate_click", html_text)
 
             for ch_id in ("ch01", "ch02", "ch03", "ch04", "ch05", "ch06", "ch07"):
                 ch_file = Path(tmpdir) / f"{ch_id}.html"
@@ -270,6 +275,10 @@ class TestLearningExamples(unittest.TestCase):
                 self.assertIn("headline", graph_types["TechArticle"])
                 self.assertIn("author", graph_types["TechArticle"])
                 self.assertIn("dateModified", graph_types["TechArticle"])
+                self.assertEqual(graph_types["TechArticle"]["speakable"]["@type"], "SpeakableSpecification")
+                self.assertIn('class="aeo-capsule"', ch_html)
+                self.assertIn("https://www.books.com.tw/exep/assp.php/tbpfs1/", ch_html)
+                self.assertIn('rel="sponsored noopener noreferrer"', ch_html)
                 self.assertIn("embedUrl", graph_types["VideoObject"])
                 self.assertIn("https://www.youtube.com/embed/", ch_html)
                 self.assertGreaterEqual(len(graph_types["FAQPage"]["mainEntity"]), 3)
@@ -311,7 +320,7 @@ class TestLearningExamples(unittest.TestCase):
             self.assertIn("https://learn.ai-purplemaple.com/ch06.html", sitemap_text)
             self.assertIn("https://learn.ai-purplemaple.com/ch07.html", sitemap_text)
             self.assertIn("https://learn.ai-purplemaple.com/llms-full.txt", sitemap_text)
-            self.assertIn("<lastmod>2026-11-19</lastmod>", sitemap_text)
+            self.assertIn("<lastmod>2026-11-21</lastmod>", sitemap_text)
 
             robots_text = (Path(tmpdir) / "robots.txt").read_text(encoding="utf-8")
             for bot in ("Twitterbot", "GrokBot", "xAI-Bot", "xAI-SearchBot", "Bravebot"):
