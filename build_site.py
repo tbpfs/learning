@@ -38,6 +38,7 @@ CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
         "upload_date": "2020-09-12T12:00:00+08:00",
         "views_label": "67,700+ 次觀看",
         "related": [
+            ("2aSyeVdwATA", "【OpenMotion 動態圖解】單向鏈結串列原地反轉 (LeetCode #206) 三指標移動"),
             ("7xBrPbmOsSs", "輕鬆搞懂資料結構總覽（28,200+ 觀看）"),
             ("RObLhJlg2O8", "程式基礎語法：變數、資料型態、運算符號與陣列"),
         ],
@@ -48,6 +49,7 @@ CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
         "upload_date": "2020-09-13T12:00:00+08:00",
         "views_label": "35,500+ 次觀看",
         "related": [
+            ("sciXqeLDbMg", "【16:9 動態圖解】堆疊 Stack 與佇列 Queue ＋ LeetCode #20 有效括號 O(n) 實戰"),
             ("JSKtJqj2pwc", "輕鬆搞懂資料結構：佇列 Queue 詳解（23,900+ 觀看）"),
             ("hWrZPqJZXyg", "Function 函式總整理：基礎、Overload 與 Recursive 遞迴呼叫堆疊"),
         ],
@@ -58,6 +60,7 @@ CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
         "upload_date": "2020-09-23T12:00:00+08:00",
         "views_label": "23,800+ 次觀看",
         "related": [
+            ("3B4dXDxk_ck", "【OpenMotion 動態圖解】30秒徹底搞懂合併排序 Merge Sort 分治法 O(n log n)"),
             ("C9Xes8wH6Co", "輕鬆搞懂演算法：合併排序 Merge Sort（20,500+ 觀看）"),
             ("iwCUOKhIhAA", "演算法概論與 Big-O 時間複雜度（19,100+ 觀看）"),
             ("zO8kaBEy0M4", "氣泡排序、選擇排序、插入排序詳解（18,100+ 觀看）"),
@@ -70,6 +73,7 @@ CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
         "upload_date": "2020-09-16T12:00:00+08:00",
         "views_label": "41,900+ 次觀看",
         "related": [
+            ("rr322eEWAUo", "【16:9 動態圖解】雜湊表 Hash Table ＋ LeetCode #1 Two Sum 從 O(n²) 降到 O(n)"),
             ("vPvxEDyxI2w", "輕鬆搞懂資料結構：雜湊 Hash Table（28,000+ 觀看）"),
             ("gA815MIEFg0", "輕鬆搞懂資料結構：集合 Set 與映射 Map（18,900+ 觀看）"),
         ],
