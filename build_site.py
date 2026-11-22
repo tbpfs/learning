@@ -49,7 +49,7 @@ CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
         "upload_date": "2020-09-13T12:00:00+08:00",
         "views_label": "35,500+ 次觀看",
         "related": [
-            ("sciXqeLDbMg", "【16:9 動態圖解】堆疊 Stack 與佇列 Queue ＋ LeetCode #20 有效括號 O(n) 實戰"),
+            ("qys8Cs7J0wE", "【零基礎生活圖解】用洋芋片筒與冬天穿衣服 3 分鐘看懂堆疊 Stack 與括號配對 (LeetCode #20)"),
             ("JSKtJqj2pwc", "輕鬆搞懂資料結構：佇列 Queue 詳解（23,900+ 觀看）"),
             ("hWrZPqJZXyg", "Function 函式總整理：基礎、Overload 與 Recursive 遞迴呼叫堆疊"),
         ],
