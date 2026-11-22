@@ -191,6 +191,20 @@ def build_index_json_ld(chapters: Sequence[ChapterSpec], chapter_titles_short: s
             "@id": "https://ai-purplemaple.com/#creator",
             "name": "紫楓 (AI王紫楓 / Purple Maple)",
             "url": "https://ai-purplemaple.com/",
+            "sameAs": [
+                "https://x.com/tbpfs1",
+                "https://www.facebook.com/tbpfs2/",
+                "https://www.tiktok.com/@ai_purple_maple",
+                "https://www.linkedin.com/in/tbpfs2/",
+                "https://portaly.cc/tbpfs",
+                "https://blog.ai-purplemaple.com/",
+                "https://open.spotify.com/artist/7D7CLJoxLhsMos8xI9H2kx",
+                "https://music.apple.com/tw/artist/purple-maple/1745241062",
+                "https://music.youtube.com/channel/UCcEBgbHV3rcee1FfgfHXprw",
+                "https://www.youtube.com/@PurpleMapleAI",
+                "https://www.pixiv.net/users/3503246",
+                "https://github.com/tbpfs",
+            ],
         },
         "speakable": {
             "@type": "SpeakableSpecification",
@@ -208,6 +222,20 @@ def build_chapter_json_ld(ch: ChapterSpec) -> dict[str, Any]:
         "@id": "https://ai-purplemaple.com/#creator",
         "name": "紫楓 (AI王紫楓 / Purple Maple)",
         "url": "https://ai-purplemaple.com/",
+        "sameAs": [
+            "https://x.com/tbpfs1",
+            "https://www.facebook.com/tbpfs2/",
+            "https://www.tiktok.com/@ai_purple_maple",
+            "https://www.linkedin.com/in/tbpfs2/",
+            "https://portaly.cc/tbpfs",
+            "https://blog.ai-purplemaple.com/",
+            "https://open.spotify.com/artist/7D7CLJoxLhsMos8xI9H2kx",
+            "https://music.apple.com/tw/artist/purple-maple/1745241062",
+            "https://music.youtube.com/channel/UCcEBgbHV3rcee1FfgfHXprw",
+            "https://www.youtube.com/@PurpleMapleAI",
+            "https://www.pixiv.net/users/3503246",
+            "https://github.com/tbpfs",
+        ],
     }
     yt_meta = CHAPTER_YOUTUBE_VIDEOS.get(ch.id, CHAPTER_YOUTUBE_VIDEOS["ch01"])
     vid_id = yt_meta["video_id"]
@@ -1027,8 +1055,9 @@ def render_shared_styles() -> str:
       color: var(--text);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 0.28rem 0.7rem;
-      font-size: 0.8rem;
+      padding: 0.45rem 0.85rem;
+      min-height: 44px;
+      font-size: 0.82rem;
       cursor: pointer;
     }
     .copy-btn:hover {
@@ -1090,6 +1119,9 @@ def render_shared_styles() -> str:
       display: flex;
       flex-direction: column;
       justify-content: center;
+    }
+    .ad-slot-card:has(ins[data-ad-status="unfilled"]) {
+      display: none;
     }
     .ad-slot-label {
       font-size: 0.72rem;
@@ -1309,7 +1341,7 @@ def render_footer() -> str:
         <h3>隱私權政策與 Cookie 聲明 (Privacy Policy)</h3>
         <p>本網站（learn.ai-purplemaple.com）使用 Google AdSense 第三方廣告服務與 Google Analytics (GA4)／Google Tag Manager 網站流量分析服務。Google 及其合作夥伴會使用 Cookie（包含 DART Cookie），根據使用者造訪本站或其他網站的紀錄提供個人化廣告與匿名流量統計。您可隨時前往 <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google 廣告設定頁面</a> 停用個人化廣告，或查閱 <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">Google 廣告與隱私權政策</a>。本站程式碼複製功能均於瀏覽器本機執行；讀者於章節講義點擊「有幫助／待改進」或提交私密提問時，僅透過加密安全通道傳送匿名回饋內容與 HMAC 雜湊限流識別，絕不公開顯示留言或儲存原始 IP。</p>
       </div>
-      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">紫楓 (AI王紫楓 / Purple Maple)</a></strong> ・ <a href="https://quote.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">插畫＆音樂委託試算</a> ・ <a href="https://game.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">白瀬アイリ占卜小遊戲</a> ・ <a href="https://fps.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">府城保衛戰 3D</a> ・ <a href="https://edu.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">時空守護者</a> ・ <a href="https://astral.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">星界斷章</a> ・ <a href="https://muse.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">Muse 邀請碼分享站</a> ・ <a href="https://waifu.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">WaifuScan 鑑定</a> ・ Powered by Python 3.12 &amp; GitHub Pages ・ <a href="ads.txt">ads.txt</a></p>
+      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">紫楓 (AI王紫楓 / Purple Maple)</a></strong> ・ <a href="https://quote.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">插畫＆音樂委託試算</a> ・ <a href="https://game.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">白瀬アイリ占卜小遊戲</a> ・ <a href="https://fps.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">府城保衛戰 3D</a> ・ <a href="https://edu.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">時空守護者</a> ・ <a href="https://astral.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">星界斷章</a> ・ <a href="https://muse.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">Muse 邀請碼分享站</a> ・ <a href="https://waifu.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">WaifuScan 六維角色百科</a> ・ Powered by Python 3.12 &amp; GitHub Pages ・ <a href="ads.txt">ads.txt</a></p>
     </footer>"""
 
 
@@ -1332,8 +1364,8 @@ def render_copy_script(*, include_cms_fetch: bool) -> str:
             var header = document.createElement('div');
             header.className = 'chapter-header';
             var badge = document.createElement('span');
-            badge.className = 'chapter-badge';
-            badge.textContent = tut.category || 'AI 補充講義';
+            badge.className = 'badge';
+            badge.textContent = tut.category || '補充講義';
             var h2 = document.createElement('h2');
             h2.textContent = tut.title || '';
             header.appendChild(badge);
@@ -1344,19 +1376,17 @@ def render_copy_script(*, include_cms_fetch: bool) -> str:
             pSum.textContent = (tut.summary || '') + (tut.explanation ? ' — ' + tut.explanation : '');
 
             var compRow = document.createElement('div');
-            compRow.className = 'complexity-row';
+            compRow.className = 'meta-bar';
             var pill = document.createElement('span');
-            pill.className = 'complexity-pill';
             pill.textContent = tut.complexity || '時間 O(n) / 空間 O(1)';
             compRow.appendChild(pill);
 
             var wrap = document.createElement('div');
-            wrap.className = 'code-wrapper';
+            wrap.className = 'code-container';
             var bar = document.createElement('div');
             bar.className = 'code-toolbar';
             var fnSpan = document.createElement('span');
-            fnSpan.className = 'code-filename';
-            fnSpan.textContent = (tut.id || 'grok_note') + '.py';
+            fnSpan.textContent = (tut.id || 'supplement_note') + '.py';
             var cpBtn = document.createElement('button');
             cpBtn.type = 'button';
             cpBtn.className = 'copy-btn';
@@ -1603,7 +1633,7 @@ def render_index_page(
           <span>📄 <strong>原始碼路徑：</strong><code>{escaped_file}</code></span>
         </div>
         <details class="code-accordion"{open_attr}>
-          <summary class="code-accordion-summary">💻 點擊展開／收合 {html.escape(ch.badge)} Python 3.12 完整實作原始碼與 CI 實機輸出（<code>{escaped_file}</code>）</summary>
+          <summary class="code-accordion-summary">💻 點擊展開／收合 {html.escape(ch.badge)} Python 3.12 完整實作原始碼與實機執行輸出（<code>{escaped_file}</code>）</summary>
           <div class="code-container">
             <div class="code-toolbar">
               <span>Python 3.12 範例實作（{escaped_file}）</span>
@@ -1612,7 +1642,7 @@ def render_index_page(
             <pre><code id="code-{ch.id}">{escaped_code}</code></pre>
           </div>
           <div class="output-box">
-            <div class="output-label">▶ 實機執行輸出驗證（CI 自動實測結果）</div>
+            <div class="output-label">▶ 實機執行驗證輸出</div>
             <pre class="output-pre">{escaped_out}</pre>
           </div>
         </details>
@@ -1688,14 +1718,14 @@ def render_index_page(
     </nav>
 
     <main>
-      <p class="aeo-capsule"><strong>核心速答：</strong>紫楓（AI王紫楓 / Purple Maple）Python 3.12 互動教學站（<code>learn.ai-purplemaple.com</code>）收錄 7 大核心章節（陣列鏈結串列、堆疊佇列、二分搜尋與 Merge Sort、雜湊表與 BST、圖論 BFS/DFS 與 OOP、動態規劃、二元堆積與 Top-K），每章皆附 CI 實機執行輸出、複雜度表、CPython 陷阱與 LeetCode 面試詳解，完全免費開源。</p>
+      <p class="aeo-capsule">紫楓（AI王紫楓 / Purple Maple）Python 3.12 互動教學站（<code>learn.ai-purplemaple.com</code>）收錄 7 大核心章節（陣列鏈結串列、堆疊佇列、二分搜尋與 Merge Sort、雜湊表與 BST、圖論 BFS/DFS 與 OOP、動態規劃、二元堆積與 Top-K），每章皆附實機執行輸出、複雜度表、CPython 陷阱與 LeetCode 面試詳解，完全免費開源。</p>
       <div id="cms-tutorials-container"></div>
 {all_cards}
 {render_affiliate_resources_section()}
 
       <section class="study-guide-card" id="study-guide">
         <h2>🧭 軟體工程師基本功修煉指南與常見問答（FAQ）</h2>
-        <p>許多初學者與轉職者在刷題（LeetCode）或準備技術面試時，常陷入「背題目卻不懂底層原理」的困境。點擊下方折疊面版展開三階段循序漸進路線圖：</p>
+        <p>許多初學者與轉職者在刷題（LeetCode）或準備技術面試時，常陷入「背題目卻不懂底層原理」的困境。點擊下方折疊面板展開三階段循序漸進路線圖：</p>
         <details class="study-guide-accordion">
           <summary class="study-guide-summary">📚 點擊展開／收合：三階段刷題路線圖與學習建議</summary>
           <ul>
@@ -1816,7 +1846,7 @@ def render_chapter_page(
     <main>
       <article class="chapter-card" id="intro">
         <h2>📘 本章背景導論與工程應用場景</h2>
-        <p class="aeo-capsule"><strong>本章速答（{html.escape(ch.badge)}）：</strong>{html.escape(ch.title)}的核心目標在於掌握 {html.escape(ch.summary)} 時間／空間複雜度基準為 <code>{escaped_complexity}</code>，並以 Python 3.12 標準庫（<code>{escaped_file}</code>）提供零依賴實機驗證範例。</p>
+        <p class="aeo-capsule">{html.escape(ch.badge)}〈{html.escape(ch.title)}〉的核心目標在於掌握 {html.escape(ch.summary)} 時間／空間複雜度基準為 <code>{escaped_complexity}</code>，並以 Python 3.12 標準庫（<code>{escaped_file}</code>）提供零依賴實機驗證範例。</p>
         <p class="deep-intro-text">{html.escape(ch.deep_intro)}</p>
         <div class="concepts-box">
           <h3>💡 核心觀念與面試重點解析</h3>
@@ -2004,8 +2034,10 @@ def build_site(out_dir: Path) -> Path:
         "- [時空守護者（國小八大國度・小甲魚大冒險）](https://edu.ai-purplemaple.com/): 108 課綱互動式冒險學習平台\n"
         "- [星界斷章：星律前奏曲（機甲交鋒音遊）](https://astral.ai-purplemaple.com/): 73 位星律使 × 65 首原創曲目雙鍵網頁音遊\n"
         "- [Meta Muse 邀請碼分享站](https://muse.ai-purplemaple.com/): 支援 6 語系的 Meta Muse AI 邀請碼看板、48 小時 10 億 Token 兌換教學與失效回報系統\n"
-        "- [WaifuScan（二次元老婆屬性鑑定所）](https://waifu.ai-purplemaple.com/): 12 萌娘屬性百科與性向測驗\n"
+        "- [WaifuScan（二次元角色六維性格數據百科）](https://waifu.ai-purplemaple.com/): 四語系 612 頁角色評測百科、5 題靈魂波長診斷與 16 位原創角色互動\n"
+        "- [AI王紫楓官方部落格](https://blog.ai-purplemaple.com/)\n"
         "- [YouTube 完整教學播放清單](https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd)\n"
+        "- 官方社群矩陣：X (https://x.com/tbpfs1)｜YouTube (https://www.youtube.com/@PurpleMapleAI)｜YouTube Music (https://music.youtube.com/channel/UCcEBgbHV3rcee1FfgfHXprw)｜Spotify (https://open.spotify.com/artist/7D7CLJoxLhsMos8xI9H2kx)｜Apple Music (https://music.apple.com/tw/artist/purple-maple/1745241062)｜Pixiv (https://www.pixiv.net/users/3503246)｜Facebook 紫楓 (https://www.facebook.com/tbpfs2/)｜Facebook 艾莉 (https://www.facebook.com/AilyAIAI/)｜TikTok (https://www.tiktok.com/@ai_purple_maple)｜LinkedIn (https://www.linkedin.com/in/tbpfs2/)\n"
     )
     (out_dir / "llms.txt").write_text(
         "# 紫楓 (AI王紫楓 / Purple Maple) — Python 資料結構、演算法與物件導向互動教學\n\n"
