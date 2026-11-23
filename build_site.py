@@ -339,7 +339,7 @@ def render_video_lecture_section(ch: ChapterSpec) -> str:
     related_block = (
         f"""
         <div class="concepts-box" style="margin-top: 1rem; margin-bottom: 0;">
-          <h3>📺 本章延伸 YouTube 鐵人賽專題教學影片</h3>
+          <h3>本章延伸 YouTube 鐵人賽專題教學影片</h3>
           <ul>
 {related_items}
           </ul>
@@ -349,9 +349,9 @@ def render_video_lecture_section(ch: ChapterSpec) -> str:
     )
     return f"""
       <section class="chapter-card" id="video-lecture">
-        <h2>🎥 本章對應 YouTube 實戰教學影片（{views_label}）</h2>
+        <h2>本章對應 YouTube 實戰教學影片（{views_label}）</h2>
         <p class="chapter-summary">建議先觀看紫楓 IT 鐵人賽對應影片建立直覺圖像記憶，再對照下方複雜度表與 Python 3.12 標準庫程式碼動手實作：</p>
-        <div class="video-embed-container" style="position: relative; width: 100%; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; border: 1px solid var(--border); background: #0c0d14;">
+        <div class="video-embed-container" style="position: relative; width: 100%; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 6px; border: 1px solid var(--border); background: var(--code-bg);">
           <iframe
             src="https://www.youtube.com/embed/{vid_id}"
             title="{vid_title}"
@@ -362,8 +362,8 @@ def render_video_lecture_section(ch: ChapterSpec) -> str:
             allowfullscreen></iframe>
         </div>
         <div class="meta-bar" style="margin-top: 0.85rem; margin-bottom: 0;">
-          <span>🎬 <strong>主講影片：</strong><a href="https://www.youtube.com/watch?v={vid_id}" target="_blank" rel="noopener noreferrer">{vid_title}</a></span>
-          <span>📂 <a href="https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd" target="_blank" rel="noopener noreferrer">31 集完整鐵人賽播放清單 ↗</a></span>
+          <span><strong>主講影片：</strong><a href="https://www.youtube.com/watch?v={vid_id}" target="_blank" rel="noopener noreferrer">{vid_title}</a></span>
+          <span><a href="https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd" target="_blank" rel="noopener noreferrer">31 集完整鐵人賽播放清單 ↗</a></span>
         </div>{related_block}
       </section>"""
 
@@ -380,7 +380,7 @@ def render_comparison_table(table: ComparisonTable) -> str:
     return f"""
         <div class="table-responsive">
           <table class="comparison-table">
-            <caption>📊 {html.escape(table.caption)}</caption>
+            <caption>{html.escape(table.caption)}</caption>
             <thead>
               <tr>{ths}</tr>
             </thead>
@@ -405,7 +405,7 @@ def render_walkthrough(ch: ChapterSpec) -> str:
         )
     return f"""
       <section class="chapter-card" id="walkthrough">
-        <h2>🔍 {html.escape(ch.walkthrough_title)}</h2>
+        <h2>{html.escape(ch.walkthrough_title)}</h2>
         <div class="walkthrough-grid">
 {"".join(steps_html)}
         </div>
@@ -419,14 +419,14 @@ def render_pitfalls(ch: ChapterSpec) -> str:
         items_html.append(
             f"""
           <div class="pitfall-card">
-            <h3>⚠️ {html.escape(pf.title)}</h3>
+            <h3>{html.escape(pf.title)}</h3>
             <p class="pitfall-symptom"><strong>常見錯誤現象：</strong>{html.escape(pf.symptom)}</p>
             <p class="pitfall-fix"><strong>CPython 底層根因與正確對策：</strong>{html.escape(pf.root_cause_and_fix)}</p>
           </div>"""
         )
     return f"""
       <section class="chapter-card" id="pitfalls">
-        <h2>🛠️ Python 3.12 底層實作原理與常見實戰陷阱</h2>
+        <h2>Python 3.12 底層實作原理與常見實戰陷阱</h2>
         <div class="pitfall-list">
 {"".join(items_html)}
         </div>
@@ -453,7 +453,7 @@ def render_interview_section(ch: ChapterSpec) -> str:
         faq_items.append(
             f"""
           <details class="faq-item"{open_attr}>
-            <summary>💬 {html.escape(faq.question)}</summary>
+            <summary>Q. {html.escape(faq.question)}</summary>
             <div class="faq-answer">
               <p>{html.escape(faq.answer)}</p>
             </div>
@@ -462,10 +462,10 @@ def render_interview_section(ch: ChapterSpec) -> str:
 
     return f"""
       <section class="chapter-card" id="interview-faq">
-        <h2>🎯 LeetCode 經典必刷題號與軟體工程師技術面試 FAQ</h2>
+        <h2>LeetCode 經典必刷題號與軟體工程師技術面試 FAQ</h2>
         <div class="table-responsive">
           <table class="comparison-table">
-            <caption>💼 {html.escape(ch.badge)} 對應 LeetCode 必考白板題與解題模板</caption>
+            <caption>{html.escape(ch.badge)} 對應 LeetCode 必考白板題與解題模板</caption>
             <thead>
               <tr>
                 <th scope="col">題號</th>
@@ -492,8 +492,8 @@ def render_feedback_section(ch: ChapterSpec) -> str:
         <div class="fb-row">
           <span class="fb-q">這篇講義對你有幫助嗎？</span>
           <div class="fb-btns">
-            <button class="fb-chip" type="button" data-fb-vote="1" aria-pressed="false">👍 有幫助</button>
-            <button class="fb-chip" type="button" data-fb-vote="-1" aria-pressed="false">👎 待改進</button>
+            <button class="fb-chip" type="button" data-fb-vote="1" aria-pressed="false">✓ 有幫助</button>
+            <button class="fb-chip" type="button" data-fb-vote="-1" aria-pressed="false">待改進</button>
           </div>
         </div>
         <form class="fb-note" id="fbNoteForm" hidden autocomplete="off">
@@ -527,11 +527,11 @@ def render_deep_dive_callout(ch: ChapterSpec) -> str:
     return f"""
         <details class="deep-dive-callout">
           <summary class="deep-dive-callout-header">
-            <strong>📖 {html.escape(ch.badge)} 獨立深度講義獨家收錄內容（點擊展開／收合預覽）</strong>
+            <strong>{html.escape(ch.badge)} 獨立深度講義獨家收錄內容（點擊展開／收合預覽）</strong>
             <span class="lc-tag-row">{html.escape(lc_badges)}</span>
           </summary>
-          <p class="deep-dive-table-hint">📊 <strong>完整結構化對照表：</strong><a href="{ch.id}.html#comparison">{html.escape(ch.comparison_table.caption)}</a></p>
-          <p class="deep-dive-table-hint">🎯 <strong>本章軟體工程師面試必考問答預告：</strong></p>
+          <p class="deep-dive-table-hint"><strong>完整結構化對照表：</strong><a href="{ch.id}.html#comparison">{html.escape(ch.comparison_table.caption)}</a></p>
+          <p class="deep-dive-table-hint"><strong>本章軟體工程師面試必考問答預告：</strong></p>
           <ul class="deep-dive-faq-preview">
 {faq_previews}
           </ul>
@@ -558,7 +558,7 @@ def render_affiliate_resources_section() -> str:
     rows_block = "\n".join(rows_html)
     return f"""
       <section class="study-guide-card affiliate-card" id="recommended-resources">
-        <h2>📚 紫楓嚴選：Python 資料結構與演算法實體書／線上課程比較表</h2>
+        <h2>紫楓嚴選：Python 資料結構與演算法實體書／線上課程比較表</h2>
         <p class="affiliate-disclosure">合作揭露：以下部分連結為博客來策略聯盟（AP）或合作夥伴推廣連結，透過連結購書或報名課程不會增加您的任何費用，我們可能獲得微薄分潤以支持本站免費開源講義維護。</p>
         <div class="table-responsive">
           <table class="comparison-table">
@@ -586,7 +586,7 @@ def render_chapter_book_callout(ch: ChapterSpec) -> str:
       <aside class="chapter-card affiliate-chapter-card" aria-label="本章延伸書單推薦">
         <div class="aff-ch-row">
           <div>
-            <strong>📚 {html.escape(label)}</strong>
+            <strong>{html.escape(label)}</strong>
             <p class="affiliate-disclosure" style="margin: 0.3rem 0 0;">合作揭露：此為博客來策略聯盟推廣連結，購書價格與原價相同，您的支持將協助本站持續更新免費 Python 教學講義。</p>
           </div>
           <a class="btn btn-secondary aff-btn" href="{html.escape(ap_url)}" target="_blank" rel="sponsored noopener noreferrer" data-affiliate-partner="books_ap_{html.escape(ch.id)}" data-affiliate-placement="chapter_footer">前往博客來查找相關書單 ↗</a>
@@ -612,91 +612,148 @@ def render_chapter_pager(idx: int, chapters: Sequence[ChapterSpec]) -> str:
     return f"""
       <nav class="chapter-pager" aria-label="上下章節導覽">
         {prev_html}
-        <a class="pager-link pager-home" href="/">🏠 返回全章節總目錄</a>
+        <a class="pager-link pager-home" href="/">返回全章節總目錄</a>
         {next_html}
       </nav>"""
 
 
 def render_shared_styles() -> str:
-    """Return shared CSS styles including RWD .table-responsive and deep-dive components."""
-    return """  <style>
+    """Return shared CSS styles — O'Reilly x MIT Press Classic CS Textbook aesthetic."""
+    return """  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Newsreader:ital,opsz,wght@0,6..72,600;0,6..72,700;1,6..72,500&display=swap">
+  <style>
     :root {
-      --bg: #0f101a;
-      --surface: #181a29;
-      --surface-alt: #1f2235;
-      --border: #2e334d;
-      --text: #eef0f7;
-      --muted: #aab1cc;
-      --accent: #a78bfa;
-      --accent-strong: #8b5cf6;
-      --success: #34d399;
-      --warning: #fbbf24;
-      --code-bg: #11131f;
+      /* O'Reilly x MIT Press Classic CS Textbook Palette */
+      --bg: #f6f4ef;               /* Warm archival textbook paper */
+      --surface: #ffffff;          /* Clean chapter sheet */
+      --surface-alt: #f2efe7;      /* Soft warm marginalia inset */
+      --border: #dcd5c7;           /* Archival hairline rule */
+      --border-strong: #1c1917;    /* Crisp book typography rule */
+      --text: #1c1917;             /* Rich charcoal editorial ink */
+      --muted: #57534e;            /* Warm stone secondary text */
+      --accent: #15803d;           /* Algorithm Forest Green (Tree / Pass) */
+      --accent-strong: #166534;    /* Deep Pine CTA */
+      --accent-soft: #eef8f1;
+      --success: #047857;          /* Verification Emerald */
+      --warning: #b45309;          /* Textbook Amber Marginalia */
+      --danger: #b91c1c;
+      --code-bg: #161922;          /* High-contrast Dark Code Editor */
+      --code-toolbar: #10131b;
+      --code-text: #e6edf3;
+      --code-muted: #9aa4b8;
+      --code-border: #2a3040;
+      --aily-split: linear-gradient(90deg, #fb7185 0% 50%, #38bdf8 50% 100%);
+      --font-serif: "Newsreader", "Hiragino Mincho ProN", "Yu Mincho", "BIZ UDPMincho", "Noto Serif TC", Georgia, serif;
+      --font-sans: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Microsoft JhengHei", "Noto Sans TC", system-ui, -apple-system, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
     * { box-sizing: border-box; }
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
-      background: radial-gradient(circle at top, #1b1734 0%, var(--bg) 55%);
+      font-family: var(--font-sans);
+      background-color: var(--bg);
       color: var(--text);
-      line-height: 1.68;
+      line-height: 1.76;
+      overflow-x: clip;
     }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
+    a {
+      color: var(--accent);
+      text-decoration: none;
+      text-underline-offset: 3px;
+    }
+    a:hover {
+      color: var(--accent-strong);
+      text-decoration: underline;
+    }
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.88em;
+      background: var(--surface-alt);
+      color: #14532d;
+      padding: 0.12rem 0.38rem;
+      border-radius: 3px;
+      border: 1px solid #e4ded2;
+    }
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      border: none;
+      font-size: inherit;
+    }
     .container {
-      max-width: 980px;
+      max-width: 960px;
       margin: 0 auto;
-      padding: 2.5rem 1.25rem 4rem;
+      padding: 2.5rem 1.35rem 4rem;
     }
+
+    /* Book Cover Masthead Hero */
     header.hero {
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.16), rgba(31, 34, 53, 0.92));
+      background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 2.25rem 2rem;
+      border-top: 3px solid var(--border-strong);
+      border-left: 6px solid var(--accent);
+      border-radius: 4px;
+      padding: 2.25rem 2.15rem;
       margin-bottom: 2.25rem;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
+      box-shadow: 0 2px 10px rgba(28, 25, 23, 0.04);
     }
     .hero-eyebrow {
       display: inline-block;
-      font-size: 0.85rem;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
       font-weight: 600;
-      color: var(--accent);
-      background: rgba(167, 139, 250, 0.12);
-      border: 1px solid rgba(167, 139, 250, 0.35);
-      padding: 0.25rem 0.75rem;
-      border-radius: 999px;
-      margin-bottom: 0.75rem;
+      letter-spacing: 0.06em;
+      color: var(--accent-strong);
+      background: var(--accent-soft);
+      border: 1px solid #b6e0c5;
+      padding: 0.22rem 0.65rem;
+      border-radius: 3px;
+      margin-bottom: 0.85rem;
     }
     .hero h1 {
-      margin: 0 0 0.75rem;
-      font-size: clamp(1.6rem, 3.2vw, 2.25rem);
-      line-height: 1.3;
+      margin: 0 0 0.85rem;
+      font-family: var(--font-serif);
+      font-size: clamp(1.65rem, 3.2vw, 2.35rem);
+      font-weight: 700;
+      line-height: 1.28;
+      letter-spacing: -0.01em;
+      color: var(--text);
     }
     .hero p {
       margin: 0.5rem 0;
       color: var(--muted);
+      font-size: 0.98rem;
     }
     .cta-group {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.85rem;
+      gap: 0.75rem;
       margin-top: 1.5rem;
     }
     .btn {
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
-      padding: 0.65rem 1.2rem;
-      border-radius: 10px;
-      border: 1px solid transparent;
+      justify-content: center;
+      gap: 0.45rem;
+      padding: 0.62rem 1.15rem;
+      min-height: 44px;
+      border-radius: 4px;
+      border: 1.5px solid transparent;
       font-family: inherit;
-      font-weight: 600;
-      font-size: 0.95rem;
+      font-weight: 700;
+      font-size: 0.9rem;
       cursor: pointer;
-      transition: transform 0.15s ease, background 0.15s ease;
+      transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
     }
     .btn:disabled {
-      opacity: 0.6;
+      opacity: 0.55;
       cursor: not-allowed;
     }
     .btn:hover {
@@ -705,119 +762,155 @@ def render_shared_styles() -> str:
     }
     .btn-primary {
       background: var(--accent-strong);
+      border-color: var(--accent-strong);
+      color: #ffffff;
+    }
+    .btn-primary:hover {
+      background: var(--text);
+      border-color: var(--text);
       color: #ffffff;
     }
     .btn-secondary {
-      background: var(--surface-alt);
+      background: var(--surface);
       color: var(--text);
-      border: 1px solid var(--border);
+      border: 1.5px solid var(--border-strong);
     }
+    .btn-secondary:hover {
+      background: var(--text);
+      color: #ffffff;
+    }
+
+    /* Syllabus Table of Contents */
     nav.toc, nav.chapter-switcher {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 0.9rem;
-      margin-bottom: 1.75rem;
+      grid-template-columns: repeat(auto-fit, minmax(235px, 1fr));
+      gap: 0.85rem;
+      margin-bottom: 1.85rem;
     }
     .toc-item {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 0.95rem 1.15rem;
+      border-left: 3px solid var(--border);
+      border-radius: 4px;
+      padding: 0.95rem 1.1rem;
       display: block;
-      transition: border-color 0.15s ease, background 0.15s ease;
+      transition: border-color 0.16s ease, background-color 0.16s ease;
     }
     .toc-item:hover {
       border-color: var(--accent);
+      border-left-color: var(--accent);
+      background: var(--accent-soft);
       text-decoration: none;
     }
     .toc-item[aria-current="page"] {
       border-color: var(--accent);
-      background: rgba(167, 139, 250, 0.12);
+      border-left: 4px solid var(--accent-strong);
+      background: var(--accent-soft);
     }
     .toc-item strong {
       display: block;
       color: var(--text);
       margin-top: 0.25rem;
-      font-size: 0.95rem;
+      font-size: 0.94rem;
+      line-height: 1.45;
     }
     .section-subnav {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.6rem;
+      align-items: center;
+      gap: 0.55rem;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 4px;
       padding: 0.75rem 1rem;
       margin-bottom: 2rem;
-      font-size: 0.88rem;
+      font-size: 0.86rem;
     }
     .section-subnav a {
-      padding: 0.25rem 0.65rem;
-      border-radius: 6px;
+      padding: 0.3rem 0.7rem;
+      border-radius: 3px;
       background: var(--surface-alt);
+      border: 1px solid var(--border);
       color: var(--text);
+      font-weight: 600;
     }
     .section-subnav a:hover {
       background: var(--accent-strong);
+      border-color: var(--accent-strong);
       color: #ffffff;
       text-decoration: none;
     }
+
+    /* Textbook Chapter Cards */
     .chapter-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 1.75rem;
+      border-top: 2.5px solid var(--border-strong);
+      border-radius: 4px;
+      padding: 1.85rem 2rem;
       margin-bottom: 2rem;
     }
     .chapter-card h2 {
       margin: 0 0 1rem;
-      font-size: 1.32rem;
+      font-family: var(--font-serif);
+      font-size: 1.38rem;
+      font-weight: 700;
       color: var(--text);
+      line-height: 1.35;
     }
     .chapter-header {
       display: flex;
       align-items: center;
       flex-wrap: wrap;
       gap: 0.75rem;
-      margin-bottom: 0.65rem;
+      margin-bottom: 0.7rem;
+      padding-bottom: 0.65rem;
+      border-bottom: 1px solid var(--border);
     }
     .badge {
-      background: rgba(167, 139, 250, 0.18);
-      color: var(--accent);
-      border: 1px solid rgba(167, 139, 250, 0.4);
-      padding: 0.2rem 0.65rem;
-      border-radius: 8px;
-      font-weight: 700;
-      font-size: 0.85rem;
+      font-family: var(--font-mono);
+      background: var(--accent-strong);
+      color: #ffffff;
+      border: 1px solid var(--accent-strong);
+      padding: 0.16rem 0.6rem;
+      border-radius: 3px;
+      font-weight: 600;
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
     }
     .chapter-header h2 {
       margin: 0;
-      font-size: 1.35rem;
+      font-size: 1.38rem;
     }
     .chapter-summary, .deep-intro-text {
       color: var(--muted);
-      margin: 0.5rem 0 1.15rem;
-      font-size: 0.97rem;
+      margin: 0.55rem 0 1.2rem;
+      font-size: 0.98rem;
+      line-height: 1.78;
     }
     .meta-bar {
       display: flex;
       flex-wrap: wrap;
-      gap: 1.25rem;
-      font-size: 0.9rem;
+      gap: 1.2rem;
+      font-size: 0.88rem;
       color: var(--muted);
       background: var(--surface-alt);
+      border: 1px solid var(--border);
       padding: 0.65rem 1rem;
-      border-radius: 10px;
-      margin-bottom: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1.05rem;
     }
+
+    /* Academic Complexity & Comparison Tables */
     .table-responsive {
       width: 100%;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
-      margin: 1rem 0 1.35rem;
+      margin: 1rem 0 1.4rem;
       border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--surface-alt);
+      border-top: 2px solid var(--border-strong);
+      border-radius: 3px;
+      background: var(--surface);
     }
     table.comparison-table {
       width: 100%;
@@ -825,124 +918,162 @@ def render_shared_styles() -> str:
       border-collapse: collapse;
       font-size: 0.9rem;
       text-align: left;
+      font-variant-numeric: tabular-nums;
     }
     table.comparison-table caption {
       caption-side: top;
       text-align: left;
-      padding: 0.75rem 1rem;
+      padding: 0.78rem 1rem;
+      font-family: var(--font-serif);
       font-weight: 700;
-      color: var(--accent);
+      font-size: 0.98rem;
+      color: var(--text);
       border-bottom: 1px solid var(--border);
-      background: rgba(167, 139, 250, 0.08);
+      background: var(--surface-alt);
     }
     table.comparison-table th,
     table.comparison-table td {
-      padding: 0.72rem 1rem;
+      padding: 0.74rem 1rem;
       border-bottom: 1px solid var(--border);
       vertical-align: top;
       color: var(--muted);
     }
     table.comparison-table thead th {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
       color: var(--text);
-      background: rgba(17, 19, 31, 0.65);
-      font-weight: 700;
+      background: #ede9df;
+      border-bottom: 1.5px solid var(--border-strong);
+      font-weight: 600;
     }
     table.comparison-table tbody th {
       color: var(--text);
-      font-weight: 600;
+      font-weight: 700;
       width: 24%;
+    }
+    table.comparison-table tbody tr:hover td,
+    table.comparison-table tbody tr:hover th {
+      background: #faf9f5;
     }
     .diff-badge {
       display: inline-block;
-      padding: 0.12rem 0.55rem;
-      border-radius: 999px;
-      font-size: 0.78rem;
+      padding: 0.12rem 0.52rem;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
       font-weight: 600;
-      background: rgba(52, 211, 153, 0.14);
-      color: var(--success);
-      border: 1px solid rgba(52, 211, 153, 0.35);
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      border: 1px solid #b6e0c5;
     }
+
+    /* Step-by-Step Algorithm Walkthrough */
     .walkthrough-grid {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 1rem;
+      gap: 0.95rem;
     }
     .step-card {
       background: var(--surface-alt);
       border: 1px solid var(--border);
       border-left: 4px solid var(--accent);
-      border-radius: 10px;
-      padding: 1rem 1.2rem;
+      border-radius: 4px;
+      padding: 1.05rem 1.25rem;
     }
     .step-title {
       font-weight: 700;
       color: var(--text);
-      margin-bottom: 0.45rem;
+      margin-bottom: 0.5rem;
     }
     .state-pill {
       background: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.45rem 0.75rem;
+      border: 1px solid var(--code-border);
+      border-radius: 4px;
+      padding: 0.5rem 0.8rem;
       margin-bottom: 0.55rem;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.84rem;
-      color: var(--success);
+      font-family: var(--font-mono);
+      font-size: 0.83rem;
+      color: #7ee787;
       overflow-x: auto;
     }
     .step-desc {
       margin: 0;
       color: var(--muted);
-      font-size: 0.92rem;
+      font-size: 0.93rem;
     }
+
+    /* O'Reilly-Style Pitfall Marginalia Boxes */
     .pitfall-list {
       display: grid;
       gap: 1rem;
     }
     .pitfall-card {
-      background: rgba(251, 191, 36, 0.05);
-      border: 1px solid rgba(251, 191, 36, 0.28);
-      border-radius: 12px;
+      background: #fffbeb;
+      border: 1px solid #e6cfa0;
+      border-left: 4px solid var(--warning);
+      border-radius: 4px;
       padding: 1.1rem 1.25rem;
     }
     .pitfall-card h3 {
       margin: 0 0 0.5rem;
-      font-size: 1.02rem;
-      color: var(--warning);
+      font-size: 1rem;
+      font-weight: 700;
+      color: #92400e;
     }
     .pitfall-symptom, .pitfall-fix {
       margin: 0.4rem 0 0;
-      color: var(--muted);
+      color: #44403c;
       font-size: 0.92rem;
     }
+
+    /* FAQ & Textbook Accordions */
     .faq-list {
       display: grid;
-      gap: 0.9rem;
+      gap: 0;
       margin-top: 1.25rem;
+      border-top: 2px solid var(--border-strong);
     }
     .faq-item {
-      background: var(--surface-alt);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 0.95rem 1.2rem;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      border-radius: 0;
+      padding: 1rem 0.25rem;
     }
     .faq-item summary {
       cursor: pointer;
       font-weight: 700;
       color: var(--text);
       font-size: 0.98rem;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 1rem;
     }
+    .faq-item summary::-webkit-details-marker { display: none; }
+    .faq-item summary::after {
+      content: "+";
+      font-family: var(--font-mono);
+      color: var(--accent);
+      font-size: 1.15rem;
+      flex-shrink: 0;
+    }
+    .faq-item[open] summary { color: var(--accent-strong); }
+    .faq-item[open] summary::after { content: "−"; }
     .faq-answer p {
       margin: 0.65rem 0 0;
       color: var(--muted);
-      font-size: 0.93rem;
+      font-size: 0.94rem;
     }
+
     .deep-dive-callout {
       margin-top: 1.1rem;
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(31, 34, 53, 0.9));
-      border: 1px solid rgba(167, 139, 250, 0.38);
-      border-radius: 12px;
-      padding: 0.95rem 1.25rem;
+      background: var(--accent-soft);
+      border: 1px solid #b6e0c5;
+      border-left: 4px solid var(--accent-strong);
+      border-radius: 4px;
+      padding: 0.95rem 1.2rem;
     }
     .deep-dive-callout-header {
       display: flex;
@@ -952,50 +1083,40 @@ def render_shared_styles() -> str:
       gap: 0.5rem;
       cursor: pointer;
       user-select: none;
+      color: var(--text);
     }
     details.deep-dive-callout[open] .deep-dive-callout-header {
       margin-bottom: 0.65rem;
     }
-    .code-accordion {
-      background: var(--surface-alt);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 0.85rem 1.15rem;
-      margin-top: 0.75rem;
-    }
-    .code-accordion-summary {
-      cursor: pointer;
-      font-weight: 700;
-      font-size: 0.94rem;
-      color: var(--accent);
-      user-select: none;
-    }
-    details.code-accordion[open] .code-accordion-summary {
-      margin-bottom: 0.85rem;
-    }
+    .code-accordion,
     .study-guide-accordion {
       background: var(--surface-alt);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 0.95rem 1.2rem;
-      margin-top: 0.75rem;
+      border-radius: 4px;
+      padding: 0.9rem 1.15rem;
+      margin-top: 0.8rem;
     }
+    .code-accordion-summary,
     .study-guide-summary {
       cursor: pointer;
       font-weight: 700;
-      color: var(--accent);
-      font-size: 0.96rem;
+      font-size: 0.94rem;
+      color: var(--accent-strong);
       user-select: none;
     }
+    details.code-accordion[open] .code-accordion-summary,
     details.study-guide-accordion[open] .study-guide-summary {
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.85rem;
     }
     .lc-tag-row {
-      font-size: 0.8rem;
-      color: var(--accent);
-      background: rgba(167, 139, 250, 0.14);
-      padding: 0.18rem 0.6rem;
-      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: var(--accent-strong);
+      background: #ffffff;
+      border: 1px solid #b6e0c5;
+      padding: 0.16rem 0.55rem;
+      border-radius: 3px;
     }
     .deep-dive-table-hint {
       margin: 0.35rem 0;
@@ -1023,98 +1144,119 @@ def render_shared_styles() -> str:
       gap: 0.85rem;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 14px;
+      border-top: 2px solid var(--border-strong);
+      border-radius: 4px;
       padding: 1.1rem 1.35rem;
       margin-top: 2rem;
     }
     .pager-link {
-      font-weight: 600;
-      font-size: 0.93rem;
+      font-weight: 700;
+      font-size: 0.92rem;
     }
     .pager-disabled {
       color: var(--muted);
-      opacity: 0.55;
+      opacity: 0.5;
     }
+
+    /* High-Contrast Dark Code Editor & Terminal Output inside Light Textbook */
     .code-container {
-      border: 1px solid var(--border);
-      border-radius: 12px;
+      border: 1.5px solid var(--border-strong);
+      border-radius: 4px;
       overflow: hidden;
       background: var(--code-bg);
+      color: var(--code-text);
       margin-bottom: 1rem;
     }
     .code-toolbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 0.55rem 1rem;
-      background: #16192b;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.85rem;
-      color: var(--muted);
+      padding: 0.5rem 1rem;
+      background: var(--code-toolbar);
+      border-bottom: 1px solid var(--code-border);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--code-muted);
     }
     .copy-btn {
-      background: var(--surface-alt);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 0.45rem 0.85rem;
-      min-height: 44px;
-      font-size: 0.82rem;
+      background: #232838;
+      color: #f1f5f9;
+      border: 1px solid #3c455c;
+      border-radius: 3px;
+      padding: 0.4rem 0.85rem;
+      min-height: 40px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 600;
       cursor: pointer;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
     }
     .copy-btn:hover {
+      background: var(--accent-strong);
       border-color: var(--accent);
+      color: #ffffff;
     }
     pre {
       margin: 0;
-      padding: 1rem 1.2rem;
+      padding: 1.05rem 1.25rem;
       overflow-x: auto;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.86rem;
-      line-height: 1.55;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      line-height: 1.62;
+      color: var(--code-text);
     }
     .output-box {
-      background: rgba(52, 211, 153, 0.07);
-      border: 1px solid rgba(52, 211, 153, 0.3);
-      border-radius: 10px;
-      padding: 0.75rem 1rem;
+      background: #10151d;
+      border: 1px solid #263342;
+      border-left: 4px solid #34d399;
+      border-radius: 4px;
+      padding: 0.8rem 1.05rem;
     }
     .output-label {
-      font-size: 0.82rem;
-      font-weight: 700;
-      color: var(--success);
-      margin-bottom: 0.35rem;
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: #6ee7b7;
+      margin-bottom: 0.4rem;
     }
     .output-pre {
       padding: 0;
       color: #d1fae5;
       background: transparent;
+      font-size: 0.84rem;
     }
+
+    /* Key Concepts Box */
     .concepts-box {
-      background: rgba(167, 139, 250, 0.06);
-      border-left: 3px solid var(--accent);
-      border-radius: 8px;
-      padding: 0.85rem 1.15rem;
-      margin-bottom: 1rem;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: 4px;
+      padding: 0.95rem 1.2rem;
+      margin-bottom: 1.1rem;
     }
     .concepts-box h3 {
-      margin: 0 0 0.45rem;
+      margin: 0 0 0.5rem;
       font-size: 0.95rem;
-      color: var(--accent);
+      font-weight: 700;
+      color: var(--accent-strong);
     }
     .concepts-box ul {
       margin: 0;
       padding-left: 1.2rem;
       color: var(--muted);
-      font-size: 0.9rem;
+      font-size: 0.92rem;
     }
     .concepts-box li {
       margin-bottom: 0.35rem;
     }
+
+    /* AdSense Slot (Clean Archival Frame, Hides Automatically When Unfilled) */
     .ad-slot-card {
-      background: rgba(24, 26, 41, 0.75);
+      background: var(--surface);
       border: 1px dashed var(--border);
-      border-radius: 14px;
+      border-radius: 4px;
       padding: 1rem 1.25rem;
       margin: 1.75rem 0 2.25rem;
       min-height: 140px;
@@ -1126,8 +1268,9 @@ def render_shared_styles() -> str:
       display: none;
     }
     .ad-slot-label {
-      font-size: 0.72rem;
-      letter-spacing: 0.08em;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
       color: var(--muted);
       text-align: center;
       margin-bottom: 0.5rem;
@@ -1140,47 +1283,56 @@ def render_shared_styles() -> str:
     .study-guide-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 1.75rem;
+      border-top: 2.5px solid var(--border-strong);
+      border-radius: 4px;
+      padding: 1.85rem 2rem;
       margin-top: 2rem;
       margin-bottom: 2rem;
     }
     .study-guide-card h2 {
       margin-top: 0;
-      font-size: 1.3rem;
+      font-family: var(--font-serif);
+      font-size: 1.35rem;
       color: var(--text);
     }
     .study-guide-card p, .study-guide-card li {
       color: var(--muted);
-      font-size: 0.94rem;
+      font-size: 0.95rem;
     }
+
+    /* Textbook Colophon Footer with Aily 2px Heterochromia Top Edge */
     .privacy-policy-card {
-      background: rgba(24, 26, 41, 0.6);
+      background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.25rem 1.5rem;
+      border-left: 3px solid var(--accent);
+      border-radius: 4px;
+      padding: 1.2rem 1.45rem;
       margin-bottom: 1.5rem;
       text-align: left;
     }
     .privacy-policy-card h3 {
       margin: 0 0 0.5rem;
-      font-size: 0.95rem;
-      color: var(--accent);
+      font-family: var(--font-serif);
+      font-size: 0.98rem;
+      color: var(--text);
     }
     .privacy-policy-card p {
       margin: 0 0 0.5rem;
       font-size: 0.84rem;
-      line-height: 1.65;
+      line-height: 1.68;
       color: var(--muted);
     }
     footer {
       text-align: center;
       color: var(--muted);
-      font-size: 0.88rem;
+      font-size: 0.86rem;
       margin-top: 3rem;
-      padding-top: 1.5rem;
-      border-top: 1px solid var(--border);
+      padding-top: 1.75rem;
+      border-top: 2px solid transparent;
+      border-image: var(--aily-split) 1;
     }
+
+    /* Anonymous Feedback & Private Q&A Widget (Crisp Light Textbook Inputs) */
     .fb-hp {
       position: absolute !important;
       width: 1px;
@@ -1191,7 +1343,7 @@ def render_shared_styles() -> str:
       left: -9999px;
     }
     .fb-box {
-      padding: 1.25rem 1.5rem;
+      padding: 1.35rem 1.65rem;
     }
     .fb-row {
       display: flex;
@@ -1211,29 +1363,31 @@ def render_shared_styles() -> str:
       flex-wrap: wrap;
     }
     .fb-chip {
-      height: 36px;
-      padding: 0 0.95rem;
-      border-radius: 999px;
-      border: 1px solid var(--border);
+      min-height: 40px;
+      padding: 0 1rem;
+      border-radius: 4px;
+      border: 1.5px solid var(--border);
       background: var(--surface-alt);
-      color: var(--muted);
+      color: var(--text);
       font: inherit;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
+      font-weight: 600;
       cursor: pointer;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
     }
     .fb-chip:hover {
-      color: var(--text);
       border-color: var(--accent);
+      background: var(--accent-soft);
     }
     .fb-chip.on.up {
-      background: rgba(52, 211, 153, 0.16);
-      border-color: var(--success);
-      color: #d1fae5;
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent-strong);
     }
     .fb-chip.on.down {
-      background: rgba(248, 113, 113, 0.18);
-      border-color: #f87171;
-      color: #fee2e2;
+      background: #fef2f2;
+      border-color: var(--danger);
+      color: #991b1b;
     }
     .fb-note {
       display: flex;
@@ -1247,11 +1401,11 @@ def render_shared_styles() -> str:
     .fb-note input {
       flex: 1;
       min-width: min(100%, 190px);
-      height: 40px;
+      height: 42px;
       padding: 0 0.9rem;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: var(--code-bg);
+      border-radius: 4px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
       color: var(--text);
       font: inherit;
       font-size: 0.9rem;
@@ -1259,22 +1413,23 @@ def render_shared_styles() -> str:
     .fb-status {
       margin: 0.55rem 0 0;
       font-size: 0.86rem;
+      font-weight: 600;
       color: var(--success);
       min-height: 1.1em;
     }
     .fb-status.err {
-      color: #f87171;
+      color: var(--danger);
     }
     .fb-ask {
-      margin-top: 0.9rem;
-      padding-top: 0.85rem;
+      margin-top: 0.95rem;
+      padding-top: 0.9rem;
       border-top: 1px solid var(--border);
       font-size: 0.92rem;
     }
     .fb-ask summary {
       cursor: pointer;
-      color: var(--accent);
-      font-weight: 600;
+      color: var(--accent-strong);
+      font-weight: 700;
     }
     .fb-ask-sub {
       margin: 0.55rem 0 0.7rem;
@@ -1284,9 +1439,9 @@ def render_shared_styles() -> str:
     .fb-ask-form textarea {
       width: 100%;
       padding: 0.65rem 0.9rem;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: var(--code-bg);
+      border-radius: 4px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
       color: var(--text);
       font: inherit;
       font-size: 0.92rem;
@@ -1299,23 +1454,20 @@ def render_shared_styles() -> str:
       margin-top: 0.65rem;
       flex-wrap: wrap;
     }
-    @media (max-width: 640px) {
-      .fb-note input,
-      .fb-ask-form textarea {
-        font-size: 16px;
-      }
-    }
+
+    /* Key Takeaway / AEO Definition Capsule */
     .aeo-capsule {
-      background: rgba(167, 139, 250, 0.08);
-      border-left: 3px solid var(--accent);
-      border-radius: 0 12px 12px 0;
-      padding: 0.9rem 1.15rem;
+      background: var(--accent-soft);
+      border: 1px solid #b6e0c5;
+      border-left: 4px solid var(--accent-strong);
+      border-radius: 4px;
+      padding: 0.95rem 1.2rem;
       margin: 0 0 1.5rem;
-      font-size: 0.94rem;
+      font-size: 0.95rem;
       color: var(--text);
-      line-height: 1.72;
+      line-height: 1.75;
     }
-    .aeo-capsule strong { color: var(--accent); }
+    .aeo-capsule strong { color: var(--accent-strong); }
     .affiliate-disclosure {
       font-size: 0.84rem;
       color: var(--muted);
@@ -1323,7 +1475,7 @@ def render_shared_styles() -> str:
     }
     .aff-btn {
       white-space: nowrap;
-      padding: 0.45rem 0.85rem;
+      padding: 0.45rem 0.9rem;
       font-size: 0.85rem;
     }
     .aff-ch-row {
@@ -1332,6 +1484,27 @@ def render_shared_styles() -> str:
       justify-content: space-between;
       gap: 1rem;
       flex-wrap: wrap;
+    }
+    @media (max-width: 640px) {
+      .container {
+        padding: 1.5rem 1rem 3rem;
+      }
+      header.hero,
+      .chapter-card,
+      .study-guide-card {
+        padding: 1.35rem 1.15rem;
+      }
+      .fb-note input,
+      .fb-ask-form textarea {
+        font-size: 16px;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
     }
   </style>"""
 
@@ -1621,21 +1794,21 @@ def render_index_page(
         <div class="chapter-header">
           <span class="badge">{ch.badge}</span>
           <h2><a href="{ch.id}.html" style="color: inherit;">{escaped_title}</a></h2>
-          <a href="{ch.id}.html" style="margin-left: auto; font-size: 0.86rem;">🔗 獨立章節深度講義 ↗</a>
+          <a href="{ch.id}.html" style="margin-left: auto; font-size: 0.86rem; font-weight: 600;">獨立章節深度講義 ↗</a>
         </div>
         <p class="chapter-summary">{escaped_summary}</p>
         <div class="concepts-box">
-          <h3>💡 核心觀念與面試重點解析</h3>
+          <h3>核心觀念與面試重點解析</h3>
           <ul>
 {concepts_items}
           </ul>
         </div>
         <div class="meta-bar">
-          <span>⏱️ <strong>時間／空間複雜度：</strong>{escaped_complexity}</span>
-          <span>📄 <strong>原始碼路徑：</strong><code>{escaped_file}</code></span>
+          <span><strong>時間／空間複雜度：</strong>{escaped_complexity}</span>
+          <span><strong>原始碼路徑：</strong><code>{escaped_file}</code></span>
         </div>
         <details class="code-accordion"{open_attr}>
-          <summary class="code-accordion-summary">💻 點擊展開／收合 {html.escape(ch.badge)} Python 3.12 完整實作原始碼與實機執行輸出（<code>{escaped_file}</code>）</summary>
+          <summary class="code-accordion-summary">點擊展開／收合 {html.escape(ch.badge)} Python 3.12 完整實作原始碼與實機執行輸出（<code>{escaped_file}</code>）</summary>
           <div class="code-container">
             <div class="code-toolbar">
               <span>Python 3.12 範例實作（{escaped_file}）</span>
@@ -1709,9 +1882,9 @@ def render_index_page(
       <p>大家好，我是<strong>紫楓</strong>！不管是學生、想轉職軟體工程師、還是想精益求精的夥伴，練好「資料結構、演算法、物件導向」就是克服迷惘最紮實的基本功。</p>
       <div class="cta-group">
         <a class="btn btn-primary" href="https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd" target="_blank" rel="noopener noreferrer">▶ 觀看 YouTube 完整教學播放清單</a>
-        <a class="btn btn-secondary" href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer">🌸 紫楓 Purple Maple 官方作品集（AI 音樂 ＆ 白瀬アイリ Aily）</a>
-        <a class="btn btn-secondary" href="https://www.facebook.com/groups/914880435669061" target="_blank" rel="noopener noreferrer">💬 加入程式新手學習發問區（FB 社團）</a>
-        <a class="btn btn-secondary" href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer">💻 GitHub 原始碼儲存庫</a>
+        <a class="btn btn-secondary" href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer">紫楓 Purple Maple 官方作品集（AI 音樂 ＆ 白瀬アイリ Aily）</a>
+        <a class="btn btn-secondary" href="https://www.facebook.com/groups/914880435669061" target="_blank" rel="noopener noreferrer">加入程式新手學習發問區（FB 社團）</a>
+        <a class="btn btn-secondary" href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer">GitHub 原始碼儲存庫</a>
       </div>
     </header>
 
@@ -1726,10 +1899,10 @@ def render_index_page(
 {render_affiliate_resources_section()}
 
       <section class="study-guide-card" id="study-guide">
-        <h2>🧭 軟體工程師基本功修煉指南與常見問答（FAQ）</h2>
+        <h2>軟體工程師基本功修煉指南與常見問答（FAQ）</h2>
         <p>許多初學者與轉職者在刷題（LeetCode）或準備技術面試時，常陷入「背題目卻不懂底層原理」的困境。點擊下方折疊面板展開三階段循序漸進路線圖：</p>
         <details class="study-guide-accordion">
-          <summary class="study-guide-summary">📚 點擊展開／收合：三階段刷題路線圖與學習建議</summary>
+          <summary class="study-guide-summary">點擊展開／收合：三階段刷題路線圖與學習建議</summary>
           <ul>
             <li><strong>第一階段（記憶體模型與線性結構）：</strong>先親手實作 <a href="ch01.html">Ch.01 的單向鏈結串列</a>與 <a href="ch02.html">Ch.02 的 Stack / Queue</a>，徹底理解指標（Reference / Pointer）操作與時間複雜度 <code>O(1)</code> vs. <code>O(n)</code> 的差異。</li>
             <li><strong>第二階段（分治搜尋、雜湊查找、樹與圖論架構）：</strong>透過 <a href="ch03.html">Ch.03 的二分搜尋與合併排序（Merge Sort）</a>、<a href="ch04.html">Ch.04 的雜湊表（Hash Table / Two Sum）與二元搜尋樹（BST）</a>，再到 <a href="ch05.html">Ch.05 的圖論走訪（Graph BFS / DFS 最短路徑）與物件導向封裝（OOP）</a>，掌握分治法、空間換取時間與抽象化模組設計的核心精神。</li>
@@ -1825,8 +1998,8 @@ def render_chapter_page(
       <p>{html.escape(ch.summary)}</p>
       <div class="cta-group">
         <a class="btn btn-primary" href="https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd" target="_blank" rel="noopener noreferrer">▶ 觀看 YouTube 完整教學播放清單</a>
-        <a class="btn btn-secondary" href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer">🌸 紫楓 Purple Maple 官方作品集</a>
-        <a class="btn btn-secondary" href="https://github.com/tbpfs/learning/blob/main/{escaped_file}" target="_blank" rel="noopener noreferrer">💻 檢視本章 GitHub 原始碼</a>
+        <a class="btn btn-secondary" href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer">紫楓 Purple Maple 官方作品集</a>
+        <a class="btn btn-secondary" href="https://github.com/tbpfs/learning/blob/main/{escaped_file}" target="_blank" rel="noopener noreferrer">檢視本章 GitHub 原始碼</a>
       </div>
     </header>
 
@@ -1835,7 +2008,7 @@ def render_chapter_page(
     </nav>
 
     <nav class="section-subnav" aria-label="本章段落導覽">
-      <span>📑 本章快速跳轉：</span>
+      <span>本章快速跳轉：</span>
       <a href="#intro">核心觀念與背景導論</a>
       <a href="#video-lecture">YouTube 實戰教學影片</a>
       <a href="#comparison">複雜度與特性對照表</a>
@@ -1847,25 +2020,25 @@ def render_chapter_page(
 
     <main>
       <article class="chapter-card" id="intro">
-        <h2>📘 本章背景導論與工程應用場景</h2>
+        <h2>本章背景導論與工程應用場景</h2>
         <p class="aeo-capsule">{html.escape(ch.badge)}〈{html.escape(ch.title)}〉的核心目標在於掌握 {html.escape(ch.summary)} 時間／空間複雜度基準為 <code>{escaped_complexity}</code>，並以 Python 3.12 標準庫（<code>{escaped_file}</code>）提供零依賴實機驗證範例。</p>
         <p class="deep-intro-text">{html.escape(ch.deep_intro)}</p>
         <div class="concepts-box">
-          <h3>💡 核心觀念與面試重點解析</h3>
+          <h3>核心觀念與面試重點解析</h3>
           <ul>
 {concepts_items}
           </ul>
         </div>
         <div class="meta-bar">
-          <span>⏱️ <strong>時間／空間複雜度：</strong>{escaped_complexity}</span>
-          <span>📄 <strong>原始碼路徑：</strong><code>{escaped_file}</code></span>
+          <span><strong>時間／空間複雜度：</strong>{escaped_complexity}</span>
+          <span><strong>原始碼路徑：</strong><code>{escaped_file}</code></span>
         </div>
       </article>
 
 {render_video_lecture_section(ch)}
 
       <section class="chapter-card" id="comparison">
-        <h2>📊 時間與空間複雜度暨底層結構對照表</h2>
+        <h2>時間與空間複雜度暨底層結構對照表</h2>
 {render_comparison_table(ch.comparison_table)}
       </section>
 
@@ -1874,7 +2047,7 @@ def render_chapter_page(
 {render_ad_slot(f"{ch.badge} 深度講義中段廣告單元")}
 
       <section class="chapter-card" id="code-section">
-        <h2>💻 Python 3.12 標準庫完整範例實作與實機輸出</h2>
+        <h2>Python 3.12 標準庫完整範例實作與實機輸出</h2>
         <div class="code-container">
           <div class="code-toolbar">
             <span>Python 3.12 範例實作（{escaped_file}）</span>
@@ -1883,7 +2056,7 @@ def render_chapter_page(
           <pre><code id="code-{ch.id}">{escaped_code}</code></pre>
         </div>
         <div class="output-box">
-          <div class="output-label">▶ 實機執行輸出驗證（CI 自動實測結果）</div>
+          <div class="output-label">▶ 實機執行輸出驗證（Python 3.12 實測結果）</div>
           <pre class="output-pre">{escaped_out}</pre>
         </div>
       </section>
