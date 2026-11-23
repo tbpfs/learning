@@ -202,6 +202,12 @@ class TestLearningExamples(unittest.TestCase):
             self.assertEqual(len(idx_ld["hasPart"]), 7)
             self.assertEqual(idx_ld["speakable"]["@type"], "SpeakableSpecification")
             self.assertIn('class="aeo-capsule"', html_text)
+            self.assertIn(':has(ins[data-ad-status="unfilled"])', html_text)
+            self.assertIn("https://blog.ai-purplemaple.com/", html_text)
+            self.assertIn("https://www.youtube.com/@PurpleMapleAI", html_text)
+            self.assertIn("折疊面板", html_text)
+            for forbidden_tok in ("核心速答：", "本章速答", "grok_note", "chapter-badge", "折疊面版", "@purplemaple_tb", "tbpfs1.blogspot.com"):
+                self.assertNotIn(forbidden_tok, html_text, f"index.html leaked forbidden string: {forbidden_tok}")
             self.assertIn("https://www.books.com.tw/exep/assp.php/tbpfs1/", html_text)
             self.assertIn('rel="sponsored noopener noreferrer"', html_text)
             self.assertIn("affiliate_click", html_text)
