@@ -84,6 +84,7 @@ CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
         "upload_date": "2020-09-27T12:00:00+08:00",
         "views_label": "22,600+ 次觀看",
         "related": [
+            ("ebkBxAvyFds", "【零基礎生活圖解】用「水波擴散與迷宮探險」3分鐘看懂 BFS / DFS 與數島嶼 (LeetCode #200)"),
             ("V_ajcNni6wk", "資工系在學些什麼？資料結構、演算法、物件導向（22,600+ 觀看）"),
             ("5hYwLTVK4pY", "資料結構的複雜度 Big-O 總整理（15,000+ 觀看）"),
         ],
@@ -94,6 +95,7 @@ CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
         "upload_date": "2020-09-29T12:00:00+08:00",
         "views_label": "31,700+ 次觀看",
         "related": [
+            ("WhoRHltIukc", "【零基礎生活圖解】用「筆記本抄小抄與超商找零錢」3分鐘看懂動態規劃 DP (LeetCode #322)"),
             ("iLK48YAXjio", "常用演算法策略：暴力法、貪婪法、分治法、回溯法、分支限界法（26,800+ 觀看）"),
         ],
     },
