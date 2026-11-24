@@ -67,6 +67,7 @@ class ChapterSpec:
     pitfalls: tuple[PitfallItem, ...]
     leetcode_problems: tuple[LeetCodeProblem, ...]
     interview_faqs: tuple[InterviewFAQ, ...]
+    short_title: str = ""
 
     def __getitem__(self, key: str) -> Any:
         return getattr(self, key)

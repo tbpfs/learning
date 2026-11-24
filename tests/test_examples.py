@@ -346,6 +346,156 @@ class TestLearningExamples(unittest.TestCase):
             self.assertIn('>王紫楓（紫楓 / Purple Maple）官方作品集</a>', ch07_html)
             self.assertIn('>王紫楓（紫楓 / Purple Maple）</a>', ch07_html)
 
+    def test_trilingual_24_pages_hreflang_and_mechanical_qa(self):
+        from build_site import build_site
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            build_site(root)
+
+            # 1) Exact 24 canonical HTML URLs in sitemap.xml
+            sitemap = (root / "sitemap.xml").read_text(encoding="utf-8")
+            locs = re.findall(r"<loc>(.*?)</loc>", sitemap)
+            self.assertEqual(len(locs), 24, f"Expected 24 URLs in sitemap.xml, got {len(locs)}")
+            self.assertEqual(len(set(locs)), 24)
+
+            ch_ids = ("ch01", "ch02", "ch03", "ch04", "ch05", "ch06", "ch07")
+            zh_cn_banned_terms = (
+                "陣列", "鏈結串列", "堆疊", "佇列", "雜湊表", "堆積", "演算法", "物件導向",
+                "遞迴", "變數", "迴圈", "程式碼", "連結", "試算", "視窗", "資訊", "記憶體",
+                "講義", "預設", "紫楓", "點擊展開", "實機執行", "隱私權", "總目錄", "鐵人賽",
+                "博客來", "資料結構", "二元搜尋樹", "合併排序", "走訪", "範例", "括號",
+            )
+            zh_cn_banned_trad_chars = "楓網學實複雜資結構時間點製輸驗證隱權饋幫進選錯誤這還觀關長審閱補總錄鐵賽單書課較維護對蹤層題難試問碼導場義廣頁"
+
+            class _DomCounter(HTMLParser):
+                def __init__(self):
+                    super().__init__()
+                    self.n = 0
+
+                def handle_starttag(self, tag, attrs):
+                    self.n += 1
+
+            # 2) Verify all 24 pages: All-to-All bidirectional hreflang, canonical, og:locale, DOM < 1500, /ads.txt
+            for page_fn in (None, *(f"{cid}.html" for cid in ch_ids)):
+                tw_url = f"https://learn.ai-purplemaple.com/{page_fn or ''}"
+                cn_url = f"https://learn.ai-purplemaple.com/zh-cn/{page_fn or ''}"
+                en_url = f"https://learn.ai-purplemaple.com/en/{page_fn or ''}"
+
+                locale_specs = (
+                    ("zh-TW", "zh-Hant", "zh_TW", root / (page_fn or "index.html"), tw_url),
+                    ("zh-CN", "zh-Hans", "zh_CN", root / "zh-cn" / (page_fn or "index.html"), cn_url),
+                    ("en", "en", "en_US", root / "en" / (page_fn or "index.html"), en_url),
+                )
+                for loc_code, hlang, og_loc, fpath, canon in locale_specs:
+                    self.assertTrue(fpath.is_file(), f"Missing generated file {fpath}")
+                    raw_html = fpath.read_text(encoding="utf-8")
+                    self.assertIn(f'<html lang="{hlang}">', raw_html)
+                    self.assertIn(f'<link rel="canonical" href="{canon}">', raw_html)
+                    self.assertIn(f'<link rel="alternate" hreflang="zh-Hant" href="{tw_url}">', raw_html)
+                    self.assertIn(f'<link rel="alternate" hreflang="zh-Hans" href="{cn_url}">', raw_html)
+                    self.assertIn(f'<link rel="alternate" hreflang="en" href="{en_url}">', raw_html)
+                    self.assertIn(f'<link rel="alternate" hreflang="x-default" href="{tw_url}">', raw_html)
+                    self.assertIn(f'<meta property="og:locale" content="{og_loc}">', raw_html)
+                    self.assertIn('href="/ads.txt"', raw_html)
+                    self.assertNotIn('href="index.html"', raw_html)
+                    self.assertIn("GTM-WNSFQT5V", raw_html)
+                    self.assertIn("G-B24GXZ32MW", raw_html)
+                    self.assertIn("ca-pub-6485917848711473", raw_html)
+
+                    dc = _DomCounter()
+                    dc.feed(raw_html)
+                    self.assertLess(dc.n, 1500, f"{loc_code}/{page_fn or 'index.html'} DOM={dc.n} >= 1500")
+
+                    # Strip ONLY the language switcher <nav> for full-document localization QA (includes <head>, JSON-LD, <script>, <pre>!)
+                    no_switcher = re.sub(
+                        r'<nav class="lang-switcher"[^>]*>.*?</nav>',
+                        "",
+                        raw_html,
+                        flags=re.DOTALL,
+                    )
+
+                    if loc_code == "en":
+                        cjk_leaks = re.findall(r"[\u4e00-\u9fff]", no_switcher)
+                        self.assertEqual(
+                            cjk_leaks,
+                            [],
+                            f"English page {fpath.name} leaked CJK chars: {cjk_leaks[:10]}",
+                        )
+                        self.assertNotIn("books.com.tw", raw_html)
+                        self.assertNotIn("cms-tutorials-container", raw_html)
+                        if page_fn is not None:
+                            self.assertIn('href="/en/"', raw_html)
+                            self.assertNotIn('rel="sponsored', raw_html)
+                            prose = re.sub(r"<style\b[^>]*>.*?</style>", "", no_switcher, flags=re.DOTALL)
+                            prose = re.sub(r"<script\b[^>]*>.*?</script>", "", prose, flags=re.DOTALL)
+                            prose = re.sub(r"<pre\b[^>]*>.*?</pre>", "", prose, flags=re.DOTALL)
+                            prose = re.sub(r"<[^>]+>", " ", prose)
+                            en_words = re.findall(r"[A-Za-z][A-Za-z0-9'-]*", prose)
+                            self.assertGreaterEqual(
+                                len(en_words),
+                                600,
+                                f"en/{page_fn} prose word count {len(en_words)} < 600",
+                            )
+                            # Verify VideoObject inLanguage stays truthful ("zh-Hant") while TechArticle is "en"
+                            ld_m = re.search(
+                                r'<script type="application/ld\+json">\s*(\{.*?\})\s*</script>',
+                                raw_html,
+                                re.DOTALL,
+                            )
+                            self.assertIsNotNone(ld_m)
+                            g_nodes = {n["@type"]: n for n in json.loads(ld_m.group(1))["@graph"]}
+                            self.assertEqual(g_nodes["TechArticle"]["inLanguage"], "en")
+                            self.assertEqual(g_nodes["VideoObject"]["inLanguage"], "zh-Hant")
+                            self.assertEqual(g_nodes["TechArticle"]["isPartOf"]["@id"], "https://learn.ai-purplemaple.com/en/#course")
+
+                    elif loc_code == "zh-CN":
+                        self.assertNotIn("books.com.tw", raw_html)
+                        self.assertNotIn("cms-tutorials-container", raw_html)
+                        for bad_term in zh_cn_banned_terms:
+                            self.assertNotIn(
+                                bad_term,
+                                no_switcher,
+                                f"zh-cn/{page_fn or 'index.html'} leaked Taiwan term '{bad_term}'",
+                            )
+                        # Check prose + visible metadata + scripts for stray high-frequency Traditional chars
+                        no_style = re.sub(r"<style\b[^>]*>.*?</style>", "", no_switcher, flags=re.DOTALL)
+                        found_trad = sorted({ch for ch in no_style if ch in zh_cn_banned_trad_chars})
+                        self.assertEqual(
+                            found_trad,
+                            [],
+                            f"zh-cn/{page_fn or 'index.html'} leaked Traditional chars: {found_trad}",
+                        )
+                        if page_fn is not None:
+                            self.assertIn('href="/zh-cn/"', raw_html)
+                            self.assertNotIn('rel="sponsored', raw_html)
+                            prose = re.sub(r"<style\b[^>]*>.*?</style>", "", no_switcher, flags=re.DOTALL)
+                            prose = re.sub(r"<script\b[^>]*>.*?</script>", "", prose, flags=re.DOTALL)
+                            prose = re.sub(r"<pre\b[^>]*>.*?</pre>", "", prose, flags=re.DOTALL)
+                            prose = re.sub(r"<[^>]+>", "", prose)
+                            cjk_cnt = len(re.findall(r"[\u4e00-\u9fff]", prose))
+                            self.assertGreaterEqual(
+                                cjk_cnt,
+                                1200,
+                                f"zh-cn/{page_fn} prose CJK char count {cjk_cnt} < 1200",
+                            )
+
+            # 3) Verify llms.txt references all 3 language editions
+            llms_txt = (root / "llms.txt").read_text(encoding="utf-8")
+            self.assertIn("https://learn.ai-purplemaple.com/zh-cn/", llms_txt)
+            self.assertIn("https://learn.ai-purplemaple.com/en/", llms_txt)
+            self.assertIn("https://learn.ai-purplemaple.com/zh-cn/ch07.html", llms_txt)
+            self.assertIn("https://learn.ai-purplemaple.com/en/ch07.html", llms_txt)
+
+            # 4) Verify .github/workflows/pages.yml IndexNow JSON payload is valid and covers all 24 HTML + 2 llms*.txt URLs
+            wf_text = (REPO_ROOT / ".github" / "workflows" / "pages.yml").read_text(encoding="utf-8")
+            m_json = re.search(r"-d\s*'(\{.*?\})'", wf_text, flags=re.DOTALL)
+            self.assertIsNotNone(m_json, "IndexNow JSON payload missing in pages.yml")
+            idx_payload = json.loads(m_json.group(1))
+            self.assertEqual(len(idx_payload["urlList"]), 26)
+            self.assertIn("https://learn.ai-purplemaple.com/zh-cn/", idx_payload["urlList"])
+            self.assertIn("https://learn.ai-purplemaple.com/en/", idx_payload["urlList"])
+
 
 if __name__ == "__main__":
     unittest.main()

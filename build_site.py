@@ -2,7 +2,10 @@
 """
 build_site.py - Static Site Generator for GitHub Pages (`tbpfs/learning`).
 Zero external dependencies. Reads examples/ch01..ch07, executes each once to capture live output,
-and renders an SEO/GEO-optimized tutorial portal (`index.html` Hub + `ch01.html`..`ch07.html` Deep-Dive Spokes).
+and renders a 24-page trilingual SEO/GEO-optimized tutorial portal:
+- `/` + `ch01.html`..`ch07.html` (Traditional Chinese, zh-Hant)
+- `/zh-cn/` + `/zh-cn/ch01.html`..`ch07.html` (Mainland Simplified Chinese, zh-Hans)
+- `/en/` + `/en/ch01.html`..`ch07.html` (International English, en)
 """
 
 from __future__ import annotations
@@ -20,10 +23,19 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from affiliate_config import (  # noqa: E402
+    AffiliateResource,
     get_chapter_book_recommendation,
     get_learning_resources,
 )
 from chapter_content import CHAPTERS, ChapterSpec, ComparisonTable  # noqa: E402
+from i18n import (  # noqa: E402
+    LOCALE_BY_CODE,
+    LOCALES,
+    load_locale_pack,
+    localize_code_and_output,
+    page_canonical_url,
+    page_root_href,
+)
 
 ADSENSE_PUBLISHER_ID = "pub-6485917848711473"
 ADSENSE_CLIENT_ID = f"ca-{ADSENSE_PUBLISHER_ID}"
@@ -31,6 +43,21 @@ ADSENSE_IN_ARTICLE_SLOT_ID = "1673180799"
 ENABLE_MANUAL_AD_SLOTS = False  # Pre-approval SEO/UX hygiene: keep <head> verification script + ads.txt, hide empty dashed <ins> boxes until approved
 INDEXNOW_KEY = "7f4e9c2a8b1d6035e4a92c7f1b8d3e60"
 SITE_LASTMOD = "2026-11-24"
+
+CREATOR_SAME_AS: list[str] = [
+    "https://x.com/tbpfs1",
+    "https://www.facebook.com/tbpfs2/",
+    "https://www.tiktok.com/@ai_purple_maple",
+    "https://www.linkedin.com/in/tbpfs2/",
+    "https://portaly.cc/tbpfs",
+    "https://blog.ai-purplemaple.com/",
+    "https://open.spotify.com/artist/7D7CLJoxLhsMos8xI9H2kx",
+    "https://music.apple.com/tw/artist/purple-maple/1745241062",
+    "https://music.youtube.com/channel/UCcEBgbHV3rcee1FfgfHXprw",
+    "https://www.youtube.com/@PurpleMapleAI",
+    "https://www.pixiv.net/users/3503246",
+    "https://github.com/tbpfs",
+]
 
 CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
     "ch01": {
@@ -113,6 +140,167 @@ CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
     },
 }
 
+UI_ZH_TW: dict[str, Any] = {
+    "site_name": "紫楓 Purple Maple Python 程式教學",
+    "brand_creator_name": "紫楓 (AI王紫楓 / Purple Maple)",
+    "brand_website_name": "紫楓官方網站｜王紫楓 (Purple Maple)",
+    "brand_anchor_portfolio": "王紫楓（紫楓 / Purple Maple）官方作品集（AI 音樂 ＆ 白瀬アイリ Aily）",
+    "brand_anchor_portfolio_short": "王紫楓（紫楓 / Purple Maple）官方作品集",
+    "brand_anchor_footer": "王紫楓（紫楓 / Purple Maple）",
+    "page_title": "從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (AI王紫楓 / Purple Maple)",
+    "og_title": "從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)",
+    "hero_eyebrow": "鐵人賽基本功系列・資料結構 ＆ 演算法 ＆ 物件導向",
+    "hero_h1": "從零開始寫程式，輕鬆搞懂資料結構，演算法",
+    "hero_intro_html": (
+        "大家好，我是<strong>紫楓</strong>！不管是學生、想轉職軟體工程師、還是想精益求精的夥伴，"
+        "練好「資料結構、演算法、物件導向」就是克服迷惘最紮實的基本功。"
+    ),
+    "cta_youtube": "▶ 觀看 YouTube 完整教學播放清單",
+    "cta_fb_group": "加入程式新手學習發問區（FB 社團）",
+    "cta_github": "GitHub 原始碼儲存庫",
+    "cta_chapter_github": "檢視本章 GitHub 原始碼",
+    "og_image_alt": "紫楓（AI王紫楓 / @tbpfs1）Python 資料結構與演算法互動教學｜原創看板娘白瀬アイリ（左紅 #fb7185、右藍 #38bdf8）",
+    "index_keywords": (
+        "紫楓, AI王紫楓, Purple Maple, tbpfs, Python教學, 資料結構, 演算法, 鏈結串列, 堆疊, 佇列, "
+        "二分搜尋, Merge Sort, 雜湊表, Hash Table, 二元搜尋樹, BST, 圖論, BFS, DFS, 動態規劃, "
+        "Dynamic Programming, 堆積, Heap, Priority Queue, Top-K, 物件導向, OOP"
+    ),
+    "index_desc_tpl": (
+        "紫楓（AI王紫楓 / Purple Maple / tbpfs）開設之 Python 3.12 資料結構、演算法與物件導向基本功鐵人賽教學網站，"
+        "完整收錄 {chapter_titles_short} 實機執行範例。"
+    ),
+    "index_og_desc_tpl": "紫楓（AI王紫楓 / Purple Maple）Python 3.12 資料結構與演算法互動教學講義（{chapter_titles_short}）。",
+    "course_name": "從零開始寫程式，輕鬆搞懂資料結構、演算法",
+    "course_desc_tpl": (
+        "紫楓（AI王紫楓 / Purple Maple）開設之 Python 3.12 資料結構、演算法與物件導向實戰教學課程，"
+        "涵蓋 {chapter_titles_short}。"
+    ),
+    "index_aeo_capsule": (
+        "紫楓（AI王紫楓 / Purple Maple）Python 3.12 互動教學站（<code>learn.ai-purplemaple.com</code>）"
+        "收錄 7 大核心章節（陣列鏈結串列、堆疊佇列、二分搜尋與 Merge Sort、雜湊表與 BST、圖論 BFS/DFS 與 OOP、"
+        "動態規劃、二元堆積與 Top-K），每章皆附實機執行輸出、複雜度表、CPython 陷阱與 LeetCode 面試詳解，完全免費開源。"
+    ),
+    "toc_aria": "章節快速導覽",
+    "chapter_switcher_aria": "全課程章節切換",
+    "section_subnav_aria": "本章段落導覽",
+    "section_subnav_label": "本章快速跳轉：",
+    "nav_intro": "核心觀念與背景導論",
+    "nav_video": "YouTube 實戰教學影片",
+    "nav_comparison": "複雜度與特性對照表",
+    "nav_walkthrough": "逐步狀態拆解",
+    "nav_code": "Python 3.12 完整實作",
+    "nav_pitfalls": "CPython 底層陷阱",
+    "nav_interview": "LeetCode 題號與面試 FAQ",
+    "chapter_link_cta": "獨立章節深度講義 ↗",
+    "concepts_heading": "核心觀念與面試重點解析",
+    "label_complexity": "時間／空間複雜度：",
+    "label_source_path": "原始碼路徑：",
+    "code_accordion_summary_tpl": "點擊展開／收合 {badge} Python 3.12 完整實作原始碼與實機執行輸出（<code>{file}</code>）",
+    "code_toolbar_tpl": "Python 3.12 範例實作（{file}）",
+    "copy_btn": "複製程式碼",
+    "output_label_index": "▶ 實機執行驗證輸出",
+    "output_label_chapter": "▶ 實機執行輸出驗證（Python 3.12 實測結果）",
+    "deep_dive_summary_tpl": "{badge} 獨立深度講義獨家收錄內容（點擊展開／收合預覽）",
+    "deep_dive_table_label": "完整結構化對照表：",
+    "deep_dive_faq_label": "本章軟體工程師面試必考問答預告：",
+    "deep_dive_cta_tpl": "閱讀 {badge} 完整深度講義（複雜度表 ＋ 逐步圖解 ＋ 面試詳解） →",
+    "chapter_title_tpl": "{badge} {title} | 紫楓 (AI王紫楓 / Purple Maple) Python 教學",
+    "chapter_desc_tpl": "紫楓（AI王紫楓 / Purple Maple）Python 3.12 教學講義：{badge} {title}。{summary}",
+    "chapter_keywords_prefix": "紫楓, AI王紫楓, Purple Maple, Python 3.12 教學, ",
+    "chapter_eyebrow_tpl": "{badge} 獨立深度講義・Python 3.12 資料結構與演算法實戰",
+    "back_to_index_label": "← 返回《從零開始寫程式，輕鬆搞懂資料結構，演算法》全章節總目錄",
+    "chapter_intro_heading": "本章背景導論與工程應用場景",
+    "chapter_aeo_tpl": (
+        "{badge}〈{title}〉的核心目標在於掌握 {summary} 時間／空間複雜度基準為 <code>{complexity}</code>，"
+        "並以 Python 3.12 標準庫（<code>{file}</code>）提供零依賴實機驗證範例。"
+    ),
+    "comparison_heading": "時間與空間複雜度暨底層結構對照表",
+    "code_section_heading": "Python 3.12 標準庫完整範例實作與實機輸出",
+    "pitfalls_heading": "Python 3.12 底層實作原理與常見實戰陷阱",
+    "pitfall_symptom_label": "常見錯誤現象：",
+    "pitfall_fix_label": "CPython 底層根因與正確對策：",
+    "interview_heading": "LeetCode 經典必刷題號與軟體工程師技術面試 FAQ",
+    "interview_table_caption_tpl": "{badge} 對應 LeetCode 必考白板題與解題模板",
+    "interview_th_num": "題號",
+    "interview_th_title": "題目名稱",
+    "interview_th_diff": "難度",
+    "interview_th_pattern": "核心解題模式與複雜度",
+    "video_heading_tpl": "本章對應 YouTube 實戰教學影片（{views_label}）",
+    "video_intro": "建議先觀看紫楓 IT 鐵人賽對應影片建立直覺圖像記憶，再對照下方複雜度表與 Python 3.12 標準庫程式碼動手實作：",
+    "video_main_label": "主講影片：",
+    "video_playlist_cta": "31 集完整鐵人賽播放清單 ↗",
+    "video_related_heading": "本章延伸 YouTube 鐵人賽專題教學影片",
+    "video_desc_tpl": "紫楓（AI王紫楓 / Purple Maple）IT 鐵人賽實戰教學影片：{badge} {title}。{summary}",
+    "tech_article_headline_tpl": "{badge} {title} — Python 3.12 資料結構與演算法深度講義",
+    "breadcrumb_home_name": "Python 資料結構與演算法總目錄",
+    "resources_heading": "紫楓嚴選：Python 資料結構與演算法實體書／線上課程比較表",
+    "resources_note": "合作揭露：以下部分連結為博客來策略聯盟（AP）或合作夥伴推廣連結，透過連結購書或報名課程不會增加您的任何費用，我們可能獲得微薄分潤以支持本站免費開源講義維護。",
+    "resources_th_title": "推薦書籍／課程",
+    "resources_th_platform": "平台",
+    "resources_th_audience": "適合對象",
+    "resources_th_highlight": "與本站章節對應重點",
+    "resources_th_action": "前往查看",
+    "chapter_resource_aria": "本章延伸書單推薦",
+    "chapter_resource_note": "合作揭露：此為博客來策略聯盟推廣連結，購書價格與原價相同，您的支持將協助本站持續更新免費 Python 教學講義。",
+    "chapter_resource_cta": "前往博客來查找相關書單 ↗",
+    "fb_question": "這篇講義對你有幫助嗎？",
+    "fb_yes": "✓ 有幫助",
+    "fb_no": "待改進",
+    "fb_note_placeholder": "選填：哪一段清楚或卡關？（最多 200 字，不公開）",
+    "fb_note_aria": "選填原因（不公開）",
+    "fb_note_submit": "送出回饋",
+    "fb_ask_summary": "還有程式觀念卡關？匿名提問給紫楓（整理進本章 FAQ）",
+    "fb_ask_sub": "為維持閱讀版面純淨、杜絕廣告留言，提問不會直接公開；站長審閱後會將高頻問題補入本章技術 FAQ。",
+    "fb_ask_placeholder": "輸入你的疑問，例如：為什麼這段時間複雜度是 O(log n)…",
+    "fb_ask_aria": "匿名提問內容",
+    "fb_ask_submit": "送出提問",
+    "pager_aria": "上下章節導覽",
+    "pager_prev_tpl": "← 上一章：{badge} {short}",
+    "pager_first": "← 已是第一章",
+    "pager_home": "返回全章節總目錄",
+    "pager_next_tpl": "下一章：{badge} {short} →",
+    "pager_last": "已是最後一章 →",
+    "study_guide_heading": "軟體工程師基本功修煉指南與常見問答（FAQ）",
+    "study_guide_intro": "許多初學者與轉職者在刷題（LeetCode）或準備技術面試時，常陷入「背題目卻不懂底層原理」的困境。點擊下方折疊面板展開三階段循序漸進路線圖：",
+    "study_guide_summary": "點擊展開／收合：三階段刷題路線圖與學習建議",
+    "study_guide_items": (
+        (
+            "第一階段（記憶體模型與線性結構）：",
+            '先親手實作 <a href="ch01.html">Ch.01 的單向鏈結串列</a>與 <a href="ch02.html">Ch.02 的 Stack / Queue</a>，徹底理解指標（Reference / Pointer）操作與時間複雜度 <code>O(1)</code> vs. <code>O(n)</code> 的差異。',
+        ),
+        (
+            "第二階段（分治搜尋、雜湊查找、樹與圖論架構）：",
+            '透過 <a href="ch03.html">Ch.03 的二分搜尋與合併排序（Merge Sort）</a>、<a href="ch04.html">Ch.04 的雜湊表（Hash Table / Two Sum）與二元搜尋樹（BST）</a>，再到 <a href="ch05.html">Ch.05 的圖論走訪（Graph BFS / DFS 最短路徑）與物件導向封裝（OOP）</a>，掌握分治法、空間換取時間與抽象化模組設計的核心精神。',
+        ),
+        (
+            "第三階段（進階動態規劃、優先佇列與白板題實戰）：",
+            '深入 <a href="ch06.html">Ch.06 動態規劃與記憶化搜尋（0/1 背包與 LIS）</a>及 <a href="ch07.html">Ch.07 二元堆積與 Top-K 多路合併演算法</a>，搭配各章獨立講義內的複雜度對照表、CPython 底層陷阱解析與 YouTube 鐵人賽教學影片完成實戰修煉。',
+        ),
+    ),
+    "privacy_heading": "隱私權政策與 Cookie 聲明 (Privacy Policy)",
+    "privacy_body_html": (
+        '本網站（learn.ai-purplemaple.com）使用 Google AdSense 第三方廣告服務與 Google Analytics (GA4)／Google Tag Manager 網站流量分析服務。'
+        'Google 及其合作夥伴會使用 Cookie（包含 DART Cookie），根據使用者造訪本站或其他網站的紀錄提供個人化廣告與匿名流量統計。'
+        '您可隨時前往 <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google 廣告設定頁面</a> 停用個人化廣告，'
+        '或查閱 <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">Google 廣告與隱私權政策</a>。'
+        '本站程式碼複製功能均於瀏覽器本機執行；讀者於章節講義點擊「有幫助／待改進」或提交私密提問時，僅透過加密安全通道傳送匿名回饋內容與 HMAC 雜湊限流識別，絕不公開顯示留言或儲存原始 IP。'
+    ),
+    "footer_blog_label": "紫楓技術與創作日誌",
+    "footer_github_label": "GitHub 原始碼",
+    "js_copied": "已複製 ✓",
+    "js_err_rate": "今天的次數已用完，明天再來",
+    "js_err_short": "請至少輸入 5 個字描述你的疑問",
+    "js_err_long": "字數請控制在 400 字以內",
+    "js_err_generic": "送出失敗，請稍後再試",
+    "js_fb_thanks": "感謝回饋！歡迎選填一句原因幫助我們補強講義。",
+    "js_fb_note_ok": "✓ 已收到你的回饋，謝謝！",
+    "js_ask_ok": "✓ 已收到提問！站長整理後會補充至本章 FAQ。",
+}
+
+
+def chapter_short_title(ch: ChapterSpec) -> str:
+    return ch.short_title or ch.title.split("（")[0]
+
 
 def run_example(rel_path: str) -> tuple[str, str]:
     """Read source file and execute it to capture stdout."""
@@ -144,7 +332,7 @@ def render_ad_slot(slot_label: str) -> str:
     escaped_label = html.escape(slot_label)
     return f"""
       <aside class="ad-slot-card" aria-label="{escaped_label}">
-        <div class="ad-slot-label">ADVERTISEMENT ・ 贊助廣告（{escaped_label}）</div>
+        <div class="ad-slot-label">ADVERTISEMENT · ({escaped_label})</div>
         <div class="ad-slot-inner">
           <ins class="adsbygoogle"
                style="display:block; text-align:center;"
@@ -167,51 +355,81 @@ def render_json_ld_script(payload: dict[str, Any]) -> str:
     return f'  <script type="application/ld+json">\n{indented}\n  </script>'
 
 
-def build_index_json_ld(chapters: Sequence[ChapterSpec], chapter_titles_short: str) -> dict[str, Any]:
-    """Build Schema.org Course JSON-LD with hasPart linking to all standalone chapter TechArticles."""
+def render_hreflang_and_og_locale(locale_code: str, page_filename: str | None) -> str:
+    """Render All-to-All bidirectional hreflang (zh-Hant, zh-Hans, en, x-default) & og:locale meta tags."""
+    cur = LOCALE_BY_CODE[locale_code]
+    lines: list[str] = []
+    for loc in LOCALES:
+        href = page_canonical_url(loc.code, page_filename)
+        lines.append(f'  <link rel="alternate" hreflang="{loc.hreflang}" href="{href}">')
+    x_def = page_canonical_url("zh-TW", page_filename)
+    lines.append(f'  <link rel="alternate" hreflang="x-default" href="{x_def}">')
+    lines.append(f'  <meta property="og:locale" content="{cur.og_locale}">')
+    for loc in LOCALES:
+        if loc.code != locale_code:
+            lines.append(f'  <meta property="og:locale:alternate" content="{loc.og_locale}">')
+    return "\n".join(lines)
+
+
+def render_lang_switcher(locale_code: str, page_filename: str | None) -> str:
+    """Render root-absolute language switcher (never index.html) placed cleanly in Hero."""
+    items: list[str] = []
+    for loc in LOCALES:
+        href = page_root_href(loc.code, page_filename)
+        if loc.code == locale_code:
+            items.append(
+                f'        <span class="lang-pill lang-pill-active" lang="{loc.html_lang}" aria-current="true">{html.escape(loc.switcher_label)}</span>'
+            )
+        else:
+            items.append(
+                f'        <a class="lang-pill" href="{href}" lang="{loc.html_lang}" hreflang="{loc.hreflang}">{html.escape(loc.switcher_label)}</a>'
+            )
+    return (
+        '      <nav class="lang-switcher" aria-label="Language">\n'
+        + "\n".join(items)
+        + "\n      </nav>"
+    )
+
+
+def build_index_json_ld(
+    locale_code: str,
+    ui: dict[str, Any],
+    chapters: Sequence[ChapterSpec],
+    chapter_titles_short: str,
+) -> dict[str, Any]:
+    """Build Schema.org Course JSON-LD with locale-isolated @id and hasPart links."""
+    loc = LOCALE_BY_CODE[locale_code]
+    index_url = page_canonical_url(locale_code, None)
     has_part = [
         {
             "@type": "TechArticle",
-            "@id": f"https://learn.ai-purplemaple.com/{ch.id}.html#article",
+            "@id": f"{page_canonical_url(locale_code, f'{ch.id}.html')}#article",
             "headline": f"{ch.badge} {ch.title}",
-            "url": f"https://learn.ai-purplemaple.com/{ch.id}.html",
+            "url": page_canonical_url(locale_code, f"{ch.id}.html"),
         }
         for ch in chapters
     ]
     return {
         "@context": "https://schema.org",
         "@type": "Course",
-        "@id": "https://learn.ai-purplemaple.com/#course",
-        "name": "從零開始寫程式，輕鬆搞懂資料結構、演算法",
-        "description": f"紫楓（AI王紫楓 / Purple Maple）開設之 Python 3.12 資料結構、演算法與物件導向實戰教學課程，涵蓋 {chapter_titles_short}。",
-        "url": "https://learn.ai-purplemaple.com/",
-        "inLanguage": "zh-TW",
+        "@id": f"{index_url}#course",
+        "name": ui["course_name"],
+        "description": ui["course_desc_tpl"].format(chapter_titles_short=chapter_titles_short),
+        "url": index_url,
+        "inLanguage": loc.jsonld_lang,
         "dateModified": SITE_LASTMOD,
         "isPartOf": {
             "@type": "WebSite",
             "@id": "https://ai-purplemaple.com/#website",
-            "name": "紫楓官方網站｜王紫楓 (Purple Maple)",
+            "name": ui["brand_website_name"],
             "url": "https://ai-purplemaple.com/",
         },
         "provider": {
             "@type": "Person",
             "@id": "https://ai-purplemaple.com/#creator",
-            "name": "紫楓 (AI王紫楓 / Purple Maple)",
+            "name": ui["brand_creator_name"],
             "url": "https://ai-purplemaple.com/",
-            "sameAs": [
-                "https://x.com/tbpfs1",
-                "https://www.facebook.com/tbpfs2/",
-                "https://www.tiktok.com/@ai_purple_maple",
-                "https://www.linkedin.com/in/tbpfs2/",
-                "https://portaly.cc/tbpfs",
-                "https://blog.ai-purplemaple.com/",
-                "https://open.spotify.com/artist/7D7CLJoxLhsMos8xI9H2kx",
-                "https://music.apple.com/tw/artist/purple-maple/1745241062",
-                "https://music.youtube.com/channel/UCcEBgbHV3rcee1FfgfHXprw",
-                "https://www.youtube.com/@PurpleMapleAI",
-                "https://www.pixiv.net/users/3503246",
-                "https://github.com/tbpfs",
-            ],
+            "sameAs": CREATOR_SAME_AS,
         },
         "speakable": {
             "@type": "SpeakableSpecification",
@@ -221,42 +439,36 @@ def build_index_json_ld(chapters: Sequence[ChapterSpec], chapter_titles_short: s
     }
 
 
-def build_chapter_json_ld(ch: ChapterSpec) -> dict[str, Any]:
+def build_chapter_json_ld(
+    locale_code: str,
+    ui: dict[str, Any],
+    ch: ChapterSpec,
+    yt_videos: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
     """Build per-chapter Schema.org @graph with TechArticle, VideoObject, FAQPage, and BreadcrumbList."""
-    ch_url = f"https://learn.ai-purplemaple.com/{ch.id}.html"
+    loc = LOCALE_BY_CODE[locale_code]
+    index_url = page_canonical_url(locale_code, None)
+    ch_url = page_canonical_url(locale_code, f"{ch.id}.html")
     creator_ref = {
         "@type": "Person",
         "@id": "https://ai-purplemaple.com/#creator",
-        "name": "紫楓 (AI王紫楓 / Purple Maple)",
+        "name": ui["brand_creator_name"],
         "url": "https://ai-purplemaple.com/",
-        "sameAs": [
-            "https://x.com/tbpfs1",
-            "https://www.facebook.com/tbpfs2/",
-            "https://www.tiktok.com/@ai_purple_maple",
-            "https://www.linkedin.com/in/tbpfs2/",
-            "https://portaly.cc/tbpfs",
-            "https://blog.ai-purplemaple.com/",
-            "https://open.spotify.com/artist/7D7CLJoxLhsMos8xI9H2kx",
-            "https://music.apple.com/tw/artist/purple-maple/1745241062",
-            "https://music.youtube.com/channel/UCcEBgbHV3rcee1FfgfHXprw",
-            "https://www.youtube.com/@PurpleMapleAI",
-            "https://www.pixiv.net/users/3503246",
-            "https://github.com/tbpfs",
-        ],
+        "sameAs": CREATOR_SAME_AS,
     }
-    yt_meta = CHAPTER_YOUTUBE_VIDEOS.get(ch.id, CHAPTER_YOUTUBE_VIDEOS["ch01"])
+    yt_meta = yt_videos.get(ch.id, yt_videos["ch01"])
     vid_id = yt_meta["video_id"]
     video_node = {
         "@type": "VideoObject",
         "@id": f"{ch_url}#video",
         "name": yt_meta["title"],
-        "description": f"紫楓（AI王紫楓 / Purple Maple）IT 鐵人賽實戰教學影片：{ch.badge} {ch.title}。{ch.summary}",
+        "description": ui["video_desc_tpl"].format(badge=ch.badge, title=ch.title, summary=ch.summary),
         "thumbnailUrl": [
             f"https://i.ytimg.com/vi/{vid_id}/maxresdefault.jpg",
             f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg",
         ],
         "uploadDate": yt_meta["upload_date"],
-        "inLanguage": "zh-TW",
+        "inLanguage": "zh-Hant",
         "contentUrl": f"https://www.youtube.com/watch?v={vid_id}",
         "embedUrl": f"https://www.youtube.com/embed/{vid_id}",
         "author": creator_ref,
@@ -268,14 +480,14 @@ def build_chapter_json_ld(ch: ChapterSpec) -> dict[str, Any]:
             {
                 "@type": "TechArticle",
                 "@id": f"{ch_url}#article",
-                "headline": f"{ch.badge} {ch.title} — Python 3.12 資料結構與演算法深度講義",
-                "description": f"紫楓（AI王紫楓 / Purple Maple）Python 3.12 教學講義：{ch.badge} {ch.title}。{ch.summary}",
+                "headline": ui["tech_article_headline_tpl"].format(badge=ch.badge, title=ch.title),
+                "description": ui["chapter_desc_tpl"].format(badge=ch.badge, title=ch.title, summary=ch.summary),
                 "url": ch_url,
                 "mainEntityOfPage": ch_url,
                 "image": "https://ai-purplemaple.com/assets/gallery/aily_03.jpg",
                 "datePublished": "2026-03-01",
                 "dateModified": ch.lastmod,
-                "inLanguage": "zh-TW",
+                "inLanguage": loc.jsonld_lang,
                 "proficiencyLevel": "Beginner to Intermediate",
                 "dependencies": "Python 3.12",
                 "keywords": ", ".join(ch.keywords),
@@ -288,9 +500,9 @@ def build_chapter_json_ld(ch: ChapterSpec) -> dict[str, Any]:
                 "video": {"@id": f"{ch_url}#video"},
                 "isPartOf": {
                     "@type": "Course",
-                    "@id": "https://learn.ai-purplemaple.com/#course",
-                    "name": "從零開始寫程式，輕鬆搞懂資料結構、演算法",
-                    "url": "https://learn.ai-purplemaple.com/",
+                    "@id": f"{index_url}#course",
+                    "name": ui["course_name"],
+                    "url": index_url,
                 },
             },
             video_node,
@@ -316,8 +528,8 @@ def build_chapter_json_ld(ch: ChapterSpec) -> dict[str, Any]:
                     {
                         "@type": "ListItem",
                         "position": 1,
-                        "name": "Python 資料結構與演算法總目錄",
-                        "item": "https://learn.ai-purplemaple.com/",
+                        "name": ui["breadcrumb_home_name"],
+                        "item": index_url,
                     },
                     {
                         "@type": "ListItem",
@@ -331,9 +543,13 @@ def build_chapter_json_ld(ch: ChapterSpec) -> dict[str, Any]:
     }
 
 
-def render_video_lecture_section(ch: ChapterSpec) -> str:
+def render_video_lecture_section(
+    ch: ChapterSpec,
+    ui: dict[str, Any],
+    yt_videos: dict[str, dict[str, Any]],
+) -> str:
     """Render an embedded 16:9 YouTube lecture player and supplementary video links for the chapter."""
-    yt_meta = CHAPTER_YOUTUBE_VIDEOS.get(ch.id, CHAPTER_YOUTUBE_VIDEOS["ch01"])
+    yt_meta = yt_videos.get(ch.id, yt_videos["ch01"])
     vid_id = yt_meta["video_id"]
     vid_title = html.escape(yt_meta["title"])
     views_label = html.escape(yt_meta["views_label"])
@@ -344,7 +560,7 @@ def render_video_lecture_section(ch: ChapterSpec) -> str:
     related_block = (
         f"""
         <div class="concepts-box" style="margin-top: 1rem; margin-bottom: 0;">
-          <h3>本章延伸 YouTube 鐵人賽專題教學影片</h3>
+          <h3>{html.escape(ui["video_related_heading"])}</h3>
           <ul>
 {related_items}
           </ul>
@@ -352,10 +568,11 @@ def render_video_lecture_section(ch: ChapterSpec) -> str:
         if related_items
         else ""
     )
+    heading = html.escape(ui["video_heading_tpl"].format(views_label=yt_meta["views_label"]))
     return f"""
       <section class="chapter-card" id="video-lecture">
-        <h2>本章對應 YouTube 實戰教學影片（{views_label}）</h2>
-        <p class="chapter-summary">建議先觀看紫楓 IT 鐵人賽對應影片建立直覺圖像記憶，再對照下方複雜度表與 Python 3.12 標準庫程式碼動手實作：</p>
+        <h2>{heading}</h2>
+        <p class="chapter-summary">{html.escape(ui["video_intro"])}</p>
         <div class="video-embed-container" style="position: relative; width: 100%; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 6px; border: 1px solid var(--border); background: var(--code-bg);">
           <iframe
             src="https://www.youtube.com/embed/{vid_id}"
@@ -367,8 +584,8 @@ def render_video_lecture_section(ch: ChapterSpec) -> str:
             allowfullscreen></iframe>
         </div>
         <div class="meta-bar" style="margin-top: 0.85rem; margin-bottom: 0;">
-          <span><strong>主講影片：</strong><a href="https://www.youtube.com/watch?v={vid_id}" target="_blank" rel="noopener noreferrer">{vid_title}</a></span>
-          <span><a href="https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd" target="_blank" rel="noopener noreferrer">31 集完整鐵人賽播放清單 ↗</a></span>
+          <span><strong>{html.escape(ui["video_main_label"])}</strong><a href="https://www.youtube.com/watch?v={vid_id}" target="_blank" rel="noopener noreferrer">{vid_title}</a></span>
+          <span><a href="https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd" target="_blank" rel="noopener noreferrer">{html.escape(ui["video_playlist_cta"])}</a></span>
         </div>{related_block}
       </section>"""
 
@@ -417,7 +634,7 @@ def render_walkthrough(ch: ChapterSpec) -> str:
       </section>"""
 
 
-def render_pitfalls(ch: ChapterSpec) -> str:
+def render_pitfalls(ch: ChapterSpec, ui: dict[str, Any]) -> str:
     """Render CPython 3.12 runtime internals & common implementation pitfalls."""
     items_html: list[str] = []
     for pf in ch.pitfalls:
@@ -425,20 +642,20 @@ def render_pitfalls(ch: ChapterSpec) -> str:
             f"""
           <div class="pitfall-card">
             <h3>{html.escape(pf.title)}</h3>
-            <p class="pitfall-symptom"><strong>常見錯誤現象：</strong>{html.escape(pf.symptom)}</p>
-            <p class="pitfall-fix"><strong>CPython 底層根因與正確對策：</strong>{html.escape(pf.root_cause_and_fix)}</p>
+            <p class="pitfall-symptom"><strong>{html.escape(ui["pitfall_symptom_label"])}</strong>{html.escape(pf.symptom)}</p>
+            <p class="pitfall-fix"><strong>{html.escape(ui["pitfall_fix_label"])}</strong>{html.escape(pf.root_cause_and_fix)}</p>
           </div>"""
         )
     return f"""
       <section class="chapter-card" id="pitfalls">
-        <h2>Python 3.12 底層實作原理與常見實戰陷阱</h2>
+        <h2>{html.escape(ui["pitfalls_heading"])}</h2>
         <div class="pitfall-list">
 {"".join(items_html)}
         </div>
       </section>"""
 
 
-def render_interview_section(ch: ChapterSpec) -> str:
+def render_interview_section(ch: ChapterSpec, ui: dict[str, Any]) -> str:
     """Render LeetCode problem mapping table and expandable interview FAQs."""
     lc_rows: list[str] = []
     for lc in ch.leetcode_problems:
@@ -446,7 +663,7 @@ def render_interview_section(ch: ChapterSpec) -> str:
             f"              <tr>"
             f'<th scope="row">LeetCode #{lc.number}</th>'
             f"<td>{html.escape(lc.title)}</td>"
-            f"<td><span class=\"diff-badge\">{html.escape(lc.difficulty)}</span></td>"
+            f'<td><span class="diff-badge">{html.escape(lc.difficulty)}</span></td>'
             f"<td>{html.escape(lc.pattern)}</td>"
             f"</tr>"
         )
@@ -465,18 +682,19 @@ def render_interview_section(ch: ChapterSpec) -> str:
           </details>"""
         )
 
+    caption = html.escape(ui["interview_table_caption_tpl"].format(badge=ch.badge))
     return f"""
       <section class="chapter-card" id="interview-faq">
-        <h2>LeetCode 經典必刷題號與軟體工程師技術面試 FAQ</h2>
+        <h2>{html.escape(ui["interview_heading"])}</h2>
         <div class="table-responsive">
           <table class="comparison-table">
-            <caption>{html.escape(ch.badge)} 對應 LeetCode 必考白板題與解題模板</caption>
+            <caption>{caption}</caption>
             <thead>
               <tr>
-                <th scope="col">題號</th>
-                <th scope="col">題目名稱</th>
-                <th scope="col">難度</th>
-                <th scope="col">核心解題模式與複雜度</th>
+                <th scope="col">{html.escape(ui["interview_th_num"])}</th>
+                <th scope="col">{html.escape(ui["interview_th_title"])}</th>
+                <th scope="col">{html.escape(ui["interview_th_diff"])}</th>
+                <th scope="col">{html.escape(ui["interview_th_pattern"])}</th>
               </tr>
             </thead>
             <tbody>
@@ -490,31 +708,31 @@ def render_interview_section(ch: ChapterSpec) -> str:
       </section>"""
 
 
-def render_feedback_section(ch: ChapterSpec) -> str:
+def render_feedback_section(ch: ChapterSpec, ui: dict[str, Any]) -> str:
     """Render minimalist helpfulness vote + collapsed private Q&A box on standalone chapter pages."""
     return f"""
       <section class="chapter-card fb-box" id="fbBox" data-chapter="{html.escape(ch.id)}">
         <div class="fb-row">
-          <span class="fb-q">這篇講義對你有幫助嗎？</span>
+          <span class="fb-q">{html.escape(ui["fb_question"])}</span>
           <div class="fb-btns">
-            <button class="fb-chip" type="button" data-fb-vote="1" aria-pressed="false">✓ 有幫助</button>
-            <button class="fb-chip" type="button" data-fb-vote="-1" aria-pressed="false">待改進</button>
+            <button class="fb-chip" type="button" data-fb-vote="1" aria-pressed="false">{html.escape(ui["fb_yes"])}</button>
+            <button class="fb-chip" type="button" data-fb-vote="-1" aria-pressed="false">{html.escape(ui["fb_no"])}</button>
           </div>
         </div>
         <form class="fb-note" id="fbNoteForm" hidden autocomplete="off">
-          <input id="fbNoteInput" maxlength="200" placeholder="選填：哪一段清楚或卡關？（最多 200 字，不公開）" aria-label="選填原因（不公開）">
+          <input id="fbNoteInput" maxlength="200" placeholder="{html.escape(ui["fb_note_placeholder"])}" aria-label="{html.escape(ui["fb_note_aria"])}">
           <input class="fb-hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-          <button class="btn btn-secondary" id="fbNoteBtn" type="submit">送出回饋</button>
+          <button class="btn btn-secondary" id="fbNoteBtn" type="submit">{html.escape(ui["fb_note_submit"])}</button>
         </form>
         <p class="fb-status" id="fbStatus" aria-live="polite"></p>
         <details class="fb-ask">
-          <summary>還有程式觀念卡關？匿名提問給紫楓（整理進本章 FAQ）</summary>
-          <p class="fb-ask-sub">為維持閱讀版面純淨、杜絕廣告留言，提問不會直接公開；站長審閱後會將高頻問題補入本章技術 FAQ。</p>
+          <summary>{html.escape(ui["fb_ask_summary"])}</summary>
+          <p class="fb-ask-sub">{html.escape(ui["fb_ask_sub"])}</p>
           <form class="fb-ask-form" id="askForm" autocomplete="off">
-            <textarea id="askInput" rows="3" maxlength="400" placeholder="輸入你的疑問，例如：為什麼這段時間複雜度是 O(log n)…" aria-label="匿名提問內容" required></textarea>
+            <textarea id="askInput" rows="3" maxlength="400" placeholder="{html.escape(ui["fb_ask_placeholder"])}" aria-label="{html.escape(ui["fb_ask_aria"])}" required></textarea>
             <input class="fb-hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
             <div class="fb-ask-foot">
-              <button class="btn btn-primary" id="askSendBtn" type="submit">送出提問</button>
+              <button class="btn btn-primary" id="askSendBtn" type="submit">{html.escape(ui["fb_ask_submit"])}</button>
               <span class="fb-status" id="askStatus" aria-live="polite"></span>
             </div>
           </form>
@@ -522,58 +740,69 @@ def render_feedback_section(ch: ChapterSpec) -> str:
       </section>"""
 
 
-def render_deep_dive_callout(ch: ChapterSpec) -> str:
+def render_deep_dive_callout(ch: ChapterSpec, ui: dict[str, Any]) -> str:
     """Render an asymmetric information-gain callout on index.html linking to the standalone deep-dive page."""
     faq_previews = "\n".join(
         f'            <li><a href="{ch.id}.html#interview-faq">{html.escape(faq.question)}</a></li>'
         for faq in ch.interview_faqs
     )
-    lc_badges = " ・ ".join(f"LeetCode #{lc.number}" for lc in ch.leetcode_problems)
+    lc_badges = " · ".join(f"LeetCode #{lc.number}" for lc in ch.leetcode_problems)
+    summary_text = html.escape(ui["deep_dive_summary_tpl"].format(badge=ch.badge))
+    cta_text = html.escape(ui["deep_dive_cta_tpl"].format(badge=ch.badge))
     return f"""
         <details class="deep-dive-callout">
           <summary class="deep-dive-callout-header">
-            <strong>{html.escape(ch.badge)} 獨立深度講義獨家收錄內容（點擊展開／收合預覽）</strong>
+            <strong>{summary_text}</strong>
             <span class="lc-tag-row">{html.escape(lc_badges)}</span>
           </summary>
-          <p class="deep-dive-table-hint"><strong>完整結構化對照表：</strong><a href="{ch.id}.html#comparison">{html.escape(ch.comparison_table.caption)}</a></p>
-          <p class="deep-dive-table-hint"><strong>本章軟體工程師面試必考問答預告：</strong></p>
+          <p class="deep-dive-table-hint"><strong>{html.escape(ui["deep_dive_table_label"])}</strong><a href="{ch.id}.html#comparison">{html.escape(ch.comparison_table.caption)}</a></p>
+          <p class="deep-dive-table-hint"><strong>{html.escape(ui["deep_dive_faq_label"])}</strong></p>
           <ul class="deep-dive-faq-preview">
 {faq_previews}
           </ul>
           <div class="deep-dive-action">
-            <a class="btn btn-primary" href="{ch.id}.html">閱讀 {html.escape(ch.badge)} 完整深度講義（複雜度表 ＋ 逐步圖解 ＋ 面試詳解） →</a>
+            <a class="btn btn-primary" href="{ch.id}.html">{cta_text}</a>
           </div>
         </details>"""
 
 
-def render_affiliate_resources_section() -> str:
-    """Render centralized hot-swappable book & course comparison table with transparent disclosure."""
+def render_affiliate_resources_section(
+    locale_code: str,
+    ui: dict[str, Any],
+    resources: Sequence[AffiliateResource],
+) -> str:
+    """Render localized book & documentation comparison table (sponsored on zh-TW, non-sponsored on zh-CN/en)."""
     rows_html: list[str] = []
-    for item in get_learning_resources():
+    for item in resources:
         rel_val = "sponsored noopener noreferrer" if item.is_sponsored else "noopener noreferrer"
+        aff_attrs = (
+            f' data-affiliate-partner="{html.escape(item.partner_id)}" data-affiliate-placement="index_table"'
+            if (item.is_sponsored or locale_code == "zh-TW")
+            else ""
+        )
         rows_html.append(
             f"""              <tr>
                 <td><strong>{html.escape(item.title)}</strong></td>
                 <td>{html.escape(item.partner_label)}</td>
                 <td>{html.escape(item.audience)}</td>
                 <td>{html.escape(item.highlight)}</td>
-                <td><a class="btn btn-secondary aff-btn" href="{html.escape(item.url)}" target="_blank" rel="{rel_val}" data-affiliate-partner="{html.escape(item.partner_id)}" data-affiliate-placement="index_table">{html.escape(item.cta_label)}</a></td>
+                <td><a class="btn btn-secondary aff-btn" href="{html.escape(item.url)}" target="_blank" rel="{rel_val}"{aff_attrs}>{html.escape(item.cta_label)}</a></td>
               </tr>"""
         )
     rows_block = "\n".join(rows_html)
     return f"""
       <section class="study-guide-card affiliate-card" id="recommended-resources">
-        <h2>紫楓嚴選：Python 資料結構與演算法實體書／線上課程比較表</h2>
-        <p class="affiliate-disclosure">合作揭露：以下部分連結為博客來策略聯盟（AP）或合作夥伴推廣連結，透過連結購書或報名課程不會增加您的任何費用，我們可能獲得微薄分潤以支持本站免費開源講義維護。</p>
+        <h2>{html.escape(ui["resources_heading"])}</h2>
+        <p class="affiliate-disclosure">{html.escape(ui["resources_note"])}</p>
         <div class="table-responsive">
           <table class="comparison-table">
             <thead>
               <tr>
-                <th>推薦書籍／課程</th>
-                <th>平台</th>
-                <th>適合對象</th>
-                <th>與本站章節對應重點</th>
-                <th>前往查看</th>
+                <th>{html.escape(ui["resources_th_title"])}</th>
+                <th>{html.escape(ui["resources_th_platform"])}</th>
+                <th>{html.escape(ui["resources_th_audience"])}</th>
+                <th>{html.escape(ui["resources_th_highlight"])}</th>
+                <th>{html.escape(ui["resources_th_action"])}</th>
               </tr>
             </thead>
             <tbody>
@@ -584,40 +813,59 @@ def render_affiliate_resources_section() -> str:
       </section>"""
 
 
-def render_chapter_book_callout(ch: ChapterSpec) -> str:
-    """Render a compact, zero-image contextual Books.com.tw AP reading card on standalone chapter pages."""
-    label, ap_url = get_chapter_book_recommendation(ch.id)
+def render_chapter_book_callout(
+    locale_code: str,
+    ch: ChapterSpec,
+    ui: dict[str, Any],
+    chapter_resources: dict[str, tuple[str, str]] | None = None,
+) -> str:
+    """Render Books.com.tw AP reading card on zh-TW, or non-sponsored official docs card on zh-CN / en."""
+    if locale_code == "zh-TW":
+        label, url = get_chapter_book_recommendation(ch.id)
+        rel_val = "sponsored noopener noreferrer"
+        aff_attrs = f' data-affiliate-partner="books_ap_{html.escape(ch.id)}" data-affiliate-placement="chapter_footer"'
+    else:
+        assert chapter_resources is not None
+        label, url = chapter_resources[ch.id]
+        rel_val = "noopener noreferrer"
+        aff_attrs = ""
     return f"""
-      <aside class="chapter-card affiliate-chapter-card" aria-label="本章延伸書單推薦">
+      <aside class="chapter-card affiliate-chapter-card" aria-label="{html.escape(ui["chapter_resource_aria"])}">
         <div class="aff-ch-row">
           <div>
             <strong>{html.escape(label)}</strong>
-            <p class="affiliate-disclosure" style="margin: 0.3rem 0 0;">合作揭露：此為博客來策略聯盟推廣連結，購書價格與原價相同，您的支持將協助本站持續更新免費 Python 教學講義。</p>
+            <p class="affiliate-disclosure" style="margin: 0.3rem 0 0;">{html.escape(ui["chapter_resource_note"])}</p>
           </div>
-          <a class="btn btn-secondary aff-btn" href="{html.escape(ap_url)}" target="_blank" rel="sponsored noopener noreferrer" data-affiliate-partner="books_ap_{html.escape(ch.id)}" data-affiliate-placement="chapter_footer">前往博客來查找相關書單 ↗</a>
+          <a class="btn btn-secondary aff-btn" href="{html.escape(url)}" target="_blank" rel="{rel_val}"{aff_attrs}>{html.escape(ui["chapter_resource_cta"])}</a>
         </div>
       </aside>"""
 
 
-def render_chapter_pager(idx: int, chapters: Sequence[ChapterSpec]) -> str:
-    """Render Prev / Home (/) / Next navigation bar at the bottom of standalone chapter pages."""
+def render_chapter_pager(
+    locale_code: str,
+    idx: int,
+    chapters: Sequence[ChapterSpec],
+    ui: dict[str, Any],
+) -> str:
+    """Render Prev / Home / Next navigation bar at the bottom of standalone chapter pages."""
     prev_ch = chapters[idx - 1] if idx > 0 else None
     next_ch = chapters[idx + 1] if idx + 1 < len(chapters) else None
+    home_href = page_root_href(locale_code, None)
 
     prev_html = (
-        f'<a class="pager-link" href="{prev_ch.id}.html">← 上一章：{html.escape(prev_ch.badge + " " + prev_ch.title.split("（")[0])}</a>'
+        f'<a class="pager-link" href="{prev_ch.id}.html">{html.escape(ui["pager_prev_tpl"].format(badge=prev_ch.badge, short=chapter_short_title(prev_ch)))}</a>'
         if prev_ch
-        else '<span class="pager-link pager-disabled">← 已是第一章</span>'
+        else f'<span class="pager-link pager-disabled">{html.escape(ui["pager_first"])}</span>'
     )
     next_html = (
-        f'<a class="pager-link" href="{next_ch.id}.html">下一章：{html.escape(next_ch.badge + " " + next_ch.title.split("（")[0])} →</a>'
+        f'<a class="pager-link" href="{next_ch.id}.html">{html.escape(ui["pager_next_tpl"].format(badge=next_ch.badge, short=chapter_short_title(next_ch)))}</a>'
         if next_ch
-        else '<span class="pager-link pager-disabled">已是最後一章 →</span>'
+        else f'<span class="pager-link pager-disabled">{html.escape(ui["pager_last"])}</span>'
     )
     return f"""
-      <nav class="chapter-pager" aria-label="上下章節導覽">
+      <nav class="chapter-pager" aria-label="{html.escape(ui["pager_aria"])}">
         {prev_html}
-        <a class="pager-link pager-home" href="/">返回全章節總目錄</a>
+        <a class="pager-link pager-home" href="{home_href}">{html.escape(ui["pager_home"])}</a>
         {next_html}
       </nav>"""
 
@@ -652,6 +900,14 @@ def render_shared_styles() -> str:
       --font-serif: "Newsreader", "Hiragino Mincho ProN", "Yu Mincho", "BIZ UDPMincho", "Noto Serif TC", Georgia, serif;
       --font-sans: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Microsoft JhengHei", "Noto Sans TC", system-ui, -apple-system, sans-serif;
       --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    :root:lang(zh-Hans) {
+      --font-serif: "Newsreader", "Songti SC", "STSong", "SimSun", Georgia, serif;
+      --font-sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", system-ui, -apple-system, sans-serif;
+    }
+    :root:lang(en) {
+      --font-serif: "Newsreader", Georgia, "Times New Roman", serif;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
     * { box-sizing: border-box; }
     html {
@@ -696,6 +952,39 @@ def render_shared_styles() -> str:
       max-width: 960px;
       margin: 0 auto;
       padding: 2.5rem 1.35rem 4rem;
+    }
+
+    /* Language Switcher Bar */
+    .lang-switcher {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.45rem;
+      margin-bottom: 1rem;
+    }
+    .lang-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.24rem 0.72rem;
+      min-height: 32px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+      color: var(--text);
+      font-size: 0.8rem;
+      font-weight: 600;
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+    a.lang-pill:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      text-decoration: none;
+    }
+    .lang-pill-active {
+      background: var(--accent-strong);
+      border-color: var(--accent-strong);
+      color: #ffffff;
     }
 
     /* Book Cover Masthead Hero */
@@ -1514,19 +1803,19 @@ def render_shared_styles() -> str:
   </style>"""
 
 
-def render_footer() -> str:
-    """Render shared privacy policy & ecosystem footer."""
-    return """    <footer id="privacy">
+def render_footer(ui: dict[str, Any]) -> str:
+    """Render shared privacy policy & ecosystem footer with root-absolute /ads.txt."""
+    return f"""    <footer id="privacy">
       <div class="privacy-policy-card">
-        <h3>隱私權政策與 Cookie 聲明 (Privacy Policy)</h3>
-        <p>本網站（learn.ai-purplemaple.com）使用 Google AdSense 第三方廣告服務與 Google Analytics (GA4)／Google Tag Manager 網站流量分析服務。Google 及其合作夥伴會使用 Cookie（包含 DART Cookie），根據使用者造訪本站或其他網站的紀錄提供個人化廣告與匿名流量統計。您可隨時前往 <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google 廣告設定頁面</a> 停用個人化廣告，或查閱 <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">Google 廣告與隱私權政策</a>。本站程式碼複製功能均於瀏覽器本機執行；讀者於章節講義點擊「有幫助／待改進」或提交私密提問時，僅透過加密安全通道傳送匿名回饋內容與 HMAC 雜湊限流識別，絕不公開顯示留言或儲存原始 IP。</p>
+        <h3>{html.escape(ui["privacy_heading"])}</h3>
+        <p>{ui["privacy_body_html"]}</p>
       </div>
-      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">王紫楓（紫楓 / Purple Maple）</a></strong> ・ <a href="https://blog.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">紫楓技術與創作日誌</a> ・ <a href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">GitHub 原始碼</a> ・ Powered by Python 3.12 &amp; GitHub Pages ・ <a href="ads.txt">ads.txt</a></p>
+      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">{html.escape(ui["brand_anchor_footer"])}</a></strong> · <a href="https://blog.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">{html.escape(ui["footer_blog_label"])}</a> · <a href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">{html.escape(ui["footer_github_label"])}</a> · Powered by Python 3.12 &amp; GitHub Pages · <a href="/ads.txt">ads.txt</a></p>
     </footer>"""
 
 
-def render_copy_script(*, include_cms_fetch: bool) -> str:
-    """Render copy button handler and (on index.html only) the CMS dynamic tutorials loader."""
+def render_copy_script(ui: dict[str, Any], *, include_cms_fetch: bool) -> str:
+    """Render copy button handler, localized feedback/Q&A client, and (on zh-TW index only) CMS loader."""
     cms_block = ""
     if include_cms_fetch:
         cms_block = """
@@ -1594,7 +1883,22 @@ def render_copy_script(*, include_cms_fetch: bool) -> str:
         .catch(function () {});
     }"""
 
+    js_msg = json.dumps(
+        {
+            "copied": ui["js_copied"],
+            "errRate": ui["js_err_rate"],
+            "errShort": ui["js_err_short"],
+            "errLong": ui["js_err_long"],
+            "errGeneric": ui["js_err_generic"],
+            "fbThanks": ui["js_fb_thanks"],
+            "fbNoteOk": ui["js_fb_note_ok"],
+            "askOk": ui["js_ask_ok"],
+        },
+        ensure_ascii=False,
+    )
+
     return f"""  <script>
+    var UI_MSG = {js_msg};
     function bindCopyButtons() {{
       document.querySelectorAll('.copy-btn').forEach(function (btn) {{
         if (btn.getAttribute('data-bound') === '1') return;
@@ -1605,7 +1909,7 @@ def render_copy_script(*, include_cms_fetch: bool) -> str:
           if (!codeEl || !navigator.clipboard) return;
           navigator.clipboard.writeText(codeEl.textContent || '').then(function () {{
             var orig = btn.textContent;
-            btn.textContent = '已複製 ✓';
+            btn.textContent = UI_MSG.copied;
             if (typeof window.gtag === 'function') {{
               window.gtag('event', 'copy_code', {{ chapter_target: targetId }});
             }}
@@ -1641,10 +1945,10 @@ def render_copy_script(*, include_cms_fetch: bool) -> str:
       }}
 
       function errText(code) {{
-        if (code === 'rate_limited') return '今天的次數已用完，明天再來';
-        if (code === 'too_short') return '請至少輸入 5 個字描述你的疑問';
-        if (code === 'too_long') return '字數請控制在 400 字以內';
-        return '送出失敗，請稍後再試';
+        if (code === 'rate_limited') return UI_MSG.errRate;
+        if (code === 'too_short') return UI_MSG.errShort;
+        if (code === 'too_long') return UI_MSG.errLong;
+        return UI_MSG.errGeneric;
       }}
 
       function setFbBtns(v) {{
@@ -1686,7 +1990,7 @@ def render_copy_script(*, include_cms_fetch: bool) -> str:
           var prevVote = curVote;
           if (vote === prevVote) {{
             if (noteForm) noteForm.hidden = false;
-            setStatus(fbStatus, '感謝回饋！歡迎選填一句原因幫助我們補強講義。', false);
+            setStatus(fbStatus, UI_MSG.fbThanks, false);
             return;
           }}
           setFbBtns(vote);
@@ -1694,7 +1998,7 @@ def render_copy_script(*, include_cms_fetch: bool) -> str:
             .then(function () {{
               try {{ localStorage.setItem(fbKey, String(vote)); }} catch (_) {{}}
               if (noteForm) noteForm.hidden = false;
-              setStatus(fbStatus, '感謝回饋！歡迎選填一句原因幫助我們補強講義。', false);
+              setStatus(fbStatus, UI_MSG.fbThanks, false);
               if (typeof window.gtag === 'function') {{
                 window.gtag('event', 'chapter_feedback', {{ chapter_id: chId, vote: vote }});
               }}
@@ -1719,7 +2023,7 @@ def render_copy_script(*, include_cms_fetch: bool) -> str:
             .then(function () {{
               if (inp) inp.value = '';
               noteForm.hidden = true;
-              setStatus(fbStatus, '✓ 已收到你的回饋，謝謝！', false);
+              setStatus(fbStatus, UI_MSG.fbNoteOk, false);
             }})
             .catch(function (err) {{
               setStatus(fbStatus, errText(err && err.message), true);
@@ -1748,7 +2052,7 @@ def render_copy_script(*, include_cms_fetch: bool) -> str:
           postJson('/api/v1/learn-question', {{ slug: chId, text: text, website: hp }})
             .then(function () {{
               if (inp) inp.value = '';
-              setStatus(askStatus, '✓ 已收到提問！站長整理後會補充至本章 FAQ。', false);
+              setStatus(askStatus, UI_MSG.askOk, false);
               if (typeof window.gtag === 'function') {{
                 window.gtag('event', 'chapter_question', {{ chapter_id: chId }});
               }}
@@ -1766,11 +2070,16 @@ def render_copy_script(*, include_cms_fetch: bool) -> str:
 
 
 def render_index_page(
+    locale_code: str,
+    ui: dict[str, Any],
     chapters: Sequence[ChapterSpec],
     exec_cache: dict[str, tuple[str, str]],
     chapter_titles_short: str,
+    resources: Sequence[AffiliateResource],
 ) -> str:
-    """Render the Course Hub index.html (summary cards + progressive disclosure code sandbox + deep-dive callouts)."""
+    """Render a localized Course Hub index.html (summary cards + progressive disclosure code sandbox)."""
+    loc = LOCALE_BY_CODE[locale_code]
+    index_url = page_canonical_url(locale_code, None)
     cards_html: list[str] = []
     toc_items_html: list[str] = []
 
@@ -1783,7 +2092,7 @@ def render_index_page(
         escaped_complexity = html.escape(ch.complexity)
         escaped_file = html.escape(ch.file)
         concepts_items = "\n".join(f"            <li>{html.escape(pt)}</li>" for pt in ch.concepts)
-        short_name = html.escape(ch.title.split("（")[0])
+        short_name = html.escape(chapter_short_title(ch))
         open_attr = " open" if idx == 1 else ""
 
         toc_items_html.append(
@@ -1793,56 +2102,69 @@ def render_index_page(
       </a>"""
         )
 
+        acc_summary = ui["code_accordion_summary_tpl"].format(
+            badge=html.escape(ch.badge), file=escaped_file
+        )
+        toolbar_lbl = html.escape(ui["code_toolbar_tpl"].format(file=ch.file))
+
         cards_html.append(
             f"""
       <article class="chapter-card" id="{ch.id}">
         <div class="chapter-header">
           <span class="badge">{ch.badge}</span>
           <h2><a href="{ch.id}.html" style="color: inherit;">{escaped_title}</a></h2>
-          <a href="{ch.id}.html" style="margin-left: auto; font-size: 0.86rem; font-weight: 600;">獨立章節深度講義 ↗</a>
+          <a href="{ch.id}.html" style="margin-left: auto; font-size: 0.86rem; font-weight: 600;">{html.escape(ui["chapter_link_cta"])}</a>
         </div>
         <p class="chapter-summary">{escaped_summary}</p>
         <div class="concepts-box">
-          <h3>核心觀念與面試重點解析</h3>
+          <h3>{html.escape(ui["concepts_heading"])}</h3>
           <ul>
 {concepts_items}
           </ul>
         </div>
         <div class="meta-bar">
-          <span><strong>時間／空間複雜度：</strong>{escaped_complexity}</span>
-          <span><strong>原始碼路徑：</strong><code>{escaped_file}</code></span>
+          <span><strong>{html.escape(ui["label_complexity"])}</strong>{escaped_complexity}</span>
+          <span><strong>{html.escape(ui["label_source_path"])}</strong><code>{escaped_file}</code></span>
         </div>
         <details class="code-accordion"{open_attr}>
-          <summary class="code-accordion-summary">點擊展開／收合 {html.escape(ch.badge)} Python 3.12 完整實作原始碼與實機執行輸出（<code>{escaped_file}</code>）</summary>
+          <summary class="code-accordion-summary">{acc_summary}</summary>
           <div class="code-container">
             <div class="code-toolbar">
-              <span>Python 3.12 範例實作（{escaped_file}）</span>
-              <button type="button" class="copy-btn" data-target="code-{ch.id}">複製程式碼</button>
+              <span>{toolbar_lbl}</span>
+              <button type="button" class="copy-btn" data-target="code-{ch.id}">{html.escape(ui["copy_btn"])}</button>
             </div>
             <pre><code id="code-{ch.id}">{escaped_code}</code></pre>
           </div>
           <div class="output-box">
-            <div class="output-label">▶ 實機執行驗證輸出</div>
+            <div class="output-label">{html.escape(ui["output_label_index"])}</div>
             <pre class="output-pre">{escaped_out}</pre>
           </div>
         </details>
-{render_deep_dive_callout(ch)}
+{render_deep_dive_callout(ch, ui)}
       </article>"""
         )
-        cards_html.append(render_ad_slot(f"Ch.0{idx} 章節間廣告單元"))
+        cards_html.append(render_ad_slot(f"Ch.0{idx} Ad Slot"))
 
     all_cards = "\n".join(cards_html)
     toc_block = "\n".join(toc_items_html)
-    index_desc_esc = html.escape(
-        f"紫楓（AI王紫楓 / Purple Maple / tbpfs）開設之 Python 3.12 資料結構、演算法與物件導向基本功鐵人賽教學網站，完整收錄 {chapter_titles_short} 實機執行範例。"
+    index_desc_esc = html.escape(ui["index_desc_tpl"].format(chapter_titles_short=chapter_titles_short))
+    index_og_desc_esc = html.escape(ui["index_og_desc_tpl"].format(chapter_titles_short=chapter_titles_short))
+    og_title_esc = html.escape(ui.get("og_title", ui["page_title"]))
+    json_ld_block = render_json_ld_script(build_index_json_ld(locale_code, ui, chapters, chapter_titles_short))
+
+    fb_cta = (
+        f'\n        <a class="btn btn-secondary" href="https://www.facebook.com/groups/914880435669061" target="_blank" rel="noopener noreferrer">{html.escape(ui["cta_fb_group"])}</a>'
+        if locale_code == "zh-TW"
+        else ""
     )
-    index_og_desc_esc = html.escape(
-        f"紫楓（AI王紫楓 / Purple Maple）Python 3.12 資料結構與演算法互動教學講義（{chapter_titles_short}）。"
+    cms_div = '\n      <div id="cms-tutorials-container"></div>' if locale_code == "zh-TW" else ""
+    study_items_html = "\n".join(
+        f"            <li><strong>{html.escape(label)}</strong>{body_html}</li>"
+        for label, body_html in ui["study_guide_items"]
     )
-    json_ld_block = render_json_ld_script(build_index_json_ld(chapters, chapter_titles_short))
 
     return f"""<!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="{loc.html_lang}">
 <head>
   <script async src="https://www.googletagmanager.com/gtm.js?id=GTM-WNSFQT5V"></script>
   <script>
@@ -1854,96 +2176,102 @@ def render_index_page(
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-B24GXZ32MW"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (AI王紫楓 / Purple Maple)</title>
+  <title>{html.escape(ui["page_title"])}</title>
   <meta name="description" content="{index_desc_esc}">
-  <meta name="keywords" content="紫楓, AI王紫楓, Purple Maple, tbpfs, Python教學, 資料結構, 演算法, 鏈結串列, 堆疊, 佇列, 二分搜尋, Merge Sort, 雜湊表, Hash Table, 二元搜尋樹, BST, 圖論, BFS, DFS, 動態規劃, Dynamic Programming, 堆積, Heap, Priority Queue, Top-K, 物件導向, OOP">
+  <meta name="keywords" content="{html.escape(ui["index_keywords"])}">
   <meta name="google-adsense-account" content="{ADSENSE_CLIENT_ID}">
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADSENSE_CLIENT_ID}" crossorigin="anonymous"></script>
-  <link rel="canonical" href="https://learn.ai-purplemaple.com/">
+  <link rel="canonical" href="{index_url}">
+{render_hreflang_and_og_locale(locale_code, None)}
   <link rel="alternate" type="text/markdown" href="https://learn.ai-purplemaple.com/llms.txt" title="LLM Chapter Index">
   <link rel="alternate" type="text/markdown" href="https://learn.ai-purplemaple.com/llms-full.txt" title="LLM Full Tutorial & Code Corpus">
-  <meta property="og:site_name" content="紫楓 Purple Maple Python 程式教學">
-  <meta property="og:url" content="https://learn.ai-purplemaple.com/">
+  <meta property="og:site_name" content="{html.escape(ui["site_name"])}">
+  <meta property="og:url" content="{index_url}">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)">
+  <meta property="og:title" content="{og_title_esc}">
   <meta property="og:description" content="{index_og_desc_esc}">
   <meta property="og:image" content="https://ai-purplemaple.com/assets/gallery/aily_03.jpg">
-  <meta property="og:image:alt" content="紫楓（AI王紫楓 / @tbpfs1）Python 資料結構與演算法互動教學｜原創看板娘白瀬アイリ（左紅 #fb7185、右藍 #38bdf8）">
+  <meta property="og:image:alt" content="{html.escape(ui["og_image_alt"])}">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@tbpfs1">
   <meta name="twitter:creator" content="@tbpfs1">
-  <meta name="twitter:title" content="從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)">
+  <meta name="twitter:title" content="{og_title_esc}">
   <meta name="twitter:description" content="{index_og_desc_esc}">
   <meta name="twitter:image" content="https://ai-purplemaple.com/assets/gallery/aily_03.jpg">
-  <meta name="twitter:image:alt" content="紫楓（AI王紫楓 / @tbpfs1）Python 資料結構與演算法互動教學｜原創看板娘白瀬アイリ（左紅 #fb7185、右藍 #38bdf8）">
+  <meta name="twitter:image:alt" content="{html.escape(ui["og_image_alt"])}">
 {json_ld_block}
 {render_shared_styles()}
 </head>
 <body>
   <div class="container">
     <header class="hero">
-      <span class="hero-eyebrow">鐵人賽基本功系列・資料結構 ＆ 演算法 ＆ 物件導向</span>
-      <h1>從零開始寫程式，輕鬆搞懂資料結構，演算法</h1>
-      <p>大家好，我是<strong>紫楓</strong>！不管是學生、想轉職軟體工程師、還是想精益求精的夥伴，練好「資料結構、演算法、物件導向」就是克服迷惘最紮實的基本功。</p>
+{render_lang_switcher(locale_code, None)}
+      <span class="hero-eyebrow">{html.escape(ui["hero_eyebrow"])}</span>
+      <h1>{html.escape(ui["hero_h1"])}</h1>
+      <p>{ui["hero_intro_html"]}</p>
       <div class="cta-group">
-        <a class="btn btn-primary" href="https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd" target="_blank" rel="noopener noreferrer">▶ 觀看 YouTube 完整教學播放清單</a>
-        <a class="btn btn-secondary" href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer">王紫楓（紫楓 / Purple Maple）官方作品集（AI 音樂 ＆ 白瀬アイリ Aily）</a>
-        <a class="btn btn-secondary" href="https://www.facebook.com/groups/914880435669061" target="_blank" rel="noopener noreferrer">加入程式新手學習發問區（FB 社團）</a>
-        <a class="btn btn-secondary" href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer">GitHub 原始碼儲存庫</a>
+        <a class="btn btn-primary" href="https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd" target="_blank" rel="noopener noreferrer">{html.escape(ui["cta_youtube"])}</a>
+        <a class="btn btn-secondary" href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer">{html.escape(ui["brand_anchor_portfolio"])}</a>{fb_cta}
+        <a class="btn btn-secondary" href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer">{html.escape(ui["cta_github"])}</a>
       </div>
     </header>
 
-    <nav class="toc" aria-label="章節快速導覽">
+    <nav class="toc" aria-label="{html.escape(ui["toc_aria"])}">
 {toc_block}
     </nav>
 
     <main>
-      <p class="aeo-capsule">紫楓（AI王紫楓 / Purple Maple）Python 3.12 互動教學站（<code>learn.ai-purplemaple.com</code>）收錄 7 大核心章節（陣列鏈結串列、堆疊佇列、二分搜尋與 Merge Sort、雜湊表與 BST、圖論 BFS/DFS 與 OOP、動態規劃、二元堆積與 Top-K），每章皆附實機執行輸出、複雜度表、CPython 陷阱與 LeetCode 面試詳解，完全免費開源。</p>
-      <div id="cms-tutorials-container"></div>
+      <p class="aeo-capsule">{ui["index_aeo_capsule"]}</p>{cms_div}
 {all_cards}
-{render_affiliate_resources_section()}
+{render_affiliate_resources_section(locale_code, ui, resources)}
 
       <section class="study-guide-card" id="study-guide">
-        <h2>軟體工程師基本功修煉指南與常見問答（FAQ）</h2>
-        <p>許多初學者與轉職者在刷題（LeetCode）或準備技術面試時，常陷入「背題目卻不懂底層原理」的困境。點擊下方折疊面板展開三階段循序漸進路線圖：</p>
+        <h2>{html.escape(ui["study_guide_heading"])}</h2>
+        <p>{html.escape(ui["study_guide_intro"])}</p>
         <details class="study-guide-accordion">
-          <summary class="study-guide-summary">點擊展開／收合：三階段刷題路線圖與學習建議</summary>
+          <summary class="study-guide-summary">{html.escape(ui["study_guide_summary"])}</summary>
           <ul>
-            <li><strong>第一階段（記憶體模型與線性結構）：</strong>先親手實作 <a href="ch01.html">Ch.01 的單向鏈結串列</a>與 <a href="ch02.html">Ch.02 的 Stack / Queue</a>，徹底理解指標（Reference / Pointer）操作與時間複雜度 <code>O(1)</code> vs. <code>O(n)</code> 的差異。</li>
-            <li><strong>第二階段（分治搜尋、雜湊查找、樹與圖論架構）：</strong>透過 <a href="ch03.html">Ch.03 的二分搜尋與合併排序（Merge Sort）</a>、<a href="ch04.html">Ch.04 的雜湊表（Hash Table / Two Sum）與二元搜尋樹（BST）</a>，再到 <a href="ch05.html">Ch.05 的圖論走訪（Graph BFS / DFS 最短路徑）與物件導向封裝（OOP）</a>，掌握分治法、空間換取時間與抽象化模組設計的核心精神。</li>
-            <li><strong>第三階段（進階動態規劃、優先佇列與白板題實戰）：</strong>深入 <a href="ch06.html">Ch.06 動態規劃與記憶化搜尋（0/1 背包與 LIS）</a>及 <a href="ch07.html">Ch.07 二元堆積與 Top-K 多路合併演算法</a>，搭配各章獨立講義內的複雜度對照表、CPython 底層陷阱解析與 YouTube 鐵人賽教學影片完成實戰修煉。</li>
+{study_items_html}
           </ul>
         </details>
       </section>
     </main>
 
-{render_footer()}
+{render_footer(ui)}
   </div>
 
-{render_copy_script(include_cms_fetch=True)}
+{render_copy_script(ui, include_cms_fetch=(locale_code == "zh-TW"))}
 </body>
 </html>
 """
 
 
 def render_chapter_page(
+    locale_code: str,
+    ui: dict[str, Any],
     idx: int,
     chapters: Sequence[ChapterSpec],
     exec_cache: dict[str, tuple[str, str]],
+    yt_videos: dict[str, dict[str, Any]],
+    chapter_resources: dict[str, tuple[str, str]] | None = None,
 ) -> str:
-    """Render a standalone deep-dive tutorial page (ch01.html .. ch07.html) with >75% unique information gain."""
+    """Render a standalone deep-dive tutorial page (ch01.html .. ch07.html) for a given locale."""
+    loc = LOCALE_BY_CODE[locale_code]
     ch = chapters[idx]
     source_code, live_output = exec_cache[ch.id]
-    ch_url = f"https://learn.ai-purplemaple.com/{ch.id}.html"
-    ch_title_esc = html.escape(f"{ch.badge} {ch.title} | 紫楓 (AI王紫楓 / Purple Maple) Python 教學")
-    ch_desc_esc = html.escape(f"紫楓（AI王紫楓 / Purple Maple）Python 3.12 教學講義：{ch.badge} {ch.title}。{ch.summary}")
-    ch_keywords_esc = html.escape("紫楓, AI王紫楓, Purple Maple, Python 3.12 教學, " + ", ".join(ch.keywords))
-    json_ld_block = render_json_ld_script(build_chapter_json_ld(ch))
+    page_filename = f"{ch.id}.html"
+    ch_url = page_canonical_url(locale_code, page_filename)
+    home_href = page_root_href(locale_code, None)
+
+    ch_title_esc = html.escape(ui["chapter_title_tpl"].format(badge=ch.badge, title=ch.title))
+    ch_desc_esc = html.escape(ui["chapter_desc_tpl"].format(badge=ch.badge, title=ch.title, summary=ch.summary))
+    ch_keywords_esc = html.escape(ui["chapter_keywords_prefix"] + ", ".join(ch.keywords))
+    json_ld_block = render_json_ld_script(build_chapter_json_ld(locale_code, ui, ch, yt_videos))
 
     switcher_items: list[str] = []
     for item in chapters:
         current_attr = ' aria-current="page"' if item.id == ch.id else ""
-        short_label = html.escape(item.title.split("（")[0])
+        short_label = html.escape(chapter_short_title(item))
         switcher_items.append(
             f"""      <a class="toc-item" href="{item.id}.html"{current_attr}>
         <span class="badge">{item.badge}</span>
@@ -1957,9 +2285,18 @@ def render_chapter_page(
     escaped_out = html.escape(live_output)
     escaped_complexity = html.escape(ch.complexity)
     escaped_file = html.escape(ch.file)
+    ch_eyebrow = html.escape(ui["chapter_eyebrow_tpl"].format(badge=ch.badge))
+    ch_aeo = ui["chapter_aeo_tpl"].format(
+        badge=html.escape(ch.badge),
+        title=html.escape(ch.title),
+        summary=html.escape(ch.summary),
+        complexity=escaped_complexity,
+        file=escaped_file,
+    )
+    toolbar_lbl = html.escape(ui["code_toolbar_tpl"].format(file=ch.file))
 
     return f"""<!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="{loc.html_lang}">
 <head>
   <script async src="https://www.googletagmanager.com/gtm.js?id=GTM-WNSFQT5V"></script>
   <script>
@@ -1977,112 +2314,114 @@ def render_chapter_page(
   <meta name="google-adsense-account" content="{ADSENSE_CLIENT_ID}">
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADSENSE_CLIENT_ID}" crossorigin="anonymous"></script>
   <link rel="canonical" href="{ch_url}">
-  <meta property="og:site_name" content="紫楓 Purple Maple Python 程式教學">
+{render_hreflang_and_og_locale(locale_code, page_filename)}
+  <meta property="og:site_name" content="{html.escape(ui["site_name"])}">
   <meta property="og:url" content="{ch_url}">
   <meta property="og:type" content="article">
   <meta property="og:title" content="{ch_title_esc}">
   <meta property="og:description" content="{ch_desc_esc}">
   <meta property="og:image" content="https://ai-purplemaple.com/assets/gallery/aily_03.jpg">
-  <meta property="og:image:alt" content="紫楓（AI王紫楓 / @tbpfs1）Python 資料結構與演算法互動教學｜原創看板娘白瀬アイリ（左紅 #fb7185、右藍 #38bdf8）">
+  <meta property="og:image:alt" content="{html.escape(ui["og_image_alt"])}">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@tbpfs1">
   <meta name="twitter:creator" content="@tbpfs1">
   <meta name="twitter:title" content="{ch_title_esc}">
   <meta name="twitter:description" content="{ch_desc_esc}">
   <meta name="twitter:image" content="https://ai-purplemaple.com/assets/gallery/aily_03.jpg">
-  <meta name="twitter:image:alt" content="紫楓（AI王紫楓 / @tbpfs1）Python 資料結構與演算法互動教學｜原創看板娘白瀬アイリ（左紅 #fb7185、右藍 #38bdf8）">
+  <meta name="twitter:image:alt" content="{html.escape(ui["og_image_alt"])}">
 {json_ld_block}
 {render_shared_styles()}
 </head>
 <body>
   <div class="container">
     <header class="hero">
-      <span class="hero-eyebrow">{html.escape(ch.badge)} 獨立深度講義・Python 3.12 資料結構與演算法實戰</span>
+{render_lang_switcher(locale_code, page_filename)}
+      <span class="hero-eyebrow">{ch_eyebrow}</span>
       <h1>{html.escape(ch.badge + " " + ch.title)}</h1>
-      <p><a href="/">← 返回《從零開始寫程式，輕鬆搞懂資料結構，演算法》全章節總目錄</a></p>
+      <p><a href="{home_href}">{html.escape(ui["back_to_index_label"])}</a></p>
       <p>{html.escape(ch.summary)}</p>
       <div class="cta-group">
-        <a class="btn btn-primary" href="https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd" target="_blank" rel="noopener noreferrer">▶ 觀看 YouTube 完整教學播放清單</a>
-        <a class="btn btn-secondary" href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer">王紫楓（紫楓 / Purple Maple）官方作品集</a>
-        <a class="btn btn-secondary" href="https://github.com/tbpfs/learning/blob/main/{escaped_file}" target="_blank" rel="noopener noreferrer">檢視本章 GitHub 原始碼</a>
+        <a class="btn btn-primary" href="https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd" target="_blank" rel="noopener noreferrer">{html.escape(ui["cta_youtube"])}</a>
+        <a class="btn btn-secondary" href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer">{html.escape(ui["brand_anchor_portfolio_short"])}</a>
+        <a class="btn btn-secondary" href="https://github.com/tbpfs/learning/blob/main/{escaped_file}" target="_blank" rel="noopener noreferrer">{html.escape(ui["cta_chapter_github"])}</a>
       </div>
     </header>
 
-    <nav class="chapter-switcher" aria-label="全課程章節切換">
+    <nav class="chapter-switcher" aria-label="{html.escape(ui["chapter_switcher_aria"])}">
 {switcher_html}
     </nav>
 
-    <nav class="section-subnav" aria-label="本章段落導覽">
-      <span>本章快速跳轉：</span>
-      <a href="#intro">核心觀念與背景導論</a>
-      <a href="#video-lecture">YouTube 實戰教學影片</a>
-      <a href="#comparison">複雜度與特性對照表</a>
-      <a href="#walkthrough">逐步狀態拆解</a>
-      <a href="#code-section">Python 3.12 完整實作</a>
-      <a href="#pitfalls">CPython 底層陷阱</a>
-      <a href="#interview-faq">LeetCode 題號與面試 FAQ</a>
+    <nav class="section-subnav" aria-label="{html.escape(ui["section_subnav_aria"])}">
+      <span>{html.escape(ui["section_subnav_label"])}</span>
+      <a href="#intro">{html.escape(ui["nav_intro"])}</a>
+      <a href="#video-lecture">{html.escape(ui["nav_video"])}</a>
+      <a href="#comparison">{html.escape(ui["nav_comparison"])}</a>
+      <a href="#walkthrough">{html.escape(ui["nav_walkthrough"])}</a>
+      <a href="#code-section">{html.escape(ui["nav_code"])}</a>
+      <a href="#pitfalls">{html.escape(ui["nav_pitfalls"])}</a>
+      <a href="#interview-faq">{html.escape(ui["nav_interview"])}</a>
     </nav>
 
     <main>
       <article class="chapter-card" id="intro">
-        <h2>本章背景導論與工程應用場景</h2>
-        <p class="aeo-capsule">{html.escape(ch.badge)}〈{html.escape(ch.title)}〉的核心目標在於掌握 {html.escape(ch.summary)} 時間／空間複雜度基準為 <code>{escaped_complexity}</code>，並以 Python 3.12 標準庫（<code>{escaped_file}</code>）提供零依賴實機驗證範例。</p>
+        <h2>{html.escape(ui["chapter_intro_heading"])}</h2>
+        <p class="aeo-capsule">{ch_aeo}</p>
         <p class="deep-intro-text">{html.escape(ch.deep_intro)}</p>
         <div class="concepts-box">
-          <h3>核心觀念與面試重點解析</h3>
+          <h3>{html.escape(ui["concepts_heading"])}</h3>
           <ul>
 {concepts_items}
           </ul>
         </div>
         <div class="meta-bar">
-          <span><strong>時間／空間複雜度：</strong>{escaped_complexity}</span>
-          <span><strong>原始碼路徑：</strong><code>{escaped_file}</code></span>
+          <span><strong>{html.escape(ui["label_complexity"])}</strong>{escaped_complexity}</span>
+          <span><strong>{html.escape(ui["label_source_path"])}</strong><code>{escaped_file}</code></span>
         </div>
       </article>
 
-{render_video_lecture_section(ch)}
+{render_video_lecture_section(ch, ui, yt_videos)}
 
       <section class="chapter-card" id="comparison">
-        <h2>時間與空間複雜度暨底層結構對照表</h2>
+        <h2>{html.escape(ui["comparison_heading"])}</h2>
 {render_comparison_table(ch.comparison_table)}
       </section>
 
 {render_walkthrough(ch)}
 
-{render_ad_slot(f"{ch.badge} 深度講義中段廣告單元")}
+{render_ad_slot(f"{ch.badge} Mid Ad Slot")}
 
       <section class="chapter-card" id="code-section">
-        <h2>Python 3.12 標準庫完整範例實作與實機輸出</h2>
+        <h2>{html.escape(ui["code_section_heading"])}</h2>
         <div class="code-container">
           <div class="code-toolbar">
-            <span>Python 3.12 範例實作（{escaped_file}）</span>
-            <button type="button" class="copy-btn" data-target="code-{ch.id}">複製程式碼</button>
+            <span>{toolbar_lbl}</span>
+            <button type="button" class="copy-btn" data-target="code-{ch.id}">{html.escape(ui["copy_btn"])}</button>
           </div>
           <pre><code id="code-{ch.id}">{escaped_code}</code></pre>
         </div>
         <div class="output-box">
-          <div class="output-label">▶ 實機執行輸出驗證（Python 3.12 實測結果）</div>
+          <div class="output-label">{html.escape(ui["output_label_chapter"])}</div>
           <pre class="output-pre">{escaped_out}</pre>
         </div>
       </section>
 
-{render_pitfalls(ch)}
+{render_pitfalls(ch, ui)}
 
-{render_interview_section(ch)}
+{render_interview_section(ch, ui)}
 
-{render_chapter_book_callout(ch)}
+{render_chapter_book_callout(locale_code, ch, ui, chapter_resources=chapter_resources)}
 
-{render_feedback_section(ch)}
+{render_feedback_section(ch, ui)}
 
-{render_ad_slot(f"{ch.badge} 獨立講義文末廣告單元")}
+{render_ad_slot(f"{ch.badge} Footer Ad Slot")}
 
-{render_chapter_pager(idx, chapters)}
+{render_chapter_pager(locale_code, idx, chapters, ui)}
     </main>
 
-{render_footer()}
+{render_footer(ui)}
   </div>
 
-{render_copy_script(include_cms_fetch=False)}
+{render_copy_script(ui, include_cms_fetch=False)}
 </body>
 </html>
 """
@@ -2132,17 +2471,19 @@ def build_site(out_dir: Path) -> Path:
         encoding="utf-8",
     )
 
-    exec_cache = execute_all_examples(CHAPTERS)
+    raw_exec_cache = execute_all_examples(CHAPTERS)
 
     llms_chapter_lines: list[str] = []
+    llms_zh_cn_lines: list[str] = []
+    llms_en_lines: list[str] = []
     llms_full_sections: list[str] = []
-    sitemap_urls: list[tuple[str, str, str]] = [
-        ("https://learn.ai-purplemaple.com/", "1.0", SITE_LASTMOD)
-    ]
+    sitemap_urls: list[tuple[str, str, str]] = []
 
+    # 1. Build Traditional Chinese (root) + full corpus
+    sitemap_urls.append((page_canonical_url("zh-TW", None), "1.0", SITE_LASTMOD))
     for ch in CHAPTERS:
-        source_code, live_output = exec_cache[ch.id]
-        ch_url = f"https://learn.ai-purplemaple.com/{ch.id}.html"
+        source_code, live_output = raw_exec_cache[ch.id]
+        ch_url = page_canonical_url("zh-TW", f"{ch.id}.html")
         sitemap_urls.append((ch_url, "0.9", ch.lastmod))
         llms_chapter_lines.append(
             f"- [{ch.badge} {ch.title}]({ch_url}): `{ch.file}` — {ch.complexity}"
@@ -2189,10 +2530,87 @@ def build_site(out_dir: Path) -> Path:
             f"```text\n{live_output}\n```"
         )
 
-    # Keep Google XML sitemap strictly for canonical HTML pages (AI crawlers discover llms*.txt via robots.txt & <link rel="alternate">)
+    chapter_titles_short_tw = "、".join(f"{ch.badge} {chapter_short_title(ch)}" for ch in CHAPTERS)
+    index_html = render_index_page(
+        "zh-TW",
+        UI_ZH_TW,
+        CHAPTERS,
+        raw_exec_cache,
+        chapter_titles_short_tw,
+        get_learning_resources(),
+    )
+    index_path = out_dir / "index.html"
+    index_path.write_text(index_html, encoding="utf-8")
+
+    for idx, ch in enumerate(CHAPTERS):
+        ch_html = render_chapter_page(
+            "zh-TW",
+            UI_ZH_TW,
+            idx,
+            CHAPTERS,
+            raw_exec_cache,
+            CHAPTER_YOUTUBE_VIDEOS,
+        )
+        (out_dir / f"{ch.id}.html").write_text(ch_html, encoding="utf-8")
+
+    # 2. Build Simplified Chinese (/zh-cn/) and International English (/en/)
+    for loc_code in ("zh-CN", "en"):
+        loc = LOCALE_BY_CODE[loc_code]
+        pack = load_locale_pack(loc_code)
+        loc_chapters: Sequence[ChapterSpec] = pack["chapters"]
+        loc_ui: dict[str, Any] = pack["ui"]
+        loc_yt: dict[str, dict[str, Any]] = pack["youtube"]
+        loc_resources: Sequence[AffiliateResource] = pack["resources"]
+        loc_ch_resources: dict[str, tuple[str, str]] = pack["chapter_resources"]
+        code_map = pack["code_replacements"]
+        out_map = pack["output_replacements"]
+
+        loc_exec_cache: dict[str, tuple[str, str]] = {}
+        for ch in loc_chapters:
+            raw_src, raw_out = raw_exec_cache[ch.id]
+            loc_exec_cache[ch.id] = localize_code_and_output(
+                loc_code, ch.id, raw_src, raw_out, code_map, out_map
+            )
+
+        sep = "、" if loc_code == "zh-CN" else ", "
+        loc_titles_short = sep.join(f"{ch.badge} {chapter_short_title(ch)}" for ch in loc_chapters)
+
+        loc_dir = out_dir / loc.output_subdir
+        loc_dir.mkdir(parents=True, exist_ok=True)
+        sitemap_urls.append((page_canonical_url(loc_code, None), "1.0", SITE_LASTMOD))
+
+        loc_index_html = render_index_page(
+            loc_code,
+            loc_ui,
+            loc_chapters,
+            loc_exec_cache,
+            loc_titles_short,
+            loc_resources,
+        )
+        (loc_dir / "index.html").write_text(loc_index_html, encoding="utf-8")
+
+        target_llms_list = llms_zh_cn_lines if loc_code == "zh-CN" else llms_en_lines
+        for idx, ch in enumerate(loc_chapters):
+            ch_url = page_canonical_url(loc_code, f"{ch.id}.html")
+            sitemap_urls.append((ch_url, "0.9", ch.lastmod))
+            target_llms_list.append(
+                f"- [{ch.badge} {ch.title}]({ch_url}): `{ch.file}` — {ch.complexity}"
+            )
+            loc_ch_html = render_chapter_page(
+                loc_code,
+                loc_ui,
+                idx,
+                loc_chapters,
+                loc_exec_cache,
+                loc_yt,
+                chapter_resources=loc_ch_resources,
+            )
+            (loc_dir / f"{ch.id}.html").write_text(loc_ch_html, encoding="utf-8")
+
+    # Keep Google XML sitemap strictly for canonical HTML pages (24 URLs across 3 locales)
     sitemap_entries = "\n".join(
-        f"  <url>\n    <loc>{loc}</loc>\n    <lastmod>{lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>{prio}</priority>\n  </url>"
-        for loc, prio, lastmod in sitemap_urls
+        f"  <url>\n    <loc>{loc_url}</loc>\n    <lastmod>{lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>{prio}</priority>\n  </url>"
+        for loc_url, prio, lastmod in sitemap_urls
     )
     (out_dir / "sitemap.xml").write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -2202,7 +2620,6 @@ def build_site(out_dir: Path) -> Path:
         encoding="utf-8",
     )
 
-    chapter_titles_short = "、".join(f"{ch.badge} {ch.title.split('（')[0]}" for ch in CHAPTERS)
     ecosystem_footer_md = (
         "## 紫楓 (Purple Maple) 生態系相關網站\n"
         "- [品牌完整權威知識庫 (Brand Full Corpus)](https://ai-purplemaple.com/llms-full.txt)\n"
@@ -2220,31 +2637,28 @@ def build_site(out_dir: Path) -> Path:
     )
     (out_dir / "llms.txt").write_text(
         "# 紫楓 (AI王紫楓 / Purple Maple) — Python 資料結構、演算法與物件導向互動教學\n\n"
-        f"> 紫楓（AI王紫楓 / Purple Maple / @tbpfs1）開設之 Python 3.12 資料結構、演算法與物件導向基本功鐵人賽教學網站（`https://learn.ai-purplemaple.com/`），涵蓋 {chapter_titles_short} 實機執行驗證講義。\n"
+        f"> 紫楓（AI王紫楓 / Purple Maple / @tbpfs1）開設之 Python 3.12 資料結構、演算法與物件導向基本功鐵人賽教學網站（`https://learn.ai-purplemaple.com/`），提供繁體中文（`/`）、簡體中文（`/zh-cn/`）與英文（`/en/`）三語 24 頁完整講義，涵蓋 {chapter_titles_short_tw} 實機執行驗證範例。\n"
+        "> - **三語入口**：[繁體中文](https://learn.ai-purplemaple.com/) ｜ [简体中文](https://learn.ai-purplemaple.com/zh-cn/) ｜ [English](https://learn.ai-purplemaple.com/en/)\n"
         "> - **本站完整程式碼與輸出語料（Full Tutorial Corpus）**：https://learn.ai-purplemaple.com/llms-full.txt\n"
         "> - **創作者與品牌完整知識庫（Brand Full Corpus）**：https://ai-purplemaple.com/llms-full.txt\n\n"
-        "## 章節列表 (Chapters)\n"
+        "## 章節列表 — 繁體中文 (Chapters, zh-Hant)\n"
         + "\n".join(llms_chapter_lines)
+        + "\n\n## 章节列表 — 简体中文 (Chapters, zh-Hans)\n"
+        + "\n".join(llms_zh_cn_lines)
+        + "\n\n## Chapters — English (en)\n"
+        + "\n".join(llms_en_lines)
         + "\n\n"
         + ecosystem_footer_md,
         encoding="utf-8",
     )
     (out_dir / "llms-full.txt").write_text(
         "# 紫楓 (AI王紫楓 / Purple Maple) — Python 3.12 資料結構、演算法與物件導向完整教學語料庫 (llms-full.txt)\n\n"
-        f"> 本文件收錄 `https://learn.ai-purplemaple.com/` 全部 {len(CHAPTERS)} 章節（{chapter_titles_short}）之核心觀念、結構化複雜度對照表、逐步狀態追蹤、CPython 底層陷阱、LeetCode 面試 FAQ、完整 Python 3.12 標準庫實作原始碼及 CI 實機執行驗證輸出。精簡索引請見 `https://learn.ai-purplemaple.com/llms.txt`。\n\n"
+        f"> 本文件收錄 `https://learn.ai-purplemaple.com/` 全部 {len(CHAPTERS)} 章節（{chapter_titles_short_tw}）之核心觀念、結構化複雜度對照表、逐步狀態追蹤、CPython 底層陷阱、LeetCode 面試 FAQ、完整 Python 3.12 標準庫實作原始碼及 CI 實機執行驗證輸出。亦同步提供簡體中文版（`https://learn.ai-purplemaple.com/zh-cn/`）與英文版（`https://learn.ai-purplemaple.com/en/`）；精簡索引請見 `https://learn.ai-purplemaple.com/llms.txt`。\n\n"
         + "\n\n---\n\n".join(llms_full_sections)
         + "\n\n---\n\n"
         + ecosystem_footer_md,
         encoding="utf-8",
     )
-
-    index_html = render_index_page(CHAPTERS, exec_cache, chapter_titles_short)
-    index_path = out_dir / "index.html"
-    index_path.write_text(index_html, encoding="utf-8")
-
-    for idx, ch in enumerate(CHAPTERS):
-        ch_html = render_chapter_page(idx, CHAPTERS, exec_cache)
-        (out_dir / f"{ch.id}.html").write_text(ch_html, encoding="utf-8")
 
     return index_path
 
@@ -2254,7 +2668,7 @@ def main() -> int:
     parser.add_argument("-o", "--output", default="_site", help="Output directory (default: _site)")
     args = parser.parse_args()
     out_path = build_site(Path(args.output))
-    print(f"[OK] Built GitHub Pages site at: {out_path}")
+    print(f"[OK] Built 24-page trilingual GitHub Pages site at: {out_path}")
     return 0
 
 
