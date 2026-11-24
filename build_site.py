@@ -39,6 +39,7 @@ CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
         "upload_date": "2020-09-12T12:00:00+08:00",
         "views_label": "67,700+ 次觀看",
         "related": [
+            ("ov_WvWbEryg", "【零基礎生活圖解】用「操場龜兔賽跑」3分鐘看懂鏈結串列環路檢測 (LeetCode #141)"),
             ("2aSyeVdwATA", "【OpenMotion 動態圖解】單向鏈結串列原地反轉 (LeetCode #206) 三指標移動"),
             ("7xBrPbmOsSs", "輕鬆搞懂資料結構總覽（28,200+ 觀看）"),
             ("RObLhJlg2O8", "程式基礎語法：變數、資料型態、運算符號與陣列"),
@@ -106,6 +107,7 @@ CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
         "upload_date": "2020-09-17T12:00:00+08:00",
         "views_label": "26,800+ 次觀看",
         "related": [
+            ("sFypmieNopU", "【零基礎生活圖解】用「VIP包廂守門員」3分鐘看懂堆積 Heap 與 Top-K (LeetCode #215)"),
             ("fHBw99bYLuo", "堆積排序 (Heap Sort)、基數排序、桶排序詳解（13,200+ 觀看）"),
         ],
     },
