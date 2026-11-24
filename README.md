@@ -59,10 +59,11 @@ python3 build_site.py -o _site
 
 ---
 
-## 紫楓 Purple Maple 相關免費教學與開發作品
+## 紫楓（王紫楓 / Purple Maple）相關免費教學與開發作品
 
-- **官方主站（AI 繪圖、音樂、軟體開發）**：https://ai-purplemaple.com/
-- **時空守護者｜國小 108 課綱全科免費互動學習網（900 篇段考攻略）**：https://edu.ai-purplemaple.com/
-- **府城保衛戰｜台南古蹟 3D 網頁戰術射擊（Three.js）**：https://fps.ai-purplemaple.com/
-- **星界斷章：星律前奏曲｜原創機甲網頁音遊**：https://astral.ai-purplemaple.com/
-- **X (Twitter)**：https://x.com/tbpfs1 ｜ **AI 語料索引**：https://learn.ai-purplemaple.com/llms.txt
+- **[紫楓（王紫楓）官方網站](https://ai-purplemaple.com/)**：AI 繪圖、Suno 原創音樂、原創看板娘白瀬アイリ與全系列軟體開發作品
+- **[紫楓原創有聲小說庫](https://novel.ai-purplemaple.com/)**：多流派原創輕小說 × 不斷音原聲帶 × Podcast 有聲劇
+- **[MapleQuant 紫楓量化實驗室](https://invest.ai-purplemaple.com/)**：繁日英三語投資風控、部位計算與台日美 ETF 參數對決沙盒
+- **[時空守護者｜國小 108 課綱免費互動學習網](https://edu.ai-purplemaple.com/)**：近 900 篇段考攻略與低年級注音朗讀
+- **[府城保衛戰｜台南古蹟 3D 網頁戰術射擊](https://fps.ai-purplemaple.com/)**（Three.js）｜ **[星界斷章｜原創機甲音遊](https://astral.ai-purplemaple.com/)**
+- **X (Twitter)**：[@tbpfs1](https://x.com/tbpfs1) ｜ **AI 語料索引**：https://learn.ai-purplemaple.com/llms.txt
