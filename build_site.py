@@ -190,7 +190,7 @@ def build_index_json_ld(chapters: Sequence[ChapterSpec], chapter_titles_short: s
         "isPartOf": {
             "@type": "WebSite",
             "@id": "https://ai-purplemaple.com/#website",
-            "name": "紫楓｜AI王紫楓 (Purple Maple) 官方網站",
+            "name": "紫楓官方網站｜王紫楓 (Purple Maple)",
             "url": "https://ai-purplemaple.com/",
         },
         "provider": {
@@ -1521,7 +1521,7 @@ def render_footer() -> str:
         <h3>隱私權政策與 Cookie 聲明 (Privacy Policy)</h3>
         <p>本網站（learn.ai-purplemaple.com）使用 Google AdSense 第三方廣告服務與 Google Analytics (GA4)／Google Tag Manager 網站流量分析服務。Google 及其合作夥伴會使用 Cookie（包含 DART Cookie），根據使用者造訪本站或其他網站的紀錄提供個人化廣告與匿名流量統計。您可隨時前往 <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google 廣告設定頁面</a> 停用個人化廣告，或查閱 <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">Google 廣告與隱私權政策</a>。本站程式碼複製功能均於瀏覽器本機執行；讀者於章節講義點擊「有幫助／待改進」或提交私密提問時，僅透過加密安全通道傳送匿名回饋內容與 HMAC 雜湊限流識別，絕不公開顯示留言或儲存原始 IP。</p>
       </div>
-      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">紫楓 (AI王紫楓 / Purple Maple)</a></strong> ・ <a href="https://blog.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">紫楓技術與創作日誌</a> ・ <a href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">GitHub 原始碼</a> ・ Powered by Python 3.12 &amp; GitHub Pages ・ <a href="ads.txt">ads.txt</a></p>
+      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">王紫楓（紫楓 / Purple Maple）</a></strong> ・ <a href="https://blog.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">紫楓技術與創作日誌</a> ・ <a href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">GitHub 原始碼</a> ・ Powered by Python 3.12 &amp; GitHub Pages ・ <a href="ads.txt">ads.txt</a></p>
     </footer>"""
 
 
@@ -1887,7 +1887,7 @@ def render_index_page(
       <p>大家好，我是<strong>紫楓</strong>！不管是學生、想轉職軟體工程師、還是想精益求精的夥伴，練好「資料結構、演算法、物件導向」就是克服迷惘最紮實的基本功。</p>
       <div class="cta-group">
         <a class="btn btn-primary" href="https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd" target="_blank" rel="noopener noreferrer">▶ 觀看 YouTube 完整教學播放清單</a>
-        <a class="btn btn-secondary" href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer">紫楓 Purple Maple 官方作品集（AI 音樂 ＆ 白瀬アイリ Aily）</a>
+        <a class="btn btn-secondary" href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer">王紫楓（紫楓 / Purple Maple）官方作品集（AI 音樂 ＆ 白瀬アイリ Aily）</a>
         <a class="btn btn-secondary" href="https://www.facebook.com/groups/914880435669061" target="_blank" rel="noopener noreferrer">加入程式新手學習發問區（FB 社團）</a>
         <a class="btn btn-secondary" href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer">GitHub 原始碼儲存庫</a>
       </div>
@@ -2003,7 +2003,7 @@ def render_chapter_page(
       <p>{html.escape(ch.summary)}</p>
       <div class="cta-group">
         <a class="btn btn-primary" href="https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd" target="_blank" rel="noopener noreferrer">▶ 觀看 YouTube 完整教學播放清單</a>
-        <a class="btn btn-secondary" href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer">紫楓 Purple Maple 官方作品集</a>
+        <a class="btn btn-secondary" href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer">王紫楓（紫楓 / Purple Maple）官方作品集</a>
         <a class="btn btn-secondary" href="https://github.com/tbpfs/learning/blob/main/{escaped_file}" target="_blank" rel="noopener noreferrer">檢視本章 GitHub 原始碼</a>
       </div>
     </header>

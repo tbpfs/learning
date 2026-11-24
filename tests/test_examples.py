@@ -341,6 +341,10 @@ class TestLearningExamples(unittest.TestCase):
             ch07_html = (Path(tmpdir) / "ch07.html").read_text(encoding="utf-8")
             self.assertIn('name="twitter:title" content="Ch.07 ', ch07_html)
             self.assertIn('name="twitter:description" content="紫楓（AI王紫楓 / Purple Maple）Python 3.12 教學講義：Ch.07 ', ch07_html)
+            self.assertIn('>王紫楓（紫楓 / Purple Maple）官方作品集（AI 音樂 ＆ 白瀬アイリ Aily）</a>', html_text)
+            self.assertIn('>王紫楓（紫楓 / Purple Maple）</a>', html_text)
+            self.assertIn('>王紫楓（紫楓 / Purple Maple）官方作品集</a>', ch07_html)
+            self.assertIn('>王紫楓（紫楓 / Purple Maple）</a>', ch07_html)
 
 
 if __name__ == "__main__":
