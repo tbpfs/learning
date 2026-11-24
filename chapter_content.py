@@ -79,17 +79,19 @@ CHAPTERS: tuple[ChapterSpec, ...] = (
     ChapterSpec(
         id="ch01",
         badge="Ch.01",
-        title="陣列與單向鏈結串列（Array & Singly Linked List）",
+        title="Python 陣列（list）與單向鏈結串列（Array & Singly Linked List）",
         complexity="頭部插入 O(1) ・ 尾部附加 / 搜尋 / 刪除 / 原地反轉 O(n)",
-        summary="理解連續記憶體配置（Array）與指標節點串接（Linked List）的本質差異，並以 Python Generic 型別實作單向鏈結串列的增刪查與 O(1) 額外空間原地反轉。",
+        summary="完整解析 Python 陣列（list 動態陣列）與單向鏈結串列（Linked List）的連續記憶體配置、索引 O(1) 存取與指標串接差異，附 Python 3.12 Generic 實作與 O(1) 空間原地反轉。",
         concepts=(
             "連續記憶體 vs. 指標串接：陣列（Array / Python list）透過連續記憶體區塊支援 O(1) 隨機索引存取，但在頭部或中間插入元素需搬移後續元素（O(n)）；單向鏈結串列（Singly Linked List）則以 Node 節點與 next 指標動態串接，在已知頭節點時可於 O(1) 時間完成頭部插入（prepend）。",
             "白板題必考「原地反轉（In-place Reverse）」：透過 prev、curr、nxt 三個指標迭代翻轉 next 指向，不需額外建立新串列，空間複雜度嚴格控制在 O(1)，是軟體工程師面試最常出現的基礎題型。",
             "硬體快取親和性（CPU Cache Locality）：現代 CPU 讀取記憶體時會一次載入整條 Cache Line（通常 64 Bytes）。連續配置的陣列能充分受惠於空間局部性預先載入；而鏈結串列的節點散落於堆積（Heap）各處，頻繁追蹤指標容易觸發 Cache Miss。",
         ),
         file="examples/ch01_array_linked_list.py",
-        lastmod="2026-11-17",
+        lastmod="2026-11-24",
         keywords=(
+            "Python 陣列",
+            "Python list",
             "Python 鏈結串列",
             "Singly Linked List",
             "反轉鏈結串列",

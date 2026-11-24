@@ -28,8 +28,9 @@ from chapter_content import CHAPTERS, ChapterSpec, ComparisonTable  # noqa: E402
 ADSENSE_PUBLISHER_ID = "pub-6485917848711473"
 ADSENSE_CLIENT_ID = f"ca-{ADSENSE_PUBLISHER_ID}"
 ADSENSE_IN_ARTICLE_SLOT_ID = "1673180799"
+ENABLE_MANUAL_AD_SLOTS = False  # Pre-approval SEO/UX hygiene: keep <head> verification script + ads.txt, hide empty dashed <ins> boxes until approved
 INDEXNOW_KEY = "7f4e9c2a8b1d6035e4a92c7f1b8d3e60"
-SITE_LASTMOD = "2026-11-21"
+SITE_LASTMOD = "2026-11-24"
 
 CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
     "ch01": {
@@ -135,7 +136,9 @@ def execute_all_examples(chapters: Sequence[ChapterSpec]) -> dict[str, tuple[str
 
 
 def render_ad_slot(slot_label: str) -> str:
-    """Render a CLS-safe responsive Google AdSense inter-chapter ad container."""
+    """Render a CLS-safe responsive Google AdSense inter-chapter ad container when enabled."""
+    if not ENABLE_MANUAL_AD_SLOTS:
+        return ""
     escaped_label = html.escape(slot_label)
     return f"""
       <aside class="ad-slot-card" aria-label="{escaped_label}">
@@ -1516,7 +1519,7 @@ def render_footer() -> str:
         <h3>隱私權政策與 Cookie 聲明 (Privacy Policy)</h3>
         <p>本網站（learn.ai-purplemaple.com）使用 Google AdSense 第三方廣告服務與 Google Analytics (GA4)／Google Tag Manager 網站流量分析服務。Google 及其合作夥伴會使用 Cookie（包含 DART Cookie），根據使用者造訪本站或其他網站的紀錄提供個人化廣告與匿名流量統計。您可隨時前往 <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google 廣告設定頁面</a> 停用個人化廣告，或查閱 <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">Google 廣告與隱私權政策</a>。本站程式碼複製功能均於瀏覽器本機執行；讀者於章節講義點擊「有幫助／待改進」或提交私密提問時，僅透過加密安全通道傳送匿名回饋內容與 HMAC 雜湊限流識別，絕不公開顯示留言或儲存原始 IP。</p>
       </div>
-      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">紫楓 (AI王紫楓 / Purple Maple)</a></strong> ・ <a href="https://quote.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">插畫＆音樂委託試算</a> ・ <a href="https://game.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">白瀬アイリ占卜小遊戲</a> ・ <a href="https://fps.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">府城保衛戰 3D</a> ・ <a href="https://edu.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">時空守護者</a> ・ <a href="https://astral.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">星界斷章</a> ・ <a href="https://muse.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">Muse 邀請碼分享站</a> ・ <a href="https://waifu.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">WaifuScan 六維角色百科</a> ・ Powered by Python 3.12 &amp; GitHub Pages ・ <a href="ads.txt">ads.txt</a></p>
+      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">紫楓 (AI王紫楓 / Purple Maple)</a></strong> ・ <a href="https://blog.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">紫楓技術與創作日誌</a> ・ <a href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">GitHub 原始碼</a> ・ Powered by Python 3.12 &amp; GitHub Pages ・ <a href="ads.txt">ads.txt</a></p>
     </footer>"""
 
 
@@ -2184,8 +2187,7 @@ def build_site(out_dir: Path) -> Path:
             f"```text\n{live_output}\n```"
         )
 
-    sitemap_urls.append(("https://learn.ai-purplemaple.com/llms.txt", "0.7", SITE_LASTMOD))
-    sitemap_urls.append(("https://learn.ai-purplemaple.com/llms-full.txt", "0.8", SITE_LASTMOD))
+    # Keep Google XML sitemap strictly for canonical HTML pages (AI crawlers discover llms*.txt via robots.txt & <link rel="alternate">)
     sitemap_entries = "\n".join(
         f"  <url>\n    <loc>{loc}</loc>\n    <lastmod>{lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>{prio}</priority>\n  </url>"
         for loc, prio, lastmod in sitemap_urls

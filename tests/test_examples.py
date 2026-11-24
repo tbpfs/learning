@@ -152,7 +152,7 @@ class TestLearningExamples(unittest.TestCase):
         self.assertEqual(merge_k_sorted_lists([]), [])
 
     def test_build_site_generates_valid_html(self):
-        from build_site import CHAPTERS, build_site
+        from build_site import CHAPTERS, ENABLE_MANUAL_AD_SLOTS, SITE_LASTMOD, build_site
 
         with tempfile.TemporaryDirectory() as tmpdir:
             index_path = build_site(Path(tmpdir))
@@ -182,8 +182,9 @@ class TestLearningExamples(unittest.TestCase):
             self.assertIn("ca-pub-6485917848711473", html_text)
             self.assertIn("G-B24GXZ32MW", html_text)
             self.assertIn("GTM-WNSFQT5V", html_text)
-            self.assertEqual(html_text.count('class="ad-slot-card"'), len(CHAPTERS))
-            self.assertEqual(html_text.count('data-ad-slot="1673180799"'), len(CHAPTERS))
+            expected_idx_ads = len(CHAPTERS) if ENABLE_MANUAL_AD_SLOTS else 0
+            self.assertEqual(html_text.count('class="ad-slot-card"'), expected_idx_ads)
+            self.assertEqual(html_text.count('data-ad-slot="1673180799"'), expected_idx_ads)
             self.assertEqual(html_text.count('<details class="code-accordion"'), len(CHAPTERS))
             self.assertEqual(html_text.count('<details class="code-accordion" open>'), 1)
             self.assertEqual(html_text.count('<details class="deep-dive-callout">'), len(CHAPTERS))
@@ -229,7 +230,9 @@ class TestLearningExamples(unittest.TestCase):
                 self.assertNotIn('href="#ch02"', ch_html)
                 self.assertIn('class="table-responsive"', ch_html)
                 self.assertIn('<table class="comparison-table">', ch_html)
-                self.assertEqual(ch_html.count('data-ad-slot="1673180799"'), 2)
+                expected_ch_ads = 2 if ENABLE_MANUAL_AD_SLOTS else 0
+                self.assertEqual(ch_html.count('data-ad-slot="1673180799"'), expected_ch_ads)
+                self.assertIn("ca-pub-6485917848711473", ch_html)
                 for fb_tok in (
                     f'data-chapter="{ch_id}"',
                     'id="fbBox"',
@@ -325,8 +328,9 @@ class TestLearningExamples(unittest.TestCase):
             self.assertIn("https://learn.ai-purplemaple.com/ch05.html", sitemap_text)
             self.assertIn("https://learn.ai-purplemaple.com/ch06.html", sitemap_text)
             self.assertIn("https://learn.ai-purplemaple.com/ch07.html", sitemap_text)
-            self.assertIn("https://learn.ai-purplemaple.com/llms-full.txt", sitemap_text)
-            self.assertIn("<lastmod>2026-11-21</lastmod>", sitemap_text)
+            self.assertNotIn("https://learn.ai-purplemaple.com/llms-full.txt", sitemap_text)
+            self.assertNotIn("https://learn.ai-purplemaple.com/llms.txt", sitemap_text)
+            self.assertIn(f"<lastmod>{SITE_LASTMOD}</lastmod>", sitemap_text)
 
             robots_text = (Path(tmpdir) / "robots.txt").read_text(encoding="utf-8")
             for bot in ("Twitterbot", "GrokBot", "xAI-Bot", "xAI-SearchBot", "Bravebot"):
