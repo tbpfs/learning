@@ -596,6 +596,10 @@ CHAPTERS_EN: tuple[ChapterSpec, ...] = (
                 question="When should you reach for a Dummy Head Node in linked list interview problems?",
                 answer="Whenever an algorithm might delete, replace, or reorder the original head node (such as LeetCode #21 Merge Two Sorted Lists, #19 Remove Nth From End, or #203 Remove Linked List Elements). Initializing dummy = ListNode(0, head) gives the original head a valid predecessor so all mutations follow one branch, and you simply return dummy.next at the end.",
             ),
+            InterviewFAQ(
+                question="What is the difference between a Python array and a list, and when should you choose list, array.array, or NumPy?",
+                answer="Python's built-in list is a dynamic array of PyObject pointers that holds mixed types with O(1) indexing and amortized O(1) append, making it the default choice for general engineering and algorithm interviews. The stdlib array.array stores homogeneous raw C primitives (such as int32 or float64) tightly in memory for lower RAM footprint and binary I/O. For heavy numeric computing or matrix math, use NumPy ndarray for contiguous memory layouts and vectorized C/SIMD speedups.",
+            ),
         ),
     ),
     ChapterSpec(

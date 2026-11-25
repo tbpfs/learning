@@ -297,6 +297,15 @@ class TestAiEngineeringExamples(unittest.TestCase):
         for k in o_keys:
             self.assertIn(k, out)
 
+        # 4) JSON parser repairs missing opening quote before CJK corner quote 「
+        from scripts.book_forge import extract_json_object
+
+        broken = '{\n"id": "sec1",\n"paragraphs": [\n「固定長度切塊」常切斷 ERR_429。\",\n"第二段。"\n]\n}'
+        parsed = extract_json_object(broken)
+        self.assertEqual(parsed["id"], "sec1")
+        self.assertEqual(len(parsed["paragraphs"]), 2)
+        self.assertTrue(parsed["paragraphs"][0].startswith("「固定長度切塊」"))
+
 
 if __name__ == "__main__":
     unittest.main()

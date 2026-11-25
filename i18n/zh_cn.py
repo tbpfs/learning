@@ -593,6 +593,10 @@ CHAPTERS_ZH_CN: tuple[ChapterSpec, ...] = (
                 question="什么场景下应该在链表题中引入「虚拟头节点（Dummy Node）」？",
                 answer="只要题目操作可能「修改、删除或替换原有头节点 head」（例如合并两个有序链表 LeetCode #21、移除指定值节点 #203、删除倒数第 N 个节点 #19、反转区间链表 #92），不使用 Dummy Node 就必须手写大量 if prev is None 特判。提前构造 dummy = ListNode(0, head) 并令 prev = dummy，所有真实节点便统一拥有合法前驱，结束时直接 return dummy.next 即可，代码简洁且不易遗漏边界。",
             ),
+            InterviewFAQ(
+                question="Python 数组（array）和 list（列表）有什么区别？开发中该选 list、array.array 还是 NumPy 数组？",
+                answer="Python 内置的 list 本质上是「动态指针数组」，支持混存任意类型元素，随机访问 O(1)、尾部 append 均摊 O(1)，是日常工程与算法刷题的首选。标准库 array.array 仅存放单一 C 原生数值类型（如 int32 / float64），内存更紧凑，适合省内存或读写二进制缓冲区的场景。若涉及大规模数值计算与矩阵运算，则应选用 NumPy ndarray，借助连续内存与底层 C/SIMD 向量化实现数十倍加速。",
+            ),
         ),
     ),
     ChapterSpec(

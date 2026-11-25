@@ -140,7 +140,7 @@ def strip_model_artifacts(raw_text: str) -> str:
 
 
 def _repair_unescaped_inner_quotes(text: str) -> str:
-    """Repair unescaped interior ASCII double quotes and invalid backslash escapes inside JSON strings."""
+    """Repair unescaped interior ASCII double quotes, missing opening quotes, and invalid backslash escapes."""
     repaired_lines: list[str] = []
     for line in text.splitlines():
         m_kv = re.match(r'^(\s*"[^"\\]+"\s*:\s*)"(.*)"(\s*,?\s*)$', line)
@@ -150,9 +150,23 @@ def _repair_unescaped_inner_quotes(text: str) -> str:
             safe_val = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', safe_val)
             repaired_lines.append(f'{prefix}"{safe_val}"{suffix}')
             continue
+        m_kv_missing_open = re.match(r'^(\s*"[^"\\]+"\s*:\s*)([^"\s{\[\]}0-9tfn-].*)"(\s*,?\s*)$', line)
+        if m_kv_missing_open:
+            prefix, val, suffix = m_kv_missing_open.groups()
+            safe_val = re.sub(r'(?<!\\)"', r'\\"', val)
+            safe_val = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', safe_val)
+            repaired_lines.append(f'{prefix}"{safe_val}"{suffix}')
+            continue
         m_arr = re.match(r'^(\s*)"(.*)"(\s*,?\s*)$', line)
         if m_arr and ":" not in line[: min(len(line), 28)]:
             prefix, val, suffix = m_arr.groups()
+            safe_val = re.sub(r'(?<!\\)"', r'\\"', val)
+            safe_val = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', safe_val)
+            repaired_lines.append(f'{prefix}"{safe_val}"{suffix}')
+            continue
+        m_arr_missing_open = re.match(r'^(\s*)([^"\s{\[\]}0-9tfn-].*)"(\s*,?\s*)$', line)
+        if m_arr_missing_open:
+            prefix, val, suffix = m_arr_missing_open.groups()
             safe_val = re.sub(r'(?<!\\)"', r'\\"', val)
             safe_val = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', safe_val)
             repaired_lines.append(f'{prefix}"{safe_val}"{suffix}')
@@ -710,7 +724,7 @@ def forge_draft(
         f"{CROSS_DOMAIN_TEXTBOOK_ANCHOR}\n\n"
         "【硬性寫作規範】\n"
         "1. 僅回傳合法 JSON：{\"id\":\"...\",\"heading\":\"...\",\"paragraphs\":[\"...\",\"...\",\"...\"],\"bullets\":[\"...\",\"...\"],\"callout_title\":\"...\",\"callout_body\":\"...\"}\n"
-        "2. JSON 字串值內部引用文字或程式碼一律使用中文引號「」或單引號 '，嚴禁在字串內寫未跳脫的英文雙引號 \"。\n"
+        "2. JSON 字串值開頭與結尾一律必須用英文雙引號 \" 包住（例如 \"「固定長度切塊」...\"，不可省略開頭雙引號）；字串內部引用請用中文引號「」或單引號 '。\n"
         "3. 本節正文須寫 3 段紮實、流暢的工程解析（全節合計 700～950 中文字），切忌碎裂短句與空泛套話。\n"
         "4. 緊密扣合本章真實 Python 3.12 範例與實機輸出，講清楚「為什麼這樣設計、線上會踩什麼坑」。\n"
         "5. 嚴禁「在當今快速發展的時代」「總而言之」「綜上所述」「雙面刃」等 AI 罐頭詞。"

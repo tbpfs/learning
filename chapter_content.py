@@ -182,6 +182,10 @@ CHAPTERS: tuple[ChapterSpec, ...] = (
                 question="在什麼情況下，我們需要在鏈結串列題目中使用「虛擬頭節點（Dummy Node）」？",
                 answer="當題目的操作可能會「改變、刪除或替換原本的頭節點（head）」時（例如：合併兩個排序串列 LeetCode #21、刪除特定值的所有節點 #203、刪除倒數第 N 個節點 #19、區間反轉 #92），若不使用 Dummy Node，就必須寫大量 if prev is None 的分支來特別處理頭節點。先建立 dummy = ListNode(0, head) 並讓 prev = dummy，所有真實節點（包含原 head）就都成為某個節點的 next，處理完畢後直接 return dummy.next 即可，程式碼簡潔且不易出錯。",
             ),
+            InterviewFAQ(
+                question="Python 陣列（array）跟 list（串列）有什麼差別？寫程式該用 list、array.array 還是 NumPy 陣列？",
+                answer="Python 內建的 list 本質上是「動態指標陣列」，可混裝任意型態元素，隨機存取 O(1)、尾端 append 均攤 O(1)，是日常開發與演算法刷題的首選。標準庫 array.array 則只存放單一 C 原始型態（如 int32 / float64），記憶體更緊湊，適合需要節省 RAM 或對接二進位串流的場景。若涉及大量數值運算與矩陣操作，則應改用 NumPy ndarray，透過連續記憶體與底層 C/SIMD 向量化加速達到數十倍效能提升。",
+            ),
         ),
     ),
     ChapterSpec(
