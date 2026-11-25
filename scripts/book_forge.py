@@ -384,12 +384,18 @@ def call_lm_text(
             resp = http_fn(f"{clean_base}/chat/completions", method="POST", payload=body, timeout=timeout)
             dt = max(time.time() - t0, 0.05)
             toks = int((resp.get("usage") or {}).get("completion_tokens", 0))
-            raw_content = str(resp["choices"][0]["message"].get("content") or "")
+            msg_obj = resp["choices"][0]["message"]
+            raw_content = str(msg_obj.get("content") or "")
+            raw_reasoning = str(msg_obj.get("reasoning_content") or "")
             cleaned = strip_model_artifacts(raw_content)
             print(
                 f"    -> [{model[:18]}] {toks} toks / {dt:.1f}s ({toks / dt:.1f} tok/s), {len(cleaned)} chars",
                 flush=True,
             )
+            if not cleaned and raw_reasoning and body.get("reasoning_effort") != "none":
+                body["reasoning_effort"] = "none"
+                print("    [INFO] 模型將額度耗盡於 reasoning_content，自動切換 reasoning_effort='none' 重試。", flush=True)
+                continue
             return cleaned
         except Exception as exc:
             err_body = ""
@@ -614,8 +620,8 @@ def forge_plan(
         system_prompt=sys_p,
         user_prompt=usr_p,
         temperature=0.35,
-        max_tokens=1800,
-        reasoning_effort="medium",
+        max_tokens=2000,
+        reasoning_effort="none",
         use_dry=False,
         http_fn=http_fn,
         lms=lms,
