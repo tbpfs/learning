@@ -1,0 +1,284 @@
+{
+  "book_id": "ai-engineering",
+  "chapter_id": "ch05",
+  "locale": "zh-CN",
+  "status": "published",
+  "badge": "Ch.05",
+  "part_id": "part3",
+  "title": "AI 智能体核心设计：ReAct 循环、工具调用与确定性状态机",
+  "short_title": "智能体状态机与工具调用",
+  "summary": "解析 AI 智能体如何脱离单次对话，通过工具注册表、JSON 参数校验与可追踪的有限状态机（FSM）执行多步推理，并以 max_steps 硬上限彻底终结死循环与账单失控。",
+  "aeo_capsule": "<strong>生产级 AI 智能体（Agent）</strong>并非失控的黑盒自由对话，而是以确定性<strong>有限状态机（FSM）</strong>包覆概率性的 LLM 规划器：通过 <code>PLAN → ACT → OBSERVE → FINAL</code> 明确转移、白名单 <code>Tool Registry</code>、对话记忆窗口压缩（<code>_trim_memory</code>）与 <code>max_steps</code> 硬熔断上限，在获得多步工具操作自主权的同时，维持可追踪、可复现且成本可控的工程可靠性。本章以零依赖 Python 3.12（<code>examples/ai_ch05_agent_fsm.py</code>）完整实现并验证整套核心循环。",
+  "reading_minutes": 18,
+  "lastmod": "2026-11-25",
+  "example_file": "examples/ai_ch05_agent_fsm.py",
+  "keywords": [
+    "AI 智能体架构",
+    "ReAct 循环",
+    "Tool Calling 工具调用",
+    "有限状态机 FSM",
+    "Trajectory Trace 轨迹调试",
+    "Max Steps 熔断护栏",
+    "Python AI Agent 教程",
+    "紫枫出版社"
+  ],
+  "learning_objectives": [
+    "精准区分固定工作流（Workflow）与自主智能体（Agent）的适用边界，避免用高成本高风险的 Agent 去解确定性问题。",
+    "实现类型安全的 Tool Registry、白名单校验与 PLAN → ACT → OBSERVE → FINAL 确定性状态机循环。",
+    "设计 max_steps 步数熔断、记忆窗口压缩（防止 O(S²) Token 爆炸）与结构化 Trajectory Trace 以便线上排障与回归测试。"
+  ],
+  "sections": [
+    {
+      "id": "sec1-agent-vs-workflow",
+      "heading": "5.1 自主智能体与静态工作流的边界：从线性到循环",
+      "paragraphs": [
+        "当团队开始引入生成式 AI 处理复杂任务时，最容易犯的架构错误就是「把所有自动化一律做成自主 Agent」。正如 Anthropic 在经典工程指南《Building Effective Agents》中所强调：Workflow 是由工程师在代码中预先编排好的确定性步骤图谱，而 Agent 则是把「下一步要调用哪个工具、什么时候停止」的控制权动态交给 LLM。如果任务流程完全固定（例如每天定时抓取财报、抽取 JSON、写入数据库），静态 Workflow 的延迟更低、账单可精准预测、故障点一目了然；唯有当环境状态事先未知、工具调用顺序高度依赖前一步返回结果（例如根据报错信息动态查日志、查文档再修正 SQL）时，引入 Agent 循环才有真正的架构价值。",
+        "ReAct（Reasoning + Acting，Yao et al., ICLR 2023）是现代 AI 智能体最核心的运作范式，它让模型把「思考规划」与「外部工具行动」交错执行，而不是凭空一口气猜完答案。然而，如果只写一个无护栏的 while True 循环让 LLM 自由发挥，一旦模型产生幻觉调用不存在的工具名称或重复请求同一支失败 API，线上服务就会陷入死循环直到账户余额归零。解法就是以确定性有限状态机（Finite State Machine, FSM）作为外壳，牢牢包住概率性的 LLM 规划器（Planner）：LLM 只负责提议下一个结构化动作（AgentAction），所有白名单校验、异常捕获、记忆裁剪与终止判断全权由确定性 Python 代码掌控。",
+        "直接审视本章零依赖示例 ToolAgentFSM.run() 的实机运行结果「Ch.05 Agent 完成步数: 2 | 轨迹: ['step1:TOOL(calc_monthly_cost)=27.0', 'step2:FINAL'] | 结论: Estimated monthly LLM API spend is $27.0 USD.」。第 1 步 Planner 读取目标后提议调用 calc_monthly_cost(daily_req=2000, tokens_per_req=1500, usd_per_1m=0.30)，FSM 查验白名单通过并在沙盒内算出精确数字 27.0，将 OBSERVATION: 27.0 写入历史；第 2 步 Planner 看到真实计算结果后，立刻切换至 kind == 'final' 输出最终结论并优雅终止循环。这短短两步完美示范了如何把「概率推理」与「确定性计算」分工解耦。"
+      ],
+      "bullets": [
+        "Workflow 在编译期锁定流程路径；Agent 则在运行期依环境观察结果动态决定工具与步数。",
+        "ReAct 核心在于 Reasoning → Acting → Observing 交错闭环，让模型能依据真实外部反馈修正下一步。",
+        "用确定性 FSM 骨架包覆概率性 LLM，才能同时享有自主弹性与生产环境必备的安全边界。"
+      ],
+      "callout_title": "工程笔记：为什么你的 Agent 会陷入鬼打墙死循环？",
+      "callout_body": "最常见的实现 Bug 是忘记在 ACT 之后把工具执行结果（Observation）正确写回 history。只要 history 没有更新，下一轮 Planner 看到的输入就跟上一轮一模一样，自然会不断输出完全相同的工具调用，一路空转直到撞上 max_steps 熔断。"
+    },
+    {
+      "id": "sec2-tool-registry-fsm",
+      "heading": "5.2 类型安全 Tool Registry 与 PLAN-ACT-OBSERVE 循环实现",
+      "paragraphs": [
+        "Tool Registry（工具注册表）不只是把 Python 函数放进 dict 那么简单，它是隔离非结构化模型输出与真实系统副作用的关键闸门。在 ToolAgentFSM 中，我们以不可变数据类 AgentAction(frozen=True) 严格锁定 Planner 的动作契约：每个动作只能是 kind == 'tool'（附带 tool_name 与 arguments 字典）或 kind == 'final'（附带 final_answer）。进入执行阶段前，FSM 先对 self.tools 执行白名单核查；若模型因幻觉调用了未注册的工具（例如把 calc_monthly_cost 误写成 estimate_bill），FSM 绝不让程序崩溃或动用危险的 eval()，而是记录 stepN:REJECT(...) 并把 'ERROR: unknown tool' 作为合法 Observation 喂回历史，让 Planner 在下一轮自行修正。",
+        "同样的「异常转观察（Exception-as-Observation）」原则也套用在真实工具执行层。示例程序将 self.tools[action.tool_name](**action.arguments) 完整包进 try-except 块：无论模型传错参数类型（TypeError）、少传必填字段，还是下游 API 暂时超时，FSM 都会拦截异常、在轨迹记下 stepN:ERR(...)，并把简洁可读的 'ERROR: ...' 信息反馈给模型。这项设计赋予 Agent 极高的自愈能力——许多时候 LLM 只要看见 'missing 1 required positional argument: usd_per_1m'，下一轮就能立刻补齐参数顺利过关，无需惊动上层调用方。",
+        "随着推理步数拉长，对话记录会不断塞入庞大的工具返回数据（例如整页网页 HTML 或数十条数据库查询行），迅速撑爆上下文窗口并拖垮推理延迟。ToolAgentFSM._trim_memory() 实现了经典的「保头留尾（Pin Goal + Sliding Tail）」记忆压缩策略：只要 len(history) 超过 memory_window（默认 6 条），就永远钉选 history[0]（用户的原始任务目标，绝不可被挤掉导致 Agent 忘记初衷），并只保留尾端最新的 memory_window - 1 条近期交互。在大型生产系统中，还可进一步对单条超长 Observation 加上字符截断上限（例如超过 4,000 字符先摘要再入历史），避免单一支查询工具直接灌爆上下文窗口。"
+      ],
+      "bullets": [
+        "通过不可变 AgentAction 契约与 Tool Registry 白名单，将模型幻觉出的非法工具调用转为可控 REJECT 状态。",
+        "工具执行层一律包裹 try-except，把 Python 异常转成可读 Observation 喂回模型，赋予 Agent 自我修正能力。",
+        "_trim_memory() 永远钉选初始目标 history[0] 并滑动保留最新窗口，避免目标遗忘与上下文无限膨胀。"
+      ],
+      "callout_title": "最佳实践：永远区分「只读工具」与「写入／破坏性工具」",
+      "callout_body": "查询汇率、算账、读文档属于只读工具（Read-only Tools），可放心交由 Agent 自动重试；凡涉及删文件、转账、发邮件、修改生产数据库的写入工具（Write Tools），除了白名单与参数 Schema 校验外，必须强制加上人工审批（Human-in-the-Loop）或幂等键（Idempotency Key），防止模型重试两次造成重复扣款。"
+    },
+    {
+      "id": "sec3-max-steps-circuit-breaker",
+      "heading": "5.3 Max Steps 熔断机制与 O(S²) 成本控制策略",
+      "paragraphs": [
+        "在生产环境部署 AI 智能体时，财务与可靠性团队最担心的从来不是单次请求变慢，而是「失控的推理循环」：当提示词目标模糊或某支外部 API 持续返回模糊错误时，无上限的 Agent 会不断自我重试、每轮都把整份历史再送进云端模型计费。ToolAgentFSM 通过 for step in range(1, self.max_steps + 1) 设下硬件保险丝般的步数上限：注意在这个循环契约下，连输出 kind == 'final' 本身都算在步数之内，因此若设定 max_steps=4，Agent 最多执行 3 次工具调用并在第 4 步收敛；只要跑完 max_steps 步仍未收敛，系统立即抛出 RuntimeError 强制熔断，将不确定的黑盒推理锁死在严格可控的资源边界内。",
+        "理解 Agent 的真实成本曲线，是每位 AI 工程师避免月底收到天价账单的必修课。许多初学者误以为 10 步 Agent 的费用只是单步的 10 倍（线性增长），但实际上若没有截断记忆或命中 Prefix Cache，第 1 步送 1 份上下文、第 2 步送 2 份、第 S 步送 S 份，累计输入 Token 总量会呈现等差级数和 S(S+1)/2，亦即「平方级 O(S²) 爆炸」！这正是为何生产级 Agent 必须同时配备三道成本护栏：第一是 max_steps 硬上限；第二是 _trim_memory() 限制单步最大历史长度，把增长从 O(S²) 压回 O(S)；第三是将静态 System Prompt 与 Tool Schema 固定置顶以最大化 KV Prefix Cache 命中率（见第 1 章）。",
+        "除了静态步数上限，成熟系统还会加上「停滞检测（Loop / Stagnation Detector）」与优雅降级策略。只要连续两轮出现完全相同的 (tool_name, arguments) 调用，或连续三轮皆返回 ERROR / REJECT，不需傻等到 max_steps 才停，系统可立刻提前熔断并进入降级路径：针对内部研究助手，返回「已完成的部分轨迹摘要＋明确标注未完成原因」；针对关键自动化流水线，则返回明确的 AGENT_MAX_STEPS_EXCEEDED 错误码供上游调度重试或转交人工处理。"
+      ],
+      "bullets": [
+        "在 ToolAgentFSM.run() 契约下，final 步骤亦计入 max_steps；超过上限立刻熔断，绝不让请求无限挂起。",
+        "未加记忆窗口限制的 ReAct 循环会造成累计输入 Token 呈 O(S²) 平方级暴涨，须靠 _trim_memory 与 Prefix Cache 压制。",
+        "线上监控应追踪 step_count 分布：若高比例请求逼近 max_steps，根因通常是工具描述不清而非上限太低。"
+      ],
+      "callout_title": "生产环境警讯：别靠无脑调高 max_steps 掩盖设计缺陷",
+      "callout_body": "如果线上遥测显示超过 20%～30% 的任务频繁撞上 max_steps（或平均步数远高于预期），盲目把上限从 5 步调成 25 步只会让账单平方倍膨胀。正确做法是先抽查 Trajectory Trace，精简重叠工具数量、改善工具错误信息可读性，并补上清晰的 Few-shot 示例。"
+    },
+    {
+      "id": "sec4-determinism-debugging",
+      "heading": "5.4 确定性状态转移与结构化排障（Trajectory Trace）",
+      "paragraphs": [
+        "让 AI 智能体从「难以捉摸的玄学」变成「可稳定运维的后端服务」，最关键的工程资产不是更长的提示词，而是结构化执行轨迹（Trajectory Trace）。在 ToolAgentFSM.run() 中，每一次状态转移（PLAN → ACT → OBSERVE → FINAL）都会在 trace 列表留下严格格式化记录：工具成功记为 step1:TOOL(calc_monthly_cost)=27.0、非法工具记为 stepN:REJECT(name)、执行异常记为 stepN:ERR(name)、成功收敛记为 step2:FINAL。结合唯一 Trace ID 与每步耗时、Token 数写入结构化日志后，工程师能在三秒内还原整个决策时间轴。",
+        "拿到 Trajectory Trace 后，排障可以明确拆成三大归因类别，不再盲目瞎改 Prompt：第一类是「规划瑕疵（Bad Action）」，特征是出现 REJECT 未知工具、选错工具或传入缺漏参数，根因在于工具 Schema 命名模糊或说明不足；第二类是「工具故障（Tool Error）」，特征是出现 ERR 且伴随下游异常或超时，根因在后端函数或外部依赖本身，改 Prompt 毫无用处；第三类是「综合推理失败」，特征是工具都返回了正确数据（如 27.0），但最后 FINAL 步骤却算错或答非所问，这才属于生成模型能力或输出格式约束问题。",
+        "更强大的是「确定性回放测试（Deterministic Replay）」：注意 ToolAgentFSM.__init__() 采用依赖注入（Dependency Injection），把 planner 设计成可替换的回调函数 Callable[[list[dict[str, str]]], AgentAction]。这意味着在 CI 单元测试中（如同本章示例使用 scripted_actions 迭代器），我们可以完全不花一分钱调用真实 LLM API，直接把线上抓到的失败 Trace 回放成脚本化 Planner，100% 确定性地验证白名单拦截、异常转观察、记忆窗口裁剪与 max_steps 熔断逻辑是否正确运作。下一章我们将把这套本地工具注册表进一步升级为跨框架通用的标准协议——MCP（Model Context Protocol）。"
+      ],
+      "bullets": [
+        "结构化 Trajectory Trace 精确记录每步状态（TOOL / REJECT / ERR / FINAL），把黑盒 Agent 变成白盒可观测流水线。",
+        "依 Trace 快速三分归因：Bad Action（改 Schema/Prompt）、Tool Error（修后端工具）、Final 偏差（加强输出验证）。",
+        "通过依赖注入将 Planner 抽象化，即可在 CI 中以零 API 成本确定性回放任何线上异常轨迹。"
+      ],
+      "callout_title": "排障心法：永远先看最后一个 TOOL 步骤的 Observation",
+      "callout_body": "当线上反馈 Agent 答错时，不要盯着最终回复发呆——90% 的根因都藏在最后一次 TOOL 调用的 Observation 里：不是工具返回了过多噪声把模型淹没，就是返回了含糊的空数组 [] 让模型误以为查无资料而开始自己编造。"
+    }
+  ],
+  "diagram_caption": "图 5-1：确定性 ReAct 智能体有限状态机（FSM）执行循环 — PLAN 规划动作、Tool Registry 白名单与沙盒执行、Observation 回写记忆窗口与 max_steps 熔断护栏",
+  "diagram_svg": "<svg viewBox=\"0 0 760 260\" role=\"img\" aria-label=\"确定性 ReAct 智能体有限状态机架构图：左侧输入目标与记忆窗口压缩，中间 LLM Planner 产出 AgentAction 进入白名单校验与工具执行，右侧分流为 FINAL 输出或 max_steps 熔断\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"ch05-arr\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"4\" orient=\"auto\"><path d=\"M0,1 L7,4 L0,7 z\" fill=\"#57534e\"/></marker></defs><rect width=\"760\" height=\"260\" rx=\"10\" fill=\"#fdfcf9\" stroke=\"#e7e5e4\"/><text x=\"380\" y=\"24\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"14\" font-weight=\"bold\" fill=\"#1c1917\">ToolAgentFSM 确定性 ReAct 状态机（examples/ai_ch05_agent_fsm.py）</text><rect x=\"16\" y=\"44\" width=\"158\" height=\"138\" rx=\"8\" fill=\"#ffffff\" stroke=\"#d6d3d1\" stroke-width=\"1.5\"/><text x=\"95\" y=\"64\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12.5\" font-weight=\"bold\" fill=\"#15803d\">1. 目标与记忆</text><rect x=\"28\" y=\"76\" width=\"134\" height=\"38\" rx=\"6\" fill=\"#f5f5f4\" stroke=\"#a8a29e\"/><text x=\"95\" y=\"93\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11\" font-weight=\"bold\" fill=\"#1c1917\">User Goal (钉选)</text><text x=\"95\" y=\"107\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"9.5\" fill=\"#57534e\">history[0]</text><line x1=\"95\" y1=\"114\" x2=\"95\" y2=\"128\" stroke=\"#57534e\" stroke-width=\"1.4\" marker-end=\"url(#ch05-arr)\"/><rect x=\"28\" y=\"130\" width=\"134\" height=\"42\" rx=\"6\" fill=\"#fffbeb\" stroke=\"#b45309\"/><text x=\"95\" y=\"148\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10.5\" font-weight=\"bold\" fill=\"#92400e\">_trim_memory()</text><text x=\"95\" y=\"163\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"9.5\" fill=\"#57534e\">保头留尾防 O(S²) 爆炸</text><rect x=\"204\" y=\"44\" width=\"346\" height=\"138\" rx=\"8\" fill=\"#ffffff\" stroke=\"#15803d\" stroke-width=\"1.5\"/><text x=\"377\" y=\"64\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12.5\" font-weight=\"bold\" fill=\"#15803d\">2. FSM 状态转移循环（step = 1 .. max_steps）</text><rect x=\"218\" y=\"78\" width=\"132\" height=\"52\" rx=\"6\" fill=\"#1c1917\"/><text x=\"284\" y=\"100\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" fill=\"#fdfcf9\">PLAN (Planner)</text><text x=\"284\" y=\"118\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"9.5\" fill=\"#fde68a\">AgentAction(kind)</text><line x1=\"350\" y1=\"104\" x2=\"378\" y2=\"104\" stroke=\"#57534e\" stroke-width=\"1.5\" marker-end=\"url(#ch05-arr)\"/><rect x=\"380\" y=\"78\" width=\"156\" height=\"52\" rx=\"6\" fill=\"#f0fdf4\" stroke=\"#15803d\"/><text x=\"458\" y=\"98\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" fill=\"#166534\">ACT：Tool Registry</text><text x=\"458\" y=\"114\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"9.5\" fill=\"#3f3f46\">白名单校验 ＋ try/except</text><text x=\"458\" y=\"126\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"9\" fill=\"#15803d\">calc_monthly_cost=27.0</text><path d=\"M458,130 L458,164 L284,164 L284,134\" fill=\"none\" stroke=\"#b45309\" stroke-width=\"1.5\" stroke-dasharray=\"4,3\" marker-end=\"url(#ch05-arr)\"/><text x=\"371\" y=\"158\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\" font-weight=\"bold\" fill=\"#b45309\">OBSERVE：回写 OBSERVATION / ERROR 进 history</text><line x1=\"174\" y1=\"104\" x2=\"214\" y2=\"104\" stroke=\"#57534e\" stroke-width=\"1.6\" marker-end=\"url(#ch05-arr)\"/><rect x=\"580\" y=\"44\" width=\"164\" height=\"138\" rx=\"8\" fill=\"#ffffff\" stroke=\"#d6d3d1\" stroke-width=\"1.5\"/><text x=\"662\" y=\"64\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12.5\" font-weight=\"bold\" fill=\"#15803d\">3. 终止出口</text><rect x=\"592\" y=\"76\" width=\"140\" height=\"42\" rx=\"6\" fill=\"#f0fdf4\" stroke=\"#15803d\" stroke-width=\"1.5\"/><text x=\"662\" y=\"94\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" fill=\"#166534\">FINAL 成功收敛</text><text x=\"662\" y=\"109\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"9.5\" fill=\"#1c1917\">$27.0 USD (2 steps)</text><rect x=\"592\" y=\"128\" width=\"140\" height=\"42\" rx=\"6\" fill=\"#fef2f2\" stroke=\"#b91c1c\" stroke-width=\"1.5\"/><text x=\"662\" y=\"146\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" fill=\"#991b1b\">Max Steps 熔断</text><text x=\"662\" y=\"161\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"9.5\" fill=\"#991b1b\">raise RuntimeError</text><path d=\"M550,96 L588,96\" fill=\"none\" stroke=\"#15803d\" stroke-width=\"1.6\" marker-end=\"url(#ch05-arr)\"/><path d=\"M550,148 L588,148\" fill=\"none\" stroke=\"#b91c1c\" stroke-width=\"1.6\" marker-end=\"url(#ch05-arr)\"/><rect x=\"16\" y=\"198\" width=\"728\" height=\"46\" rx=\"8\" fill=\"#faf5ff\" stroke=\"#7e22ce\" stroke-width=\"1.3\"/><text x=\"380\" y=\"217\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" fill=\"#6b21a8\">白盒可观测性：Trajectory Trace 全程结构化记录</text><text x=\"380\" y=\"235\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10.5\" fill=\"#1c1917\">['step1:TOOL(calc_monthly_cost)=27.0', 'step2:FINAL']  |  支持 REJECT / ERR 归因与 CI 确定性回放</text></svg>",
+  "comparison_table": {
+    "caption": "表 5-1：AI 系统控制流架构模式工程对比表",
+    "headers": [
+      "架构模式",
+      "控制流形态",
+      "状态可见性",
+      "错误恢复与熔断机制",
+      "开发与运维复杂度",
+      "最适合工程场景"
+    ],
+    "rows": [
+      [
+        "1. Simple Chain（固定链）",
+        "单向线性（Linear）",
+        "高（逐步可预测）",
+        "仅靠外部固定重试",
+        "低",
+        "数据清洗、单次摘要、格式转换"
+      ],
+      [
+        "2. ReAct Agent（确定性 FSM）",
+        "有界循环（Bounded Loop）",
+        "白盒 Trajectory Trace",
+        "异常转观察自愈 ＋ max_steps 熔断",
+        "中",
+        "单一目标多工具查询、自动计算与检索排障"
+      ],
+      [
+        "3. Graph Workflow（状态图）",
+        "有向状态图（DAG / Cyclic）",
+        "节点状态持久化可视",
+        "条件分支、断点续跑与人工审批",
+        "高",
+        "跨部门审批、多阶段编排流水线"
+      ],
+      [
+        "4. Multi-Agent Swarm（多智能体）",
+        "动态协作拓扑",
+        "分布式跨智能体 Trace",
+        "角色接手、审核代理把关与全局预算上限",
+        "极高",
+        "大型研究项目、独立编码与跨视角审查"
+      ]
+    ]
+  },
+  "code_walkthrough": [
+    "AgentAction(frozen=True) 以不可变数据类明确规范 Planner 输出契约，强制区分 kind == 'tool' 与 kind == 'final' 两种合法状态。",
+    "ToolAgentFSM._trim_memory(history) 采用「钉选初始目标 history[0] ＋ 尾端滑动窗口」策略，确保长对话不会忘记任务初衷，并防止输入 Token 随步数呈 O(S²) 膨胀。",
+    "ToolAgentFSM.run(goal) 以 for step in range(1, self.max_steps + 1) 实现硬熔断循环，每次迭代依次执行白名单核查（REJECT）、try-except 沙盒调用（TOOL / ERR）与 Observation 回写。",
+    "主程序以依赖注入方式传入 scripted_actions 确定性规划器与 calc_monthly_cost 计算工具，2 步收敛并打印完整轨迹 ['step1:TOOL(calc_monthly_cost)=27.0', 'step2:FINAL']。"
+  ],
+  "pitfalls": [
+    {
+      "title": "陷阱 1：LLM 输出畸形 JSON 或多余 Markdown 围栏导致动作解析崩溃",
+      "symptom": "Planner 在 Action 阶段于 JSON 外层包上 ```json ... ```、漏掉逗号或混用中文引号，导致 FSM 直接抛出 JSONDecodeError 中断整个任务。",
+      "root_cause_and_fix": "不要假设语言模型永远遵守纯 JSON 输出。优先使用供应商原生 Structured Outputs / Function Calling API（见第 2 章），并在应用层搭配容错抽取与 Schema 校验；一旦解析失败，将格式错误封装成 Observation 反馈给模型执行受限重试。"
+    },
+    {
+      "title": "陷阱 2：未钉选初始目标或单条工具输出过长，引发「上下文失忆」",
+      "symptom": "Agent 执行到第 4 步时，因为第 2 步的网页爬取工具返回了 15,000 字符 JSON，把原始目标与系统约束完全挤出记忆窗口，导致模型开始答非所问。",
+      "root_cause_and_fix": "除了使用 _trim_memory() 永远钉选 history[0] 任务目标外，更要对每支工具的 Observation 实施「单条字符／Token 硬截断上限」（例如上限 4,000 字符并附带截断提示），将原始长文存进临时文件或键值缓存供按需查询。"
+    },
+    {
+      "title": "陷阱 3：同步阻塞调用外部工具且没有独立 Timeout，拖垮整个服务",
+      "symptom": "某支第三方 API 卡死 90 秒无响应，导致整个 Agent 线程被锁死，并触发上游反向代理 504 Gateway Timeout。",
+      "root_cause_and_fix": "每支注册进 Tool Registry 的外部工具都必须设置独立 Timeout（例如 10～30 秒）并采用异步 I/O（asyncio）执行；一旦超时，将 TimeoutError 转为 'ERROR: tool timed out' Observation 返回给 Planner，让它决定改查备用工具或优雅降级。"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "为什么 ReAct 智能体循环必须在 ACT（工具调用）之后执行 OBSERVE（写回 Observation）？若遗漏会发生什么？",
+      "options": [
+        "Observation 只用来计算月底 API 账单，遗漏不影响推理结果",
+        "Observation 把工具真实输出或错误信息反馈进历史状态；若遗漏，Planner 会重复看见相同历史并反复调用同一工具，陷入死循环直到触发 max_steps",
+        "Observation 是用来替用户翻译语言的模块",
+        "只要模型够强就能直接猜出外部数据库内容，完全不需要 Observation"
+      ],
+      "answer_index": 1,
+      "explanation": "ReAct 的闭环核心在于依据真实工具结果更新状态。若未将 Observation 写入 history，下一轮 Planner 看到的输入毫无变化，会不断重复发出相同 Action 直到撞上步数熔断。"
+    },
+    {
+      "question": "对照本章 ToolAgentFSM.run() 代码（for step in range(1, self.max_steps + 1)），若设定 max_steps=3，Agent 想要「成功收敛返回最终答案（不触发 RuntimeError）」，最多能执行几次工具调用？",
+      "options": [
+        "最多 2 次（第 1、2 步调用工具，第 3 步必须输出 kind == 'final'）",
+        "最多 3 次，因为 final 会在循环结束后的第 4 步自动补发",
+        "最多 4 次",
+        "没有限制，max_steps 只计算失败次数"
+      ],
+      "answer_index": 0,
+      "explanation": "在 ToolAgentFSM.run() 中，判断 kind == 'final' 位于 for step in range(1, self.max_steps + 1) 循环内部，本身就会消耗 1 步。若前 3 步全都在调用工具，循环结束后没有第 4 步机会，会直接抛出 RuntimeError；因此想成功收敛最多只能调用 2 次工具。"
+    },
+    {
+      "question": "在 Trajectory Trace 中看到 step1:REJECT(get_price) 与 step2:ERR(calc_monthly_cost)，这两者在排障归因上有何本质差异？",
+      "options": [
+        "两者都是网络断线造成，只需不断重试即可",
+        "REJECT 代表规划瑕疵（LLM 幻觉调用了白名单以外的不存在工具）；ERR 代表工具已在白名单内，但执行时发生参数类型错误或代码异常",
+        "REJECT 代表模型已成功完成任务，ERR 代表达到 max_steps",
+        "REJECT 只能通过更换更高阶的 GPU 解决"
+      ],
+      "answer_index": 1,
+      "explanation": "REJECT 是 Tool Registry 白名单在执行前就拦下的「非法工具选择（Bad Action）」，通常需改善 Prompt 工具说明；ERR 则是合法工具在运行期抛出异常（Tool Error），需检查传入参数校验或工具代码本身的防呆。"
+    }
+  ],
+  "interview_faqs": [
+    {
+      "question": "面试官问：什么时候应该用固定 Workflow，什么时候才值得用自主 AI Agent？",
+      "answer": "判断标准是「执行路径在开发期是否已知」。若业务步骤固定、输入输出格式明确（例如发票 OCR 解析入库），固定 Workflow 永远是首选，因为它延迟低、成本可预期且测试容易；只有当工具顺序与查询次数必须依赖运行期动态反馈（例如自动化排障、跨多数据源深度调查）时，才应引入有界循环的 Agent，并严格限制工具权限与步数上限。"
+    },
+    {
+      "question": "如果 LLM 调用工具时传错参数类型（例如把 '2000' 字符串传进需要 int 的字段），生产级 FSM 该怎么处理？",
+      "answer": "建立三道防线：第一在进入工具函数前以 Pydantic / JSON Schema 严格校验参数类型；第二对无歧义的边界情况可做明确类型转换，但对缺失必填字段或非法值绝不硬猜，而是捕获 ValidationError 转为精准错误信息（例如 'daily_req must be positive int'）作为 Observation 喂回模型进行下一轮自我修正；第三仍受 max_steps 与停滞检测保护，避免反复传错参数卡死。"
+    },
+    {
+      "question": "什么是「Hallucinated Tool Call（幻觉工具调用）」？为什么白名单机制与精简工具数量都很关键？",
+      "answer": "幻觉工具调用是指模型自行编造了未注册的函数名称（例如把 calc_monthly_cost 乱猜成 calculate_cost）或捏造不存在的参数键名。白名单核查（action.tool_name in self.tools）确保任何未授权调用在执行前就被安全拦截并汇报可用工具列表；同时实战上单一 Agent 暴露的工具数量建议控制在 5～15 支以内，工具越多、命名越相近，模型的选择错误率与 Prompt Token 负担就越高。"
+    },
+    {
+      "question": "为什么没有记忆压缩的 ReAct Agent 成本会呈现 O(S²) 成长？实战如何设定 max_steps 与记忆窗口？",
+      "answer": "因为每多跑 1 步，新的工具调用与 Observation 都会附加到 history，下一轮推理又必须把整份累加历史重新送进模型，S 步累计输入 Token 近似等差级数和 O(S²)。实战上应依离线评测的步数分布（例如 P95 步数）设定合理的 max_steps（常见查询型设 5～8 步），搭配保头留尾的 _trim_memory() 窗口、单条 Observation 长度上限，以及静态 System Prompt 置顶来吃满云端 Prefix Cache 折扣。"
+    }
+  ],
+  "further_reading": [
+    {
+      "title": "Anthropic Research — Building Effective Agents",
+      "url": "https://www.anthropic.com/research/building-effective-agents",
+      "note": "业界最具影响力的 Agent 架构指南，清晰界定 Workflows 与 Agents 的取舍原则、可组合设计模式与 Tool Interface 工程规范。"
+    },
+    {
+      "title": "Yao et al. (ICLR 2023) — ReAct: Synergizing Reasoning and Acting in Language Models",
+      "url": "https://arxiv.org/abs/2210.03629",
+      "note": "ReAct 范式奠基论文，实证将思维链推理与外部行动观察交错执行如何显著降低幻觉并提升任务成功率。"
+    },
+    {
+      "title": "Anthropic Official Docs — Tool Use (Function Calling) Overview",
+      "url": "https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/overview",
+      "note": "官方 Tool Calling 实战文档，涵盖 JSON Schema 设计、错误反馈（is_error）与多轮工具执行循环的最佳实践。"
+    }
+  ],
+  "code_replacements": [
+    [
+      "具備明確狀態轉移、工具白名單與最大步數護欄的迷你 ReAct Agent。",
+      "具备明确状态转移、工具白名单与最大步数护栏的迷你 ReAct 智能体。"
+    ],
+    [
+      "Agent 超過最大步數上限 (",
+      "Agent 超过最大步数上限 ("
+    ],
+    [
+      ")，強制中止防止燒光 Token",
+      ")，强制中止防止烧光 Token"
+    ],
+    [
+      "Ch.05 Agent 完成步數: ",
+      "Ch.05 Agent 完成步数: "
+    ],
+    [
+      " | 軌跡: ",
+      " | 轨迹: "
+    ],
+    [
+      " | 結論: ",
+      " | 结论: "
+    ],
+    [
+      "Book 1 Ch.05 解剖 AI Agent 核心迴圈：ReAct 有限狀態機（FSM）與步數護欄",
+      "Book 1 Ch.05 解剖 AI 智能体核心循环：ReAct 有限状态机（FSM）与步数护栏"
+    ],
+    [
+      "以零外部依賴示範 Tool Registry、Think-Act-Observe 迴圈、防無窮迴圈步數上限與對話記憶視窗壓縮。",
+      "以零外部依赖演示 Tool Registry、Think-Act-Observe 循环、防死循环步数上限与对话记忆窗口压缩。"
+    ]
+  ],
+  "output_replacements": [
+    [
+      "完成步數:",
+      "完成步数:"
+    ],
+    [
+      "軌跡:",
+      "轨迹:"
+    ],
+    [
+      "結論:",
+      "结论:"
+    ]
+  ]
+}

@@ -1,0 +1,284 @@
+{
+  "book_id": "ai-engineering",
+  "chapter_id": "ch05",
+  "locale": "en",
+  "status": "published",
+  "badge": "Ch.05",
+  "part_id": "part3",
+  "title": "AI Agent Architecture: ReAct Loops, Tool Calling & Deterministic FSMs",
+  "short_title": "Agent FSM & Tool Calling",
+  "summary": "Build deterministic, debuggable AI Agents using typed tool registries, structured ReAct transitions, full execution traces, and hard max_steps circuit breakers.",
+  "aeo_capsule": "<strong>Production AI Agents</strong> wrap probabilistic LLM planners inside a deterministic <strong>Finite State Machine (FSM)</strong>: enforcing explicit <code>PLAN -> ACT -> OBSERVE -> FINAL</code> transitions, a whitelisted <code>Tool Registry</code>, sliding memory compression (<code>_trim_memory</code>), and a hard <code>max_steps</code> circuit breaker. This chapter builds and verifies the complete zero-dependency core loop in Python 3.12 (<code>examples/ai_ch05_agent_fsm.py</code>).",
+  "reading_minutes": 18,
+  "lastmod": "2026-11-25",
+  "example_file": "examples/ai_ch05_agent_fsm.py",
+  "keywords": [
+    "AI Agent Architecture",
+    "ReAct Loop",
+    "Tool Calling",
+    "Finite State Machine FSM",
+    "Trajectory Trace Debugging",
+    "Max Steps Circuit Breaker",
+    "Python AI Agent Tutorial",
+    "Purple Maple Press"
+  ],
+  "learning_objectives": [
+    "Draw a sharp architectural boundary between deterministic Workflows and autonomous Agents so you never pay Agent risk for fixed pipelines.",
+    "Implement a type-safe Tool Registry, whitelist validation, and explicit PLAN -> ACT -> OBSERVE -> FINAL state transitions.",
+    "Build max_steps circuit breakers, sliding memory compression (preventing O(S^2) token blowups), and replayable Trajectory Traces."
+  ],
+  "sections": [
+    {
+      "id": "sec1-agent-vs-workflow",
+      "heading": "5.1 Workflows vs. Autonomous Agents: From Linear Pipelines to Bounded Loops",
+      "paragraphs": [
+        "When teams adopt generative AI for automation, the most expensive architectural mistake is turning every workflow into an autonomous agent. As Anthropic outlines in 'Building Effective Agents', a Workflow orchestrates predefined steps written in code, whereas an Agent hands runtime control—choosing which tool to call next and when to stop—to an LLM. Whenever the execution graph is known ahead of time (such as scheduled ETL, structured JSON extraction, or fixed document classification), a deterministic Workflow delivers lower latency, predictable costs, and trivial debugging. Introduce an Agent loop only when intermediate environment states are unknown and the next tool depends dynamically on prior results.",
+        "ReAct (Reasoning + Acting, Yao et al., ICLR 2023) powers modern agents by interleaving reasoning steps with external tool calls rather than guessing an answer in one shot. Yet running an unguarded while-True loop around a probabilistic model invites production disasters: a hallucinated tool name or repeated API failure can spin forever until your billing quota vanishes. Wrapping the probabilistic LLM planner inside a deterministic Finite State Machine (FSM) solves this cleanly: the LLM only proposes a structured AgentAction, while deterministic Python code owns whitelist validation, exception handling, memory trimming, and termination guards.",
+        "Look at the verified output from ToolAgentFSM.run(): 'Ch.05 Agent Steps Completed: 2 | Trajectory: ['step1:TOOL(calc_monthly_cost)=27.0', 'step2:FINAL'] | Conclusion: Estimated monthly LLM API spend is $27.0 USD.' On step 1, the planner proposes calling calc_monthly_cost(daily_req=2000, tokens_per_req=1500, usd_per_1m=0.30); the FSM validates the whitelist, computes the exact figure 27.0, and appends OBSERVATION: 27.0 to history. On step 2, seeing the verified tool result, the planner transitions cleanly to kind == 'final' and exits—cleanly separating probabilistic planning from deterministic math."
+      ],
+      "bullets": [
+        "Workflows lock control flow at design time; Agents decide tool order and iteration count dynamically at runtime.",
+        "ReAct alternates Reasoning, Acting, and Observing so models ground subsequent steps in real tool feedback.",
+        "Wrapping a probabilistic Planner inside a deterministic FSM yields autonomy without sacrificing production safety."
+      ],
+      "callout_title": "Engineering Note: Why Agents Get Trapped in Infinite Loops",
+      "callout_body": "The classic bug is forgetting to append the tool's Observation back into history after ACT. When history does not advance, the planner sees the exact same prompt on the next turn and emits the exact same tool call until max_steps trips."
+    },
+    {
+      "id": "sec2-tool-registry-fsm",
+      "heading": "5.2 Type-Safe Tool Registry and the PLAN-ACT-OBSERVE Loop",
+      "paragraphs": [
+        "A Tool Registry is far more than a Python dictionary of callables—it is the security boundary separating free-form model output from real system side effects. ToolAgentFSM locks the planner's output contract with an immutable dataclass AgentAction(frozen=True), restricting every turn to either kind == 'tool' (with tool_name and arguments) or kind == 'final' (with final_answer). Before executing anything, the FSM checks action.tool_name against self.tools. If the model hallucinates an unregistered name (such as calling estimate_bill instead of calc_monthly_cost), the FSM never crashes or runs eval(); it records stepN:REJECT(...) and feeds 'ERROR: unknown tool' back as an Observation so the planner can self-correct on the next turn.",
+        "The same 'Exception-as-Observation' pattern protects tool execution itself. Wrapping self.tools[action.tool_name](**action.arguments) in try-except ensures that bad argument types (TypeError), missing parameters, or transient downstream errors are logged as stepN:ERR(...) and returned to the model as readable 'ERROR: ...' strings. In practice, models frequently recover on the very next turn once they see an explicit error such as 'missing 1 required positional argument: usd_per_1m', without failing the entire user request.",
+        "As multi-step reasoning unfolds, raw tool payloads (full web pages or long database result sets) rapidly bloat the context window and inflate latency. ToolAgentFSM._trim_memory() implements a 'Pin Goal + Sliding Tail' window: once len(history) exceeds memory_window (default 6 messages), it always pins history[0]—the original user goal—so the agent never suffers goal amnesia, while keeping only the latest memory_window - 1 recent turns. In production, pair this with per-observation byte caps (e.g., truncate or summarize payloads above 4,000 characters) so a single verbose tool response cannot wipe out context."
+      ],
+      "bullets": [
+        "Immutable AgentAction contracts plus Tool Registry whitelisting turn hallucinated tool calls into safe REJECT observations.",
+        "Wrapping every tool call in try-except converts Python exceptions into self-correctable Observation strings.",
+        "_trim_memory() pins history[0] and slides the recent tail to preserve the original goal while bounding context size."
+      ],
+      "callout_title": "Best Practice: Separate Read-Only Tools from Write / Destructive Tools",
+      "callout_body": "Read-only tools (lookups, calculations, search) can retry automatically inside the FSM. Write tools (file deletion, payments, emails, DB mutations) require schema validation plus Human-in-the-Loop approval or Idempotency Keys so retries never double-charge or corrupt state."
+    },
+    {
+      "id": "sec3-max-steps-circuit-breaker",
+      "heading": "5.3 Max Steps Circuit Breakers and Preventing O(S^2) Cost Blowups",
+      "paragraphs": [
+        "In production, the biggest threat from an AI Agent is not a slow single call—it is a runaway reasoning loop. When a goal is underspecified or an upstream API returns ambiguous errors, an unbounded loop keeps retrying while resending the entire conversation on every turn. ToolAgentFSM enforces a hardware-fuse limit via for step in range(1, self.max_steps + 1). Notice an important contract detail in our code: emitting kind == 'final' itself consumes one step inside the loop. With max_steps=4, an agent can make at most 3 tool calls and must emit final on step 4; exceeding max_steps raises RuntimeError immediately, placing a hard ceiling on runtime and spend.",
+        "Understanding an agent's true token cost curve prevents shocking monthly bills. Many engineers assume a 10-step agent costs 10x a single call (linear growth), yet without memory trimming or Prefix Cache hits, step 1 sends 1 chunk of history, step 2 sends 2, and step S sends S—producing triangular sum S(S+1)/2, or quadratic O(S^2) input token growth! Production agents tame this with three layered guardrails: a hard max_steps ceiling, _trim_memory() bounding per-step history to flatten growth back to O(S), and pinned static System Prompts plus Tool Schemas at token index 0 to maximize KV Prefix Cache discounts (see Ch.01).",
+        "Mature systems layer a Stagnation / Loop Detector and graceful degradation on top of max_steps. If the planner emits the identical (tool_name, arguments) twice in a row—or triggers three consecutive ERROR/REJECT steps—trip the circuit breaker early rather than burning remaining steps. Interactive research assistants can return a partial trajectory summary clearly flagging what remained unfinished, while automated backend pipelines emit an explicit AGENT_MAX_STEPS_EXCEEDED error code for upstream retry or human escalation."
+      ],
+      "bullets": [
+        "Under ToolAgentFSM.run(), the final response step counts toward max_steps; exceeding the ceiling trips RuntimeError immediately.",
+        "Unbounded ReAct history causes quadratic O(S^2) input token growth—tame it with _trim_memory(), observation caps, and Prefix Caching.",
+        "Track step_count telemetry: frequent max_steps trips usually signal unclear tool descriptions, not a ceiling that is too low."
+      ],
+      "callout_title": "Production Warning: Never Mask Bad Tool Design by Raising max_steps",
+      "callout_body": "If telemetry shows more than 20%-30% of runs approaching max_steps, bumping the limit from 5 to 25 only multiplies token spend quadratically. Inspect Trajectory Traces first: prune overlapping tools, sharpen error messages, and add clear Few-shot examples."
+    },
+    {
+      "id": "sec4-determinism-debugging",
+      "heading": "5.4 Deterministic Transitions and Trajectory Trace Debugging",
+      "paragraphs": [
+        "Turning an AI Agent from unpredictable magic into a maintainable backend service depends less on longer prompts and more on structured Trajectory Traces. Inside ToolAgentFSM.run(), every PLAN -> ACT -> OBSERVE -> FINAL transition appends a canonical trace entry: successful calls record step1:TOOL(calc_monthly_cost)=27.0, blocked calls record stepN:REJECT(name), raised exceptions record stepN:ERR(name), and convergence records step2:FINAL. Logging this trace alongside a Trace ID, per-step latency, and token counts lets engineers reconstruct any production failure in seconds.",
+        "With structured traces in hand, debugging splits cleanly into three buckets instead of blind prompt tweaking. First, Planning Defects (Bad Actions) show up as REJECT calls or wrong arguments—fix these by sharpening tool names, descriptions, and schemas. Second, Tool Errors show up as ERR entries from downstream crashes or timeouts—fix the backend tool code rather than touching the prompt. Third, Synthesis Failures occur when tools return the right data (such as 27.0) yet the FINAL step misreports it—fix these with stricter grounding instructions or deterministic output checks (Ch.04).",
+        "Even better, dependency injection unlocks zero-cost Deterministic Replay testing. Because ToolAgentFSM.__init__() accepts planner as an injectable Callable[[list[dict[str, str]]], AgentAction], CI suites can replay captured production trajectories using a scripted iterator (just like scripted_actions in our example) without spending a cent on live LLM calls. You can verify whitelist rejection, exception-to-observation handling, memory trimming, and max_steps circuit breaking deterministically on every commit. In Ch.06, we will elevate this local Tool Registry into a cross-framework industry standard: the Model Context Protocol (MCP)."
+      ],
+      "bullets": [
+        "Canonical Trajectory Traces (TOOL / REJECT / ERR / FINAL) turn opaque agent runs into inspectable white-box telemetry.",
+        "Triage failures into three clean buckets: Bad Action (schema/prompt), Tool Error (backend code), or Final synthesis mismatch.",
+        "Injecting the planner callable enables deterministic, zero-cost replay of real production failures inside CI unit tests."
+      ],
+      "callout_title": "Debugging Rule: Always Inspect the Last TOOL Observation First",
+      "callout_body": "When an agent returns a wrong answer, skip staring at the final paragraph and read the last TOOL Observation in the trace. Nine times out of ten, either the tool dumped noisy payload text that buried the fact, or it returned an ambiguous empty list [] that nudged the model into guessing."
+    }
+  ],
+  "diagram_caption": "Figure 5-1: Deterministic ReAct Agent FSM Loop — Goal Pinning & Memory Trimming, PLAN/ACT/OBSERVE Transitions with Tool Whitelist, and Hard max_steps Circuit Breaker",
+  "diagram_svg": "<svg viewBox=\"0 0 760 260\" role=\"img\" aria-label=\"Deterministic ReAct Agent FSM diagram: Goal pinning and memory trimming on the left, PLAN and whitelisted Tool Registry ACT/OBSERVE loop in the middle, FINAL convergence and max_steps circuit breaker on the right\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"ch05-arr\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"4\" orient=\"auto\"><path d=\"M0,1 L7,4 L0,7 z\" fill=\"#57534e\"/></marker></defs><rect width=\"760\" height=\"260\" rx=\"10\" fill=\"#fdfcf9\" stroke=\"#e7e5e4\"/><text x=\"380\" y=\"24\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"14\" font-weight=\"bold\" fill=\"#1c1917\">ToolAgentFSM Deterministic ReAct Loop (examples/ai_ch05_agent_fsm.py)</text><rect x=\"16\" y=\"44\" width=\"158\" height=\"138\" rx=\"8\" fill=\"#ffffff\" stroke=\"#d6d3d1\" stroke-width=\"1.5\"/><text x=\"95\" y=\"64\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12.5\" font-weight=\"bold\" fill=\"#15803d\">1. Goal &amp; Memory</text><rect x=\"28\" y=\"76\" width=\"134\" height=\"38\" rx=\"6\" fill=\"#f5f5f4\" stroke=\"#a8a29e\"/><text x=\"95\" y=\"93\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11\" font-weight=\"bold\" fill=\"#1c1917\">Pinned User Goal</text><text x=\"95\" y=\"107\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"9.5\" fill=\"#57534e\">history[0]</text><line x1=\"95\" y1=\"114\" x2=\"95\" y2=\"128\" stroke=\"#57534e\" stroke-width=\"1.4\" marker-end=\"url(#ch05-arr)\"/><rect x=\"28\" y=\"130\" width=\"134\" height=\"42\" rx=\"6\" fill=\"#fffbeb\" stroke=\"#b45309\"/><text x=\"95\" y=\"148\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10.5\" font-weight=\"bold\" fill=\"#92400e\">_trim_memory()</text><text x=\"95\" y=\"163\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"9.5\" fill=\"#57534e\">Bounds O(S^2) Growth</text><rect x=\"204\" y=\"44\" width=\"346\" height=\"138\" rx=\"8\" fill=\"#ffffff\" stroke=\"#15803d\" stroke-width=\"1.5\"/><text x=\"377\" y=\"64\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12.5\" font-weight=\"bold\" fill=\"#15803d\">2. FSM Transition Loop (step = 1 .. max_steps)</text><rect x=\"218\" y=\"78\" width=\"132\" height=\"52\" rx=\"6\" fill=\"#1c1917\"/><text x=\"284\" y=\"100\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" fill=\"#fdfcf9\">PLAN (Planner)</text><text x=\"284\" y=\"118\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"9.5\" fill=\"#fde68a\">AgentAction(kind)</text><line x1=\"350\" y1=\"104\" x2=\"378\" y2=\"104\" stroke=\"#57534e\" stroke-width=\"1.5\" marker-end=\"url(#ch05-arr)\"/><rect x=\"380\" y=\"78\" width=\"156\" height=\"52\" rx=\"6\" fill=\"#f0fdf4\" stroke=\"#15803d\"/><text x=\"458\" y=\"98\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" fill=\"#166534\">ACT: Tool Registry</text><text x=\"458\" y=\"114\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"9.5\" fill=\"#3f3f46\">Whitelist + try/except</text><text x=\"458\" y=\"126\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"9\" fill=\"#15803d\">calc_monthly_cost=27.0</text><path d=\"M458,130 L458,164 L284,164 L284,134\" fill=\"none\" stroke=\"#b45309\" stroke-width=\"1.5\" stroke-dasharray=\"4,3\" marker-end=\"url(#ch05-arr)\"/><text x=\"371\" y=\"158\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\" font-weight=\"bold\" fill=\"#b45309\">OBSERVE: Append OBSERVATION / ERROR to history</text><line x1=\"174\" y1=\"104\" x2=\"214\" y2=\"104\" stroke=\"#57534e\" stroke-width=\"1.6\" marker-end=\"url(#ch05-arr)\"/><rect x=\"580\" y=\"44\" width=\"164\" height=\"138\" rx=\"8\" fill=\"#ffffff\" stroke=\"#d6d3d1\" stroke-width=\"1.5\"/><text x=\"662\" y=\"64\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12.5\" font-weight=\"bold\" fill=\"#15803d\">3. Exit Guards</text><rect x=\"592\" y=\"76\" width=\"140\" height=\"42\" rx=\"6\" fill=\"#f0fdf4\" stroke=\"#15803d\" stroke-width=\"1.5\"/><text x=\"662\" y=\"94\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" fill=\"#166534\">FINAL Converged</text><text x=\"662\" y=\"109\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"9.5\" fill=\"#1c1917\">$27.0 USD (2 steps)</text><rect x=\"592\" y=\"128\" width=\"140\" height=\"42\" rx=\"6\" fill=\"#fef2f2\" stroke=\"#b91c1c\" stroke-width=\"1.5\"/><text x=\"662\" y=\"146\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" fill=\"#991b1b\">Circuit Breaker</text><text x=\"662\" y=\"161\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"9.5\" fill=\"#991b1b\">raise RuntimeError</text><path d=\"M550,96 L588,96\" fill=\"none\" stroke=\"#15803d\" stroke-width=\"1.6\" marker-end=\"url(#ch05-arr)\"/><path d=\"M550,148 L588,148\" fill=\"none\" stroke=\"#b91c1c\" stroke-width=\"1.6\" marker-end=\"url(#ch05-arr)\"/><rect x=\"16\" y=\"198\" width=\"728\" height=\"46\" rx=\"8\" fill=\"#faf5ff\" stroke=\"#7e22ce\" stroke-width=\"1.3\"/><text x=\"380\" y=\"217\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" fill=\"#6b21a8\">White-Box Observability: Structured Trajectory Trace</text><text x=\"380\" y=\"235\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10.5\" fill=\"#1c1917\">['step1:TOOL(calc_monthly_cost)=27.0', 'step2:FINAL']  |  REJECT / ERR Triage &amp; CI Replay</text></svg>",
+  "comparison_table": {
+    "caption": "Table 5-1: Engineering Comparison of AI Control-Flow Architecture Patterns",
+    "headers": [
+      "Architecture Pattern",
+      "Control Flow",
+      "State Visibility",
+      "Recovery & Circuit Breakers",
+      "Ops Complexity",
+      "Best-Fit Workloads"
+    ],
+    "rows": [
+      [
+        "1. Simple Chain",
+        "Linear",
+        "High (predictable stages)",
+        "External fixed retries only",
+        "Low",
+        "Data cleaning, single-shot summaries, ETL"
+      ],
+      [
+        "2. ReAct Agent (FSM)",
+        "Bounded Loop",
+        "White-box Trajectory Trace",
+        "Exception-as-Observation + max_steps",
+        "Medium",
+        "Single-goal multi-tool lookup, calculation, debugging"
+      ],
+      [
+        "3. Graph Workflow",
+        "Directed Graph (DAG/Cyclic)",
+        "Persistent node checkpoints",
+        "Branching, resume-from-checkpoint, HITL",
+        "High",
+        "Multi-team approvals, staged orchestration"
+      ],
+      [
+        "4. Multi-Agent Swarm",
+        "Dynamic Topology",
+        "Distributed cross-agent traces",
+        "Reviewer gates, handoffs, global budgets",
+        "Very High",
+        "Large research, independent coding & audit"
+      ]
+    ]
+  },
+  "code_walkthrough": [
+    "AgentAction(frozen=True) defines an immutable action contract that strictly separates kind == 'tool' calls from kind == 'final' termination.",
+    "ToolAgentFSM._trim_memory(history) pins history[0] (the original goal) and keeps only the latest memory_window - 1 turns, curbing O(S^2) input token blowups.",
+    "ToolAgentFSM.run(goal) executes a bounded loop for step in range(1, self.max_steps + 1), enforcing whitelist rejection (REJECT), try-except tool execution (TOOL / ERR), and Observation write-back.",
+    "The entrypoint injects a deterministic scripted_actions planner and calc_monthly_cost tool, converging in 2 steps with trace ['step1:TOOL(calc_monthly_cost)=27.0', 'step2:FINAL']."
+  ],
+  "pitfalls": [
+    {
+      "title": "Pitfall 1: Malformed JSON or Markdown Fences Breaking Action Parsing",
+      "symptom": "The planner wraps JSON in ```json ... ``` fences or drops a comma, triggering an unhandled JSONDecodeError that aborts the run.",
+      "root_cause_and_fix": "Never assume raw text responses are valid JSON. Prefer provider-native Structured Outputs or Tool Calling APIs (Ch.02), pair them with tolerant JSON extraction and schema validation, and feed parse errors back as an Observation for a bounded retry."
+    },
+    {
+      "title": "Pitfall 2: Goal Amnesia from Unpinned History or Oversized Tool Payloads",
+      "symptom": "By step 4, a 15,000-character web scrape from step 2 pushes the original goal and constraints out of context, causing the agent to drift off task.",
+      "root_cause_and_fix": "Pin history[0] via _trim_memory() and enforce a hard per-observation character cap (e.g., 4,000 chars with a truncation notice), storing full raw payloads in a scratch file or KV cache for targeted follow-up reads."
+    },
+    {
+      "title": "Pitfall 3: Synchronous Blocking Tools Without Timeouts Stalling Workers",
+      "symptom": "One sluggish third-party API hangs for 90 seconds, blocking the agent thread and triggering upstream 504 Gateway Timeouts.",
+      "root_cause_and_fix": "Assign an explicit per-tool timeout (10-30s) and execute external calls asynchronously (asyncio). Convert TimeoutError into an 'ERROR: tool timed out' Observation so the planner can pivot to a fallback tool or degrade cleanly."
+    }
+  ],
+  "quiz": [
+    {
+      "question": "Why must a ReAct Agent execute OBSERVE (appending the tool result to history) after every ACT step, and what breaks if you omit it?",
+      "options": [
+        "Observation only tracks monthly billing and does not affect reasoning",
+        "Observation updates state with real tool output or errors; without it, the planner sees identical history on every turn and repeats the same tool call until max_steps trips",
+        "Observation translates prompts between languages",
+        "Modern models can guess live database state without needing tool output"
+      ],
+      "answer_index": 1,
+      "explanation": "ReAct relies on state progression via real tool feedback. Without writing the Observation back into history, the planner receives identical inputs each iteration and loops endlessly until the circuit breaker triggers."
+    },
+    {
+      "question": "Looking at ToolAgentFSM.run() (for step in range(1, self.max_steps + 1)), if max_steps=3, what is the maximum number of tool calls an agent can execute while still converging cleanly to kind == 'final' without raising RuntimeError?",
+      "options": [
+        "At most 2 tool calls (steps 1 and 2 run tools; step 3 must emit kind == 'final')",
+        "At most 3 tool calls, because final is automatically emitted on an extra step 4",
+        "At most 4 tool calls",
+        "Unlimited, since max_steps only counts failed calls"
+      ],
+      "answer_index": 0,
+      "explanation": "In ToolAgentFSM.run(), checking kind == 'final' happens inside range(1, self.max_steps + 1) and consumes a step itself. Calling tools on all 3 steps exhausts the loop and raises RuntimeError, so clean convergence allows at most 2 tool calls."
+    },
+    {
+      "question": "In a Trajectory Trace showing step1:REJECT(get_price) and step2:ERR(calc_monthly_cost), how do the two root causes differ?",
+      "options": [
+        "Both indicate transient network drops and just need more retries",
+        "REJECT indicates a planning flaw (the LLM hallucinated a tool outside the whitelist); ERR indicates a whitelisted tool threw a runtime or argument exception during execution",
+        "REJECT means task completion, while ERR means max_steps was reached",
+        "REJECT can only be fixed by upgrading GPU hardware"
+      ],
+      "answer_index": 1,
+      "explanation": "REJECT is caught pre-execution by the Tool Registry whitelist (a Bad Action fixed via prompt/schema clarity), whereas ERR occurs inside a valid tool's try-except block (a Tool Error fixed via input validation or backend code)."
+    }
+  ],
+  "interview_faqs": [
+    {
+      "question": "When should you ship a deterministic Workflow instead of an autonomous AI Agent?",
+      "answer": "Decide based on whether the control graph is known at design time. When steps and schemas are fixed (such as invoice extraction or daily ETL), a deterministic Workflow wins on latency, cost predictability, and testability. Use a bounded Agent loop only when tool order and iteration count depend dynamically on runtime observations—such as automated debugging or multi-source investigation—and always enforce tool whitelists and step limits."
+    },
+    {
+      "question": "How should a production FSM handle wrong argument types from an LLM (e.g., passing '2000' as a string where an int is required)?",
+      "answer": "Apply three defenses: validate arguments with Pydantic or JSON Schema before invoking the tool; convert unambiguous primitives only when safe, and for missing or invalid fields return a precise ValidationError string (such as 'daily_req must be a positive int') as an Observation so the model self-corrects on the next turn; and keep max_steps plus stagnation detection active so repeated validation failures trip early."
+    },
+    {
+      "question": "What is a Hallucinated Tool Call, and why do both whitelisting and keeping tool counts small matter?",
+      "answer": "A hallucinated tool call happens when an LLM invents an unregistered function name (e.g., calling calculate_cost instead of calc_monthly_cost) or fabricates nonexistent argument keys. Whitelisting (action.tool_name in self.tools) blocks unauthorized execution safely and guides the model back to valid tools, while keeping a single agent's toolset focused (roughly 5-15 distinct tools) minimizes naming collisions and prompt token overhead."
+    },
+    {
+      "question": "Why does an untrimmed ReAct Agent incur O(S^2) input token cost, and how do teams tune max_steps and memory windows?",
+      "answer": "Each iteration appends new tool calls and observations to history, and the next LLM turn re-processes the entire accumulated history, creating a triangular sum proportional to O(S^2). Production teams calibrate max_steps against offline P95 step counts (often 5-8 steps for lookup agents), enforce Goal-pinned sliding windows via _trim_memory() plus per-observation byte caps, and pin static system prompts at the top to capture Prefix Cache savings."
+    }
+  ],
+  "further_reading": [
+    {
+      "title": "Anthropic Research — Building Effective Agents",
+      "url": "https://www.anthropic.com/research/building-effective-agents",
+      "note": "Essential production guide distinguishing composable Workflows from autonomous Agents, with practical patterns for tool interfaces."
+    },
+    {
+      "title": "Yao et al. (ICLR 2023) — ReAct: Synergizing Reasoning and Acting in Language Models",
+      "url": "https://arxiv.org/abs/2210.03629",
+      "note": "Foundational ICLR 2023 paper demonstrating how interleaving reasoning traces with external tool actions reduces hallucinations."
+    },
+    {
+      "title": "Anthropic Official Docs — Tool Use (Function Calling) Overview",
+      "url": "https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/overview",
+      "note": "Official reference covering JSON Schema tool design, structured error reporting (is_error), and multi-turn execution loops."
+    }
+  ],
+  "code_replacements": [
+    [
+      "具備明確狀態轉移、工具白名單與最大步數護欄的迷你 ReAct Agent。",
+      "Minimal ReAct Agent with explicit state transitions, tool whitelist, and max_steps guardrail."
+    ],
+    [
+      "Agent 超過最大步數上限 (",
+      "Agent exceeded max_steps limit ("
+    ],
+    [
+      ")，強制中止防止燒光 Token",
+      "); forcing halt to prevent token exhaustion"
+    ],
+    [
+      "Ch.05 Agent 完成步數: ",
+      "Ch.05 Agent steps completed: "
+    ],
+    [
+      " | 軌跡: ",
+      " | Trace: "
+    ],
+    [
+      " | 結論: ",
+      " | Conclusion: "
+    ],
+    [
+      "Book 1 Ch.05 解剖 AI Agent 核心迴圈：ReAct 有限狀態機（FSM）與步數護欄",
+      "Book 1 Ch.05 Dissecting the AI Agent Core Loop: ReAct Finite State Machine (FSM) & Step Guardrails"
+    ],
+    [
+      "以零外部依賴示範 Tool Registry、Think-Act-Observe 迴圈、防無窮迴圈步數上限與對話記憶視窗壓縮。",
+      "Zero-dependency demo of Tool Registry, Think-Act-Observe loop, max_steps circuit breaker, and sliding memory compression."
+    ]
+  ],
+  "output_replacements": [
+    [
+      "完成步數:",
+      "steps completed:"
+    ],
+    [
+      "軌跡:",
+      "Trace:"
+    ],
+    [
+      "結論:",
+      "Conclusion:"
+    ]
+  ]
+}

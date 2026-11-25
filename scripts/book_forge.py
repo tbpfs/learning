@@ -140,12 +140,37 @@ def strip_model_artifacts(raw_text: str) -> str:
 
 
 def _repair_unescaped_inner_quotes(text: str) -> str:
-    """Repair unescaped interior ASCII double quotes, missing opening quotes, and invalid backslash escapes."""
+    """Repair unescaped interior ASCII double quotes, missing quotes, missing array closures, and invalid escapes."""
     repaired_lines: list[str] = []
+    in_str_array = False
     for line in text.splitlines():
+        stripped = line.strip()
+        if in_str_array:
+            if stripped.startswith("]") or stripped.startswith("{") or stripped.startswith("["):
+                in_str_array = False
+                repaired_lines.append(line)
+                continue
+            # If the model forgot to close '],' before the next object key (e.g. '"bullets": [')
+            if re.match(r'^"[^"\\]+"\s*:', stripped):
+                if repaired_lines and repaired_lines[-1].rstrip().endswith(","):
+                    repaired_lines[-1] = repaired_lines[-1].rstrip()[:-1]
+                repaired_lines.append("],")
+                in_str_array = False
+                # Fall through to process this key line normally
+        if re.match(r'^"[^"\\]+"\s*:\s*\[\s*$', stripped):
+            in_str_array = True
+            repaired_lines.append(line)
+            continue
         m_kv = re.match(r'^(\s*"[^"\\]+"\s*:\s*)"(.*)"(\s*,?\s*)$', line)
         if m_kv:
             prefix, val, suffix = m_kv.groups()
+            safe_val = re.sub(r'(?<!\\)"', r'\\"', val)
+            safe_val = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', safe_val)
+            repaired_lines.append(f'{prefix}"{safe_val}"{suffix}')
+            continue
+        m_kv_cjk_quotes = re.match(r'^(\s*"[^"\\]+"\s*:\s*)「(.*)」(\s*,?\s*)$', line)
+        if m_kv_cjk_quotes:
+            prefix, val, suffix = m_kv_cjk_quotes.groups()
             safe_val = re.sub(r'(?<!\\)"', r'\\"', val)
             safe_val = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', safe_val)
             repaired_lines.append(f'{prefix}"{safe_val}"{suffix}')
@@ -164,12 +189,28 @@ def _repair_unescaped_inner_quotes(text: str) -> str:
             safe_val = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', safe_val)
             repaired_lines.append(f'{prefix}"{safe_val}"{suffix}')
             continue
+        m_arr_cjk_quotes = re.match(r'^(\s*)「(.*)」(\s*,?\s*)$', line)
+        if m_arr_cjk_quotes:
+            prefix, val, suffix = m_arr_cjk_quotes.groups()
+            safe_val = re.sub(r'(?<!\\)"', r'\\"', val)
+            safe_val = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', safe_val)
+            repaired_lines.append(f'{prefix}"{safe_val}"{suffix}')
+            continue
         m_arr_missing_open = re.match(r'^(\s*)([^"\s{\[\]}0-9tfn-].*)"(\s*,?\s*)$', line)
         if m_arr_missing_open:
             prefix, val, suffix = m_arr_missing_open.groups()
             safe_val = re.sub(r'(?<!\\)"', r'\\"', val)
             safe_val = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', safe_val)
             repaired_lines.append(f'{prefix}"{safe_val}"{suffix}')
+            continue
+        if in_str_array and stripped and stripped[0] not in '"{}[]':
+            # Completely unquoted array string line
+            has_comma = stripped.endswith(",")
+            val = stripped[:-1].rstrip() if has_comma else stripped
+            safe_val = re.sub(r'(?<!\\)"', r'\\"', val)
+            safe_val = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', safe_val)
+            indent = line[: len(line) - len(line.lstrip())]
+            repaired_lines.append(f'{indent}"{safe_val}"{"," if has_comma else ""}')
             continue
         repaired_lines.append(line)
     return "\n".join(repaired_lines)
@@ -918,7 +959,7 @@ def forge_draft(
             system_prompt=sys_polish_mods,
             user_prompt=json.dumps(mod_a, ensure_ascii=False),
             temperature=0.2,
-            max_tokens=2600,
+            max_tokens=4096,
             reasoning_effort="none",
             http_fn=http_fn,
             lms=lms,
@@ -938,7 +979,7 @@ def forge_draft(
             system_prompt=sys_polish_mods,
             user_prompt=json.dumps(mod_b, ensure_ascii=False),
             temperature=0.2,
-            max_tokens=2800,
+            max_tokens=4096,
             reasoning_effort="none",
             http_fn=http_fn,
             lms=lms,
@@ -1017,7 +1058,7 @@ def forge_translate(
 
     print(f">>> [Stage 3] 以 {chosen_model} 執行 {chapter_id} 分塊翻譯 -> {target_locale} ...", flush=True)
     cache_dir = book_dir / ".forge_cache"
-    max_toks = 3200 if target_locale == "en" else 2400
+    max_toks = 4096
 
     lang_directive = (
         "Target language: Natural O'Reilly-grade Technical English (en). "
