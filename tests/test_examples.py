@@ -610,5 +610,43 @@ class TestLearningExamples(unittest.TestCase):
             self.assertEqual(set(idx_payload["urlList"]), expected_indexnow)
 
 
+            # 5) Verify trilingual summary RSS feeds & visible <time> date alignment
+            import xml.etree.ElementTree as ET
+
+            for rel_rss, self_url, expected_lang in (
+                ("rss.xml", "https://learn.ai-purplemaple.com/rss.xml", "zh-Hant"),
+                ("zh-cn/rss.xml", "https://learn.ai-purplemaple.com/zh-cn/rss.xml", "zh-Hans"),
+                ("en/rss.xml", "https://learn.ai-purplemaple.com/en/rss.xml", "en"),
+            ):
+                rss_file = root / rel_rss
+                self.assertTrue(rss_file.is_file(), f"Missing RSS feed {rel_rss}")
+                rss_raw = rss_file.read_text(encoding="utf-8")
+                self.assertNotIn("<content:encoded>", rss_raw)
+                self.assertIn(f'href="{self_url}" rel="self" type="application/rss+xml"', rss_raw)
+                tree = ET.fromstring(rss_raw)
+                channel = tree.find("channel")
+                self.assertIsNotNone(channel)
+                self.assertEqual(channel.findtext("language"), expected_lang)
+                items = channel.findall("item")
+                self.assertGreaterEqual(len(items), 12)
+                for it in items:
+                    desc = (it.findtext("description") or "").strip()
+                    self.assertGreaterEqual(len(desc), 20)
+                    self.assertLessEqual(len(desc), 260)
+                    self.assertTrue((it.findtext("pubDate") or "").strip())
+
+            for rel_page, expected_rss, expected_pub in (
+                ("index.html", "https://learn.ai-purplemaple.com/rss.xml", None),
+                ("ch01.html", "https://learn.ai-purplemaple.com/rss.xml", "2026-03-01"),
+                ("books/ai-engineering/ch01.html", "https://learn.ai-purplemaple.com/rss.xml", "2026-11-25"),
+                ("zh-cn/books/ai-engineering/ch01.html", "https://learn.ai-purplemaple.com/zh-cn/rss.xml", "2026-11-25"),
+                ("en/books/ai-engineering/ch01.html", "https://learn.ai-purplemaple.com/en/rss.xml", "2026-11-25"),
+            ):
+                page_html = (root / rel_page).read_text(encoding="utf-8")
+                self.assertIn(f'type="application/rss+xml" href="{expected_rss}"', page_html)
+                if expected_pub:
+                    self.assertIn(f'<time datetime="{expected_pub}">{expected_pub}</time>', page_html)
+
+
 if __name__ == "__main__":
     unittest.main()

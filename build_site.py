@@ -11,6 +11,8 @@ and renders a 24-page trilingual SEO/GEO-optimized tutorial portal:
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
 import html
 import json
 import shutil
@@ -18,6 +20,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Sequence
+from xml.sax.saxutils import escape as xml_escape
 
 REPO_ROOT = Path(__file__).resolve().parent
 if str(REPO_ROOT) not in sys.path:
@@ -53,6 +56,110 @@ ADSENSE_IN_ARTICLE_SLOT_ID = "1673180799"
 ENABLE_MANUAL_AD_SLOTS = False  # Pre-approval SEO/UX hygiene: keep <head> verification script + ads.txt, hide empty dashed <ins> boxes until approved
 INDEXNOW_KEY = "7f4e9c2a8b1d6035e4a92c7f1b8d3e60"
 SITE_LASTMOD = "2026-11-25"
+DSA_DATE_PUBLISHED = "2026-03-01"
+_TZ_TAIPEI = timezone(timedelta(hours=8))
+
+RSS_FEED_META: dict[str, dict[str, str]] = {
+    "zh-TW": {
+        "rel_out": "rss.xml",
+        "url": "https://learn.ai-purplemaple.com/rss.xml",
+        "link": "https://learn.ai-purplemaple.com/",
+        "lang": "zh-Hant",
+        "title": "紫楓出版社｜AI 工程與 Python 技術專書 RSS (繁體中文)",
+        "description": "紫楓出版社（Purple Maple Press）免費開源技術專書與 Python 3.12 資料結構演算法講義最新章節摘要 Feed，含實機驗證程式碼與架構圖解導覽。",
+        "pub_label": "發布日期：",
+        "upd_label": "最後更新：",
+    },
+    "zh-CN": {
+        "rel_out": "zh-cn/rss.xml",
+        "url": "https://learn.ai-purplemaple.com/zh-cn/rss.xml",
+        "link": "https://learn.ai-purplemaple.com/zh-cn/",
+        "lang": "zh-Hans",
+        "title": "紫枫出版社｜AI 工程与 Python 技术专著 RSS (简体中文)",
+        "description": "紫枫出版社（Purple Maple Press）免费开源技术专著与 Python 3.12 数据结构算法讲义最新章节摘要 Feed，含源码实战与架构图解导览。",
+        "pub_label": "发布日期：",
+        "upd_label": "最后更新：",
+    },
+    "en": {
+        "rel_out": "en/rss.xml",
+        "url": "https://learn.ai-purplemaple.com/en/rss.xml",
+        "link": "https://learn.ai-purplemaple.com/en/",
+        "lang": "en",
+        "title": "Purple Maple Press | AI Engineering & Python Monographs RSS (English)",
+        "description": "Summary RSS feed of new chapters from Purple Maple Press open-source technical monographs and Python 3.12 data structures & algorithms guides.",
+        "pub_label": "Published: ",
+        "upd_label": "Updated: ",
+    },
+}
+
+
+def render_rss_alternate_link(locale_code: str) -> str:
+    meta = RSS_FEED_META[locale_code]
+    return (
+        f'  <link rel="alternate" type="application/rss+xml" '
+        f'href="{html.escape(meta["url"])}" title="{html.escape(meta["title"])}">'
+    )
+
+
+def render_dates_meta_html(locale_code: str, date_published: str, date_modified: str) -> str:
+    meta = RSS_FEED_META[locale_code]
+    pub = html.escape(date_published)
+    mod = html.escape(date_modified)
+    return (
+        f'<span><strong>{html.escape(meta["pub_label"])}</strong><time datetime="{pub}">{pub}</time></span>\n'
+        f'          <span><strong>{html.escape(meta["upd_label"])}</strong><time datetime="{mod}">{mod}</time></span>'
+    )
+
+
+def _date_to_rfc2822(date_str: str) -> str:
+    try:
+        dt = datetime.strptime(date_str[:10], "%Y-%m-%d").replace(tzinfo=_TZ_TAIPEI)
+    except ValueError:
+        dt = datetime(2026, 11, 25, tzinfo=_TZ_TAIPEI)
+    return format_datetime(dt)
+
+
+def _rss_excerpt(text: str, max_len: int = 240) -> str:
+    clean = " ".join(text.split())
+    if len(clean) <= max_len:
+        return clean
+    return clean[: max_len - 1].rstrip(" ，,。.;；:：") + "…"
+
+
+def build_rss_xml(locale_code: str, items: Sequence[dict[str, str]], limit: int = 30) -> str:
+    meta = RSS_FEED_META[locale_code]
+    sorted_items = sorted(
+        items,
+        key=lambda x: (x["pub_date"], x["sort_key"]),
+        reverse=True,
+    )[:limit]
+    latest_mod = max((x["mod_date"] for x in sorted_items), default=SITE_LASTMOD)
+    item_blocks: list[str] = []
+    for it in sorted_items:
+        item_blocks.append(
+            "    <item>\n"
+            f"      <title>{xml_escape(it['title'])}</title>\n"
+            f"      <link>{xml_escape(it['link'])}</link>\n"
+            f'      <guid isPermaLink="true">{xml_escape(it["link"])}</guid>\n'
+            f"      <pubDate>{xml_escape(_date_to_rfc2822(it['pub_date']))}</pubDate>\n"
+            f"      <description>{xml_escape(_rss_excerpt(it['summary']))}</description>\n"
+            "    </item>"
+        )
+    items_xml = "\n".join(item_blocks)
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n'
+        "  <channel>\n"
+        f"    <title>{xml_escape(meta['title'])}</title>\n"
+        f"    <link>{xml_escape(meta['link'])}</link>\n"
+        f"    <description>{xml_escape(meta['description'])}</description>\n"
+        f"    <language>{xml_escape(meta['lang'])}</language>\n"
+        f"    <lastBuildDate>{xml_escape(_date_to_rfc2822(latest_mod))}</lastBuildDate>\n"
+        f'    <atom:link href="{xml_escape(meta["url"])}" rel="self" type="application/rss+xml" />\n'
+        f"{items_xml}\n"
+        "  </channel>\n"
+        "</rss>\n"
+    )
 
 CREATOR_SAME_AS: list[str] = [
     "https://x.com/tbpfs1",
@@ -2859,6 +2966,7 @@ def render_book_index_page(
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADSENSE_CLIENT_ID}" crossorigin="anonymous"></script>
   <link rel="canonical" href="{book_url}">
 {render_hreflang_and_og_locale(locale_code, rel_path)}
+{render_rss_alternate_link(locale_code)}
   <meta property="og:site_name" content="{html.escape(ui["site_name"])}">
   <meta property="og:url" content="{book_url}">
   <meta property="og:type" content="book">
@@ -3088,6 +3196,7 @@ def render_book_chapter_page(
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADSENSE_CLIENT_ID}" crossorigin="anonymous"></script>
   <link rel="canonical" href="{ch_url}">
 {render_hreflang_and_og_locale(locale_code, rel_path)}
+{render_rss_alternate_link(locale_code)}
   <meta property="og:site_name" content="{html.escape(ui["site_name"])}">
   <meta property="og:url" content="{ch_url}">
   <meta property="og:type" content="article">
@@ -3117,6 +3226,7 @@ def render_book_chapter_page(
       <div class="meta-bar" style="margin-top: 1rem; margin-bottom: 0;">
         <span>{reading_lbl}</span>
         <span><strong>{html.escape(ui["label_source_path"])}</strong><code>{html.escape(ch.example_file)}</code></span>
+        {render_dates_meta_html(locale_code, meta.date_published, ch.lastmod)}
       </div>
       <div class="cta-group">
         <a class="btn btn-primary" href="#code-section">{html.escape(ui["book_nav_code"])}</a>
@@ -3296,6 +3406,7 @@ def render_index_page(
         <div class="meta-bar">
           <span><strong>{html.escape(ui["label_complexity"])}</strong>{escaped_complexity}</span>
           <span><strong>{html.escape(ui["label_source_path"])}</strong><code>{escaped_file}</code></span>
+          {render_dates_meta_html(locale_code, DSA_DATE_PUBLISHED, ch.lastmod)}
         </div>
         <details class="code-accordion"{open_attr}>
           <summary class="code-accordion-summary">{acc_summary}</summary>
@@ -3357,6 +3468,7 @@ def render_index_page(
 {render_hreflang_and_og_locale(locale_code, None)}
   <link rel="alternate" type="text/markdown" href="https://learn.ai-purplemaple.com/llms.txt" title="LLM Chapter Index">
   <link rel="alternate" type="text/markdown" href="https://learn.ai-purplemaple.com/llms-full.txt" title="LLM Full Tutorial & Code Corpus">
+{render_rss_alternate_link(locale_code)}
   <meta property="og:site_name" content="{html.escape(ui["site_name"])}">
   <meta property="og:url" content="{index_url}">
   <meta property="og:type" content="website">
@@ -3487,6 +3599,7 @@ def render_chapter_page(
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADSENSE_CLIENT_ID}" crossorigin="anonymous"></script>
   <link rel="canonical" href="{ch_url}">
 {render_hreflang_and_og_locale(locale_code, page_filename)}
+{render_rss_alternate_link(locale_code)}
   <meta property="og:site_name" content="{html.escape(ui["site_name"])}">
   <meta property="og:url" content="{ch_url}">
   <meta property="og:type" content="article">
@@ -3548,6 +3661,7 @@ def render_chapter_page(
         <div class="meta-bar">
           <span><strong>{html.escape(ui["label_complexity"])}</strong>{escaped_complexity}</span>
           <span><strong>{html.escape(ui["label_source_path"])}</strong><code>{escaped_file}</code></span>
+          {render_dates_meta_html(locale_code, DSA_DATE_PUBLISHED, ch.lastmod)}
         </div>
       </article>
 
@@ -3661,6 +3775,11 @@ def build_site(out_dir: Path) -> Path:
     llms_en_lines: list[str] = []
     llms_full_sections: list[str] = []
     sitemap_urls: list[tuple[str, str, str]] = []
+    rss_items_by_locale: dict[str, list[dict[str, str]]] = {
+        "zh-TW": [],
+        "zh-CN": [],
+        "en": [],
+    }
 
     # 1. Build Traditional Chinese (root) + full corpus
     sitemap_urls.append((page_canonical_url("zh-TW", None), "1.0", SITE_LASTMOD))
@@ -3668,6 +3787,16 @@ def build_site(out_dir: Path) -> Path:
         source_code, live_output = raw_exec_cache[ch.id]
         ch_url = page_canonical_url("zh-TW", f"{ch.id}.html")
         sitemap_urls.append((ch_url, "0.9", ch.lastmod))
+        rss_items_by_locale["zh-TW"].append(
+            {
+                "title": f"{ch.badge} {ch.title}",
+                "link": ch_url,
+                "summary": ch.summary,
+                "pub_date": DSA_DATE_PUBLISHED,
+                "mod_date": ch.lastmod,
+                "sort_key": f"1-{ch.id}",
+            }
+        )
         llms_chapter_lines.append(
             f"- [{ch.badge} {ch.title}]({ch_url}): `{ch.file}` — {ch.complexity}"
         )
@@ -3752,6 +3881,16 @@ def build_site(out_dir: Path) -> Path:
             bsrc, bout = book_exec_cache[(book.meta.id, cid)]
             bch_url = page_canonical_url("zh-TW", f"books/{book.meta.id}/{cid}.html")
             sitemap_urls.append((bch_url, "0.9", bch.lastmod))
+            rss_items_by_locale["zh-TW"].append(
+                {
+                    "title": f"{book.meta.title['zh-TW'].split('：')[0]} — {bch.badge} {bch.title}",
+                    "link": bch_url,
+                    "summary": bch.summary,
+                    "pub_date": book.meta.date_published,
+                    "mod_date": bch.lastmod,
+                    "sort_key": f"2-{book.meta.id}-{cid}",
+                }
+            )
             llms_chapter_lines.append(
                 f"- [{book.meta.title['zh-TW']} — {bch.badge} {bch.title}]({bch_url}): `{bch.example_file}`"
             )
@@ -3815,6 +3954,16 @@ def build_site(out_dir: Path) -> Path:
         for idx, ch in enumerate(loc_chapters):
             ch_url = page_canonical_url(loc_code, f"{ch.id}.html")
             sitemap_urls.append((ch_url, "0.9", ch.lastmod))
+            rss_items_by_locale[loc_code].append(
+                {
+                    "title": f"{ch.badge} {ch.title}",
+                    "link": ch_url,
+                    "summary": ch.summary,
+                    "pub_date": DSA_DATE_PUBLISHED,
+                    "mod_date": ch.lastmod,
+                    "sort_key": f"1-{ch.id}",
+                }
+            )
             target_llms_list.append(
                 f"- [{ch.badge} {ch.title}]({ch_url}): `{ch.file}` — {ch.complexity}"
             )
@@ -3852,6 +4001,17 @@ def build_site(out_dir: Path) -> Path:
                 )
                 bch_url = page_canonical_url(loc_code, f"books/{book.meta.id}/{cid}.html")
                 sitemap_urls.append((bch_url, "0.9", bch.lastmod))
+                book_short_title = book.meta.title[loc_code].split("：")[0].split(":")[0]
+                rss_items_by_locale[loc_code].append(
+                    {
+                        "title": f"{book_short_title} — {bch.badge} {bch.title}",
+                        "link": bch_url,
+                        "summary": bch.summary,
+                        "pub_date": book.meta.date_published,
+                        "mod_date": bch.lastmod,
+                        "sort_key": f"2-{book.meta.id}-{cid}",
+                    }
+                )
                 target_llms_list.append(
                     f"- [{book.meta.title[loc_code]} — {bch.badge} {bch.title}]({bch_url}): `{bch.example_file}`"
                 )
@@ -3872,6 +4032,11 @@ def build_site(out_dir: Path) -> Path:
         "</urlset>\n",
         encoding="utf-8",
     )
+
+    for loc_code, feed_meta in RSS_FEED_META.items():
+        rss_path = out_dir / feed_meta["rel_out"]
+        rss_path.parent.mkdir(parents=True, exist_ok=True)
+        rss_path.write_text(build_rss_xml(loc_code, rss_items_by_locale[loc_code]), encoding="utf-8")
 
     ecosystem_footer_md = (
         "## 紫楓 (Purple Maple) 生態系相關網站\n"
