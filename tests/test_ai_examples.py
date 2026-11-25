@@ -246,6 +246,57 @@ class TestAiEngineeringExamples(unittest.TestCase):
             atomic_write_json(p, {"status": "draft", "v": 2}, force=True)
             self.assertEqual(json.loads(p.read_text(encoding="utf-8"))["v"], 2)
 
+    def test_book_forge_v2_lms_controller_linter_and_cjk_extractor(self) -> None:
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.insert(0, str(REPO_ROOT))
+        from scripts.book_forge import (
+            CROSS_DOMAIN_TEXTBOOK_ANCHOR,
+            LmsController,
+            extract_cjk_literals_from_code,
+            find_fewshot_overlap,
+            run_example_script,
+            run_textbook_section_linter,
+        )
+
+        # 1) LmsController avoids redundant reloads when model stays hot
+        calls: list[list[str]] = []
+        lms = LmsController(enabled=True, lms_bin="lms", runner=lambda cmd, **kw: calls.append(cmd))
+        lms.switch_model("qwen3.6")
+        lms.switch_model("qwen3.6")  # hot cache hit -> no reload
+        lms.switch_model("gemma4")
+        lms.unload_all()
+        load_cmds = [c for c in calls if len(c) >= 2 and c[1] == "load"]
+        self.assertEqual(len(load_cmds), 2)
+        self.assertEqual(calls[-1][:2], ["lms", "unload"])
+
+        # 2) Textbook section linter catches AI slop, Simplified leak, Mainland terms & Few-Shot copy
+        bad_sec = {
+            "id": "s1",
+            "heading": "測試小節",
+            "paragraphs": [
+                "在當今快速發展的時代，這段代碼直接調用內存缓存，寫入預寫日誌（Write-Ahead Log, WAL）的設計邏輯。",
+                "这句话不小心混进了简体字。",
+            ],
+            "bullets": [],
+        }
+        errs = run_textbook_section_linter(bad_sec, locale="zh-TW")
+        joined_errs = "\n".join(errs)
+        self.assertIn("AI 罐頭詞", joined_errs)
+        self.assertIn("簡體字滲透", joined_errs)
+        self.assertIn("內存", joined_errs)
+        self.assertIn("照抄跨領域風格範例", joined_errs)
+        self.assertIsNotNone(find_fewshot_overlap(CROSS_DOMAIN_TEXTBOOK_ANCHOR[-30:]))
+
+        # 3) CJK literal extractor finds Chinese labels in Ch.02 script & stdout
+        src, out = run_example_script(REPO_ROOT, "examples/ai_ch02_context_schema.py")
+        c_keys, o_keys = extract_cjk_literals_from_code(src, out)
+        self.assertGreaterEqual(len(c_keys), 3)
+        self.assertGreaterEqual(len(o_keys), 1)
+        for k in c_keys:
+            self.assertIn(k, src)
+        for k in o_keys:
+            self.assertIn(k, out)
+
 
 if __name__ == "__main__":
     unittest.main()
