@@ -1,0 +1,292 @@
+{
+  "book_id": "ai-engineering",
+  "chapter_id": "ch04",
+  "locale": "zh-CN",
+  "status": "published",
+  "badge": "Ch.04",
+  "part_id": "part2",
+  "title": "RAG 评测与防幻觉工程：Recall@K、MRR 与忠实度自动化验收",
+  "short_title": "RAG 评测与防幻觉",
+  "summary": "没有量化评测就改提示词等于盲人摸象。建立可纳入 CI 的检索指标（Recall@K、MRR）与生成忠实度数字/实体溯源检查器，把幻觉拦截在上线之前。",
+  "aeo_capsule": "<strong>生产级 RAG 评测</strong>将系统拆分为「检索层」与「生成层」独立诊断：检索层以 <code>Recall@K</code> 衡量标准答案覆盖率、以 <code>MRR</code>（平均倒数排名）衡量首个正确证据的排序优先度；生成层则通过 <code>check_numeric_faithfulness()</code> 验证回答中的关键数字与实体是否全部具备来源出处（Groundedness）。本章以零依赖 Python 3.12（<code>examples/ai_ch04_rag_eval.py</code>）演示可纳入 GitHub Actions 的自动化回归闸门。",
+  "reading_minutes": 18,
+  "lastmod": "2026-11-25",
+  "example_file": "examples/ai_ch04_rag_eval.py",
+  "keywords": [
+    "RAG 评测",
+    "Recall@K",
+    "MRR 平均倒数排名",
+    "Faithfulness 忠实度",
+    "Groundedness 溯源验证",
+    "Golden Eval Set 黄金评测集",
+    "RAG 防幻觉 CI/CD",
+    "紫枫出版社"
+  ],
+  "learning_objectives": [
+    "分离评估检索质量（Recall@K、MRR）与生成忠实度（Faithfulness），避免把检索漏召误诊为模型幻觉。",
+    "实现针对金额、税率、比例与版本号的来源片段数字溯源检查器，在上线前拦截高风险数字幻觉。",
+    "将黄金评测集（Golden Eval Set）与硬性门槛纳入 GitHub Actions CI/CD，杜绝调整分块或换模型造成的静默退化。"
+  ],
+  "sections": [
+    {
+      "id": "sec1-recall-mrr",
+      "heading": "4.1 检索质量量化：Recall@K 与 MRR 的工程实践",
+      "paragraphs": [
+        "许多团队在优化 RAG 时习惯靠「肉眼抽测五题，感觉变准了」就推上线（俗称 Vibe-based Eval），结果改完分块参数后，某类重要查询的召回率悄悄腰斩却浑然不觉。要把 RAG 从黑盒变成可调试的工程系统，第一步就是将「检索层（Retrieval）」与「生成层（Generation）」拆开量化。检索层最核心的两个指标是 Recall@K 与 MRR（Mean Reciprocal Rank，平均倒数排名）：前者回答「标准答案文档有没有成功进到前 K 条候选」，适合医疗、法规、财报等绝对不能漏掉关键证据的场景；后者回答「第一个正确答案排在第几位」，衡量系统把最关键证据顶到最前排的能力，避免 LLM 陷入「中间遗忘（Lost in the Middle）」效应。",
+        "构建一份干净、可版本管理的黄金评测集（Golden Eval Set）是所有量化指标的起点。每条测资至少应包含用户查询句（Query）、人工核实的相关文档 ID 集合（Relevant Doc IDs）与标准参考答案，建议以 JSONL 格式存进 Git 仓库以便每次 Pull Request 批量重放。在 recall_at_k() 的实现中，我们先针对 relevant_ids 为空或 k <= 0 做防御性归零，再计算 set(retrieved_ids[:k]) 与 relevant_ids 的交集比例；而 mean_reciprocal_rank() 则扫描整条排序列表，一旦命中首篇相关文档即记录 1 / rank 并立即 break，确保分数精准反映「首次命中」的排名质量。特别注意数学定义上的细微差异：唯有当每题标准答案仅有 1 篇文档且计算截断版 MRR@1 时，MRR@1 才会等于 Recall@1 与 Hit@1；若标准答案有多篇文档，Recall@1 上限仅为 1 / len(relevant_ids)，而全列表 MRR 则仍会计入第 2 名之后的倒数贡献。",
+        "直接对照本章实机运行结果「Ch.04 Recall@2: 0.667 | MRR: 0.611」，就能一眼看穿两个指标的互补价值：在 eval_runs 的三道测题中，第一题将唯一正确文档 doc_1 排在第 2 名（Recall@2 = 1.0，RR = 1/2 = 0.500）；第二题将 doc_3 排在第 1 名（Recall@2 = 1.0，RR = 1/1 = 1.000）；第三题则把 doc_7 排到第 3 名（Recall@2 = 0.0，RR = 1/3 ≈ 0.333）。三题平均下来，Recall@2 = (1 + 1 + 0) / 3 = 0.667，MRR = (0.5 + 1.0 + 0.3333) / 3 = 11 / 18 ≈ 0.611。如果系统最终只送 Top-2 片段给 LLM，第三题的正确证据根本进不了提示词，就算换再贵的旗舰模型也必然回答错误——这就是量化评测能精准指出「该调检索器，而非乱改 Prompt」的关键证据。"
+      ],
+      "bullets": [
+        "Recall@K 衡量前 K 条候选对标准答案文档的覆盖比例，对多证据与合规场景至关重要。",
+        "MRR 以首个命中文档的倒数名次 1 / rank 取平均，精准衡量排序器能否将关键证据置顶。",
+        "对照实机三题测资：Recall@2 = 0.667 直接暴露 1/3 查询在 Top-2 截断前漏检，MRR = 0.611 则量化了首位排序损失。"
+      ],
+      "callout_title": "工程笔记：Recall@K 与 MRR 的诊断矩阵",
+      "callout_body": "若 Recall@10 很高（例如 0.95）但 MRR 很低（例如 0.35），代表召回层找得到正确文档、只是排序排太后面，最有效的解法是调校 RRF 权重或引入 Cross-Encoder 重排；反之若连 Recall@10 都低迷，问题出在分块策略、分词或 Embedding 模型，重排再强也救不了没被召回的证据。"
+    },
+    {
+      "id": "sec2-faithfulness",
+      "heading": "4.2 生成忠实度：数值与实体溯源检查器（Groundedness）",
+      "paragraphs": [
+        "即便检索层交出漂亮的 Recall@K 与 MRR，大语言模型在生成阶段依然可能「看错上下文、混用预训练记忆」而凭空编造数字——例如美股股息预扣税来源文档明明写着「协定税率 10%、默认非居民（NRA）税率 30%」，模型却受训练语料干扰输出「默认税率为 15%」。这类数字幻觉在金融、报价、医疗与法律系统中具备致命破坏力，但同时也是最容易以确定性规则高速拦截的目标。本章示例中的 check_numeric_faithfulness() 正是为此设计：它以零模型调用成本的正则表达式抽取来源片段与模型回答中的所有数值标记，再以集合差集找出所有未曾出现于来源的「孤儿数字」。",
+        "审视实现细节，正则表达式 \\b\\d+(?:\\.\\d+)?%? 能在微秒级别同步匹配整数、小数与百分比符号（如 30%、10%、15%）。在示例实机验证中，面对忠实回答 'Default NRA rate is 30%, treaty rate is 10%.'，检查器返回 True 且缺失清单为空；面对幻觉回答 'The rate is 15% under default rules.'，检查器立刻返回 False 并点名未佐证数值 ['15%']。不过工程师在将该规则推向生产环境时，必须预先处理两类常见格式盲区：第一是千分位逗号与货币符号（例如 '1,000' 若未先去除逗号会被拆成 '1' 与 '000'）；第二是文字与阿拉伯数字混用（例如来源写「三成」或 'ten percent'，模型改写成 '30%' 或 '10%'）。先经过一层轻量数值归一化管线，再做集合比对，即可大幅压低误报率。",
+        "当数值溯源检查器捕捉到未佐证数字时，系统不应粗暴抛出 500 错误，而是应设计「拦截—反馈—重试」的防御闭环：首先将未佐证清单（例如 ['15%']）以结构化错误反馈给 LLM 执行一次受限重试（要求仅引用来源明载数字并附上段落编号）；若二次验证仍未通过，则安全降级返回「来源文档未明确记载该数值，请参阅原始条文」并附上检索来源链接。至于非数值类的事实核查（例如人名、条款条件或因果关系），则可在第二层辅以轻量级 LLM-as-a-Judge 检验语义忠实度，形成「微秒级确定性规则把关数字 ＋ 语义裁判把关论述」的双层防护网。"
+      ],
+      "bullets": [
+        "确定性数字溯源检查器以微秒级零 API 成本，将「回答凭空捏造 15%」这类高危幻觉精准拦截在送出给用户之前。",
+        "生产环境须先将千分位逗号（1,000）、小数与百分比文字（ten percent）归一化，避免格式差异造成假阳性误报。",
+        "拦截未佐证数字后应采用「带反馈重试 → 安全降级附来源」闭环，并在高风险非数值陈述上搭配 LLM-as-a-Judge。"
+      ],
+      "callout_title": "避坑指南：合法推导计算 vs. 真正的数字幻觉",
+      "callout_body": "若来源写着「原价 100 元、折扣 20 元」，模型正确算出「折后 80 元」，纯字面集合比对会把 '80' 标为未佐证！在需要算术运算的领域，最佳实践是要求 LLM 改调用确定性计算器工具（Tool Calling，见第 5 章）而非心算，并将工具返回结果一并纳入合法来源集合。"
+    },
+    {
+      "id": "sec3-ci-integration",
+      "heading": "4.3 CI/CD 集成：将黄金评测集纳入 GitHub Actions 回归门槛",
+      "paragraphs": [
+        "评测脚本如果只躺在某位工程师笔记本电脑的 Jupyter Notebook 里，两周后就会与线上代码彻底脱节。真正的生产级做法，是把 recall_at_k()、mean_reciprocal_rank() 与 check_numeric_faithfulness() 封装成标准 Python unittest / pytest 套件，像单元测试一样挂进 GitHub Actions。只要任何 Pull Request 动到分块大小、停用词表、BM25 参数、Prompt 模板或向量索引配置，CI 就会自动重跑黄金评测集；一旦 Recall@K 或 MRR 跌破默认门槛（例如 Recall@5 < 0.85 或 MRR < 0.75），或任一关键合规题出现未佐证数字，PR 直接亮红灯阻挡合并，彻底杜绝「修好 A 问题、弄坏 B 查询」的静默回归。",
+        "实战导入 CI 评测最常遇到的障碍是「速度慢与费用高」：如果在每次 Commit 都对 2,000 条测资实时调用云端 Embedding 与旗舰 LLM API，单次 CI 不仅耗时十几分钟，还可能因 API 限流导致假性失败。成熟的工程架构会采用「分层评测金字塔」：PR 阶段（Fast Gate，3 分钟内完成）仅执行确定性离线检索评测（利用缓存好的模型或预计算向量，通过 GitHub Actions Cache 保留 ~/.cache 权重）加上关键数值忠实度单元测试；每日定时任务（Nightly Full Eval）才对完整千条黄金评测集执行端到端生成＋LLM-as-a-Judge 评分并产出趋势报表。",
+        "此外，评测套件本身也必须遵守可复现性（Reproducibility）原则：在 CI 配置文件中严格锁定 Embedding 模型版本与哈希值、固定 LLM 推理温度（temperature = 0）与随机种子，并将每次 CI 跑出的指标摘要（如 Recall@2=0.667, MRR=0.611, Faithfulness=100%）输出为 JSON 产物留存比对。当某个 PR 让某题分数微幅波动时，工程师能通过 Diff 直接看见是哪几条具体 Query 从命中退步成漏检，让跨团队 Code Review 从主观口水战变成客观的数据对话。"
+      ],
+      "bullets": [
+        "将检索指标与忠实度检查封装为标准 unittest，与业务测试同样具备阻挡 PR 合并的硬性质量闸门地位。",
+        "采用分层评测金字塔：PR 阶段快跑确定性检索＋数字溯源（< 3 分钟），Nightly 定时任务跑全量生成与 LLM-as-a-Judge。",
+        "严格锁定 Embedding 版本、设置 temperature=0 并善用 CI 模型缓存，避免网络波动与非确定性造成假红灯。"
+      ],
+      "callout_title": "最佳实践：别让 CI 的 LLM 评测变成不稳定的随机测试",
+      "callout_body": "切勿把需要外部高变异 LLM API 的评分直接设为每次 PR 的硬性阻断条件；PR 闸门应优先放确定性 100% 可复现的 Recall@K、MRR、Schema 校验与数字溯源检查，将较具随机性的语义裁判改为 Nightly 趋势追踪与异常告警。"
+    },
+    {
+      "id": "sec4-hallucination-guard",
+      "heading": "4.4 幻觉拦截网：从离线评测到生产环境的分级防护策略",
+      "paragraphs": [
+        "离线黄金评测集能拦住已知问题，但真实用户上线后总会丢出工程师从未预想过的长尾提问、错别字与复杂否定句。因此完整的防幻觉工程不能止步于 CI，而必须延伸成线上可观测性（Observability）与主动学习闭环。当检索与生成被拆分记录于结构化日志后，监控仪表板能实时画出三条核心曲线：检索覆盖率（Recall / 空召回率）、排序质量（MRR / 用户点击来源顺位）与忠实度拦截率（未佐证数字触发重试的比例）。只要其中一条曲线出现漂移，团队立刻知道病灶位在知识库陈旧、排序失衡还是提示词失效。",
+        "制定线上拦截门槛时，切忌所有产品线套用同一把尺，而应依业务风险分级设防。一般内部文档检索或创意客服助手，可以将数字溯源检查设为「软警告＋标注来源链接」，优先维持流畅互动与低延迟；相对地，面对金融税务试算（如本示例的股息预扣税率）、医疗用药查询或 SaaS 合同条款问答，则必须强制启用「硬拦截（Fail-Closed）」策略：检索分数低于门槛时拒绝作答、任何未佐证数值直接触发受限重试或转交人工客服，宁可回答「无法确认」也绝不输出错误数字。",
+        "最后，把线上拦截下来的真实失败案例（包含空召回查询、忠实度检查失败的对话、用户点「没有帮助」的提问）定期脱敏并抽样回补进 Golden Eval Set，就能建立越用越强的「评测飞轮（Eval Flywheel）」。每修掉一次线上幻觉，就新增一条永久回归测试，确保同样的错误永远不会在下个版本死灰复燃。至此，我们完成了从第 3 章混合检索构建到第 4 章量化验收的完整 RAG 工程闭环，下一章我们将跨入更具动态决策能力的 AI 智能体状态机架构。"
+      ],
+      "bullets": [
+        "依业务风险采用分级防御：一般问答采软警告附引用，金融／医疗／税务等高危领域采严格 Fail-Closed 硬拦截。",
+        "通过线上结构化日志追踪空召回率、排序点击顺位与数字拦截率，及早发现知识库陈旧或模型版本漂移。",
+        "建立 Eval Flywheel：将脱敏后的线上幻觉案例持续回补进 Golden Eval Set，让系统随时间越修越稳。"
+      ],
+      "callout_title": "架构思维：RAG 不是黑盒，而是可量化调校的搜索＋验证流水线",
+      "callout_body": "把团队讨论从模糊的「最近 AI 好像变笨了」转化为具体可执行的「黄金评测集 Recall@2 从 0.88 跌到 0.67、税务数字拦截率上升 3%」，正是专业 AI 工程师与玩具级 Demo 最核心的分水岭。"
+    }
+  ],
+  "diagram_caption": "图 4-1：RAG 双层评测与防幻觉自动化验收流水线 — 检索层（Recall@K / MRR）与生成层（数字溯源 Faithfulness）独立把关并汇入 CI 闸门",
+  "diagram_svg": "<svg viewBox=\"0 0 760 260\" role=\"img\" aria-label=\"RAG 双层评测与防幻觉架构图：左侧黄金评测集，中间检索评测 Recall@2 与 MRR 与生成忠实度检查双轨并行，右侧汇入 CI/CD 回归闸门\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"ch04-arr\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"4\" orient=\"auto\"><path d=\"M0,1 L7,4 L0,7 z\" fill=\"#57534e\"/></marker></defs><rect width=\"760\" height=\"260\" rx=\"10\" fill=\"#fdfcf9\" stroke=\"#e7e5e4\"/><text x=\"380\" y=\"26\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"14\" font-weight=\"bold\" fill=\"#1c1917\">RAG 双层量化评测与防幻觉 CI 闸门（examples/ai_ch04_rag_eval.py）</text><rect x=\"18\" y=\"48\" width=\"172\" height=\"190\" rx=\"8\" fill=\"#ffffff\" stroke=\"#d6d3d1\" stroke-width=\"1.5\"/><text x=\"104\" y=\"70\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"13\" font-weight=\"bold\" fill=\"#15803d\">1. 黄金评测集</text><rect x=\"30\" y=\"86\" width=\"148\" height=\"44\" rx=\"6\" fill=\"#f5f5f4\" stroke=\"#a8a29e\"/><text x=\"104\" y=\"105\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" fill=\"#1c1917\">Golden Eval Set</text><text x=\"104\" y=\"121\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\" fill=\"#57534e\">Query ＋ Relevant IDs</text><line x1=\"104\" y1=\"130\" x2=\"104\" y2=\"150\" stroke=\"#57534e\" stroke-width=\"1.5\" marker-end=\"url(#ch04-arr)\"/><rect x=\"30\" y=\"152\" width=\"148\" height=\"70\" rx=\"6\" fill=\"#fffbeb\" stroke=\"#b45309\"/><text x=\"104\" y=\"172\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" fill=\"#92400e\">RAG 流水线执行</text><text x=\"104\" y=\"190\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\" fill=\"#57534e\">输出 Top-K 文档清单</text><text x=\"104\" y=\"206\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\" fill=\"#57534e\">＋ LLM 生成回答</text><rect x=\"228\" y=\"48\" width=\"292\" height=\"190\" rx=\"8\" fill=\"#ffffff\" stroke=\"#d6d3d1\" stroke-width=\"1.5\"/><text x=\"374\" y=\"70\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"13\" font-weight=\"bold\" fill=\"#15803d\">2. 检索与生成双轨验收</text><rect x=\"244\" y=\"84\" width=\"260\" height=\"64\" rx=\"6\" fill=\"#f0fdf4\" stroke=\"#15803d\"/><text x=\"374\" y=\"104\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" fill=\"#166534\">检索层：Recall@K ＆ MRR</text><text x=\"374\" y=\"121\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10.5\" fill=\"#1c1917\">Recall@2 = 0.667 | MRR = 0.611</text><text x=\"374\" y=\"138\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\" fill=\"#15803d\">诊断漏检覆盖率与首位排序质量</text><rect x=\"244\" y=\"160\" width=\"260\" height=\"64\" rx=\"6\" fill=\"#fef2f2\" stroke=\"#b91c1c\"/><text x=\"374\" y=\"180\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" fill=\"#991b1b\">生成层：数字溯源 Faithfulness</text><text x=\"374\" y=\"197\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#1c1917\">30%/10% → True | 15% → False</text><text x=\"374\" y=\"214\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\" fill=\"#b91c1c\">拦截未出现于来源片段的幻觉数值</text><path d=\"M190,186 C208,186 210,116 240,116\" fill=\"none\" stroke=\"#57534e\" stroke-width=\"1.6\" marker-end=\"url(#ch04-arr)\"/><path d=\"M190,186 C208,186 210,192 240,192\" fill=\"none\" stroke=\"#57534e\" stroke-width=\"1.6\" marker-end=\"url(#ch04-arr)\"/><rect x=\"558\" y=\"48\" width=\"184\" height=\"190\" rx=\"8\" fill=\"#ffffff\" stroke=\"#d6d3d1\" stroke-width=\"1.5\"/><text x=\"650\" y=\"70\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"13\" font-weight=\"bold\" fill=\"#15803d\">3. CI/CD 回归闸门</text><rect x=\"574\" y=\"88\" width=\"152\" height=\"58\" rx=\"6\" fill=\"#f0fdf4\" stroke=\"#15803d\" stroke-width=\"1.5\"/><text x=\"650\" y=\"111\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" fill=\"#166534\">PASS：达标放行</text><text x=\"650\" y=\"130\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\" fill=\"#3f3f46\">允许 PR 合并与部署</text><rect x=\"574\" y=\"162\" width=\"152\" height=\"60\" rx=\"6\" fill=\"#fef2f2\" stroke=\"#b91c1c\" stroke-width=\"1.5\"/><text x=\"650\" y=\"184\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" fill=\"#991b1b\">FAIL：阻挡上线</text><text x=\"650\" y=\"202\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\" fill=\"#3f3f46\">输出失败案例回补评测集</text><path d=\"M504,116 C532,116 534,117 570,117\" fill=\"none\" stroke=\"#15803d\" stroke-width=\"1.6\" marker-end=\"url(#ch04-arr)\"/><path d=\"M504,192 C532,192 534,192 570,192\" fill=\"none\" stroke=\"#b91c1c\" stroke-width=\"1.6\" marker-end=\"url(#ch04-arr)\"/></svg>",
+  "comparison_table": {
+    "caption": "表 4-1：生产级 RAG 核心评测指标对照表（检索层 vs. 生成层）",
+    "headers": [
+      "指标名称",
+      "所属层级",
+      "核心计算逻辑",
+      "最适合场景",
+      "核心优势",
+      "主要限制"
+    ],
+    "rows": [
+      [
+        "Recall@K",
+        "检索层",
+        "前 K 条命中相关数 / 总相关文档数",
+        "合规审计、医疗、多文档证据汇总",
+        "确保关键证据不漏抓，不受排序噪声干扰",
+        "完全不区分第 1 名与第 K 名的排序差异"
+      ],
+      [
+        "MRR (平均倒数排名)",
+        "检索层",
+        "所有测题首个正确文档 1 / rank 的平均值",
+        "单一标准答案查询、FAQ 与条款精准定位",
+        "高度敏感于首位排序质量，贴近人类阅读习惯",
+        "只看首个命中文档，忽略第 2 篇以后的相关证据"
+      ],
+      [
+        "确定性数字溯源 Faithfulness",
+        "生成层",
+        "比对回答抽出的数字集合是否全部为来源子集",
+        "金融税率、报价、医疗剂量、API 规格查询",
+        "微秒级零成本、100% 可复现、直接拦截数字幻觉",
+        "需处理千分位与文字数字格式，无法覆盖语义推理"
+      ],
+      [
+        "LLM-as-a-Judge 语义忠实度",
+        "生成层",
+        "由独立裁判模型逐句判定论述是否可由来源推导",
+        "开放式摘要、复杂因果问答与 Nightly 全量评测",
+        "能理解同义改写与非数值事实陈述",
+        "具推理成本与些微随机波动，须定期与人工标注校准"
+      ]
+    ]
+  },
+  "code_walkthrough": [
+    "recall_at_k(retrieved_ids, relevant_ids, k) 先防御空相关集合与 k <= 0，再将前 k 条检索结果转为 set 与标准答案集合取交集，返回覆盖比例。",
+    "mean_reciprocal_rank(runs) 逐题遍历检索结果列表，一旦碰到首篇命中文档即以 1.0 / rank 计分并立即 break，最后对全体测试题取算术平均。",
+    "check_numeric_faithfulness(answer_text, source_chunks) 以正则表达式 \\b\\d+(?:\\.\\d+)?%? 同时抽取来源片段与模型回答的数字与百分比，返回 (是否全部佐证, 未佐证数字列表)。",
+    "主程序以 3 条检索测试与美股股息税率问答验证全流程，精准输出 Recall@2: 0.667、MRR: 0.611，并区分忠实回答（True, []）与捏造 15% 的幻觉回答（False, ['15%']）。"
+  ],
+  "pitfalls": [
+    {
+      "title": "陷阱 1：黄金评测集样本偏差，导致离线高分、线上崩坏",
+      "symptom": "CI 显示 Recall@5 达 0.95 且忠实度 100%，但一上线后用户对长尾问题、口语错字与否定句的满意度惨跌。",
+      "root_cause_and_fix": "原因在于测试集只收录工程师自己想象的「干净典型题」，严重欠缺真实用户分布与对抗性边界题。应从线上日志定期抽样脱敏的低满意度与空召回查询回补 Golden Set，并刻意保留至少 20% 的「知识库查无资料（负样本）」测试系统是否会诚实拒答。"
+    },
+    {
+      "title": "陷阱 2：未做数值归一化，导致忠实度检查器误杀正确回答",
+      "symptom": "来源文本写着 '1,000 USD' 或 'ten percent'，模型正确写出 '1000' 或 '10%' 却被规则检查器判定为幻觉拦截。",
+      "root_cause_and_fix": "纯字面正则表达式 \\b\\d+(?:\\.\\d+)?%? 无法自动对齐千分位逗号、英文数字单词与等值小数（10% vs 0.1）。在实战上应于比对前加上数值归一化层（去除千分位逗号、统一单位与浮点转换），并在规则拦截失败时交由轻量语义比对做二次复核。"
+    },
+    {
+      "title": "陷阱 3：把全量千条 LLM 评测塞进每次 PR，拖垮研发节奏",
+      "symptom": "每次提交 Pull Request 都要苦等 15～20 分钟跑完整 RAG 评测，还常因云端 API 限流随机失败，最后开发者干脆跳过 CI。",
+      "root_cause_and_fix": "CI 评测必须分层：PR 闸门只跑 3 分钟内可结束的确定性检索评测（Recall@K / MRR，搭配 GitHub Actions 缓存本地向量或轻量模型）与数字溯源单元测试；全量数千条端到端生成评测与 LLM-as-a-Judge 则定时于每日 Nightly 执行并追踪长期趋势曲线。"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "在 RAG 检索评测中，关于 Recall@K 与 MRR（Mean Reciprocal Rank）的差异，以下哪一项叙述最正确？",
+      "options": [
+        "Recall@K 会把排名第 1 与排名第 5 的命中给予不同权重，而 MRR 完全不管排名位置",
+        "Recall@K 衡量前 K 条是否覆盖标准答案且不区分前 K 条内的顺序；MRR 高度敏感于首个正确文档的排名位置（1 / rank）",
+        "随着 K 变大，Recall@K 一定单调递减",
+        "只要 MRR 够高，就代表系统在多文档证据查询中绝不会漏抓第 2 篇相关文档"
+      ],
+      "answer_index": 1,
+      "explanation": "Recall@K 只计算前 K 条候选命中标准答案的比例，不区分前 K 条内部的先后顺序，且随 K 增加单调不减；MRR 则取首个正确文档排名的倒数平均（1 / rank），对首位排序极度敏感，但不会检视第 2 篇以后的相关文档是否被召回。"
+    },
+    {
+      "question": "若线上监控发现系统的 Recall@5 高达 0.96 且 MRR 为 0.90，但生成忠实度（Faithfulness）检查却频繁出现 False，最合理的工程诊断是什么？",
+      "options": [
+        "分块与向量检索层完全坏掉，应该立刻更换向量数据库",
+        "检索层已精准找回正确文档并置顶，问题出在生成层（模型忽略上下文凭记忆捏造、或来源片段互相矛盾）或忠实度归一化规则误报",
+        "应该把 Recall@K 的 K 从 5 直接调高到 50 来解决",
+        "这代表 Embedding 维度太低，必须改用 4096 维模型"
+      ],
+      "answer_index": 1,
+      "explanation": "分离检索与生成指标的最大价值就在于精准定位病灶：高 Recall 与高 MRR 已证明正确证据就在提示词前排，此时忠实度低迷必定源于生成 Prompt 约束不足、上下文噪声冲突，或是数字格式归一化不足造成的规则误杀。"
+    },
+    {
+      "question": "将 RAG 评测集成进 GitHub Actions CI/CD 时，以下哪一种设计最能兼顾开发速度与质量把关？",
+      "options": [
+        "每次 PR 都跑 10,000 条全量云端 LLM 生成评测，就算等 30 分钟也要等",
+        "PR 阶段执行快速、确定性的检索指标（Recall@K / MRR）与数字忠实度硬门槛（搭配模型缓存），全量 LLM-as-a-Judge 评测改为 Nightly 定时追踪",
+        "完全不放进 CI，改由开发者上线前手动问 AI 两题确认即可",
+        "把温度设为 temperature = 1.0 以测试模型创意度，并设硬门槛阻挡合并"
+      ],
+      "answer_index": 1,
+      "explanation": "分层评测金字塔兼顾快速反馈与完整覆盖：PR 闸门应放快速且 100% 可复现的确定性指标（搭配缓存压在数分钟内），高耗时、具些微变异的语义评分则放在 Nightly 定时任务追踪长期趋势。"
+    }
+  ],
+  "interview_faqs": [
+    {
+      "question": "面试官问：Recall@K 的 K 应该设多少才合理？不同阶段要看同一个 K 吗？",
+      "answer": "不同阶段应对应不同的 K 值。在两阶段检索的「初召回层（BM25 ＋ ANN）」，通常检视 Recall@20 或 Recall@50，确保正确证据有进入重排候选池；在「Cross-Encoder 重排后送进 LLM 前」，则要盯紧 Recall@3、Recall@5 与 MRR，确保有限的 Context 预算里塞入的是最精炼的证据。如果是单一标准答案客服，甚至会额外锁定 Recall@1（Hit@1）门槛。"
+    },
+    {
+      "question": "当 MRR 很高但 Faithfulness 很低时，实战上该按什么顺序排查？",
+      "answer": "依次排查三个环节：第一先抽查 10 条失败样本，确认不是忠实度检查器因格式差异（如 10% vs 0.1、1,000 vs 1000）误杀；第二检查送进 LLM 的上下文片段是否夹杂了过期版本或彼此矛盾的条文；第三强化系统提示词的引用约束（要求每个关键数字必须标注 [source_id]，查无明载则强制拒答）并将 temperature 调低至 0。"
+    },
+    {
+      "question": "如果来源没有直接写出最终数字，而是模型合理算术推导出来的（例如 100 减 20 等于 80），该如何避免被误判成幻觉？",
+      "answer": "高风险领域不应让 LLM 靠纯文字心算再事后猜测是否算对，正确架构是让模型调用确定性计算器或 Python 沙盒工具（Tool Calling），把工具算出的精确数字与算式一并写入可信来源上下文；针对非算术的语义合理推理，则可在 Nightly 或二次复核阶段辅以 LLM-as-a-Judge 检查推理链是否完全受上下文支持。"
+    },
+    {
+      "question": "在 CI/CD 中更新 Embedding 模型或调整分块长度后，如何安全评估这改动是进步还是退化？",
+      "answer": "绝对不能凭感觉判断，必须锁定同一份版本管理的 Golden Eval Set（包含常见查询、长尾专有名词与负样本），在相同评测脚本下对照新旧版本的 Recall@K、MRR 与端到端 Faithfulness 差异，同时把每条从 PASS 变 FAIL 的具体 Query 打印出回归报告。唯有整体关键指标提升且核心合规案例零退化，才放行重建线上向量索引。"
+    }
+  ],
+  "further_reading": [
+    {
+      "title": "Es et al. (EACL 2024) — RAGAS: Automated Evaluation of Retrieval Augmented Generation",
+      "url": "https://arxiv.org/abs/2309.15217",
+      "note": "RAG 自动化评测领域代表论文，系统化定义了 Faithfulness、Answer Relevance 与 Context Relevance 等无参考自动化指标。"
+    },
+    {
+      "title": "Hamel Husain — Your AI Product Needs Evals",
+      "url": "https://hamel.dev/blog/posts/evals/",
+      "note": "业界最受推崇的 AI 评测实战长文，完整示范如何建立领域专属的评估循环、三层评测金字塔与 CI 集成策略。"
+    },
+    {
+      "title": "Anthropic Official Docs — Define Success Criteria and Develop Evaluations",
+      "url": "https://docs.anthropic.com/en/docs/test-and-evaluate/develop-tests",
+      "note": "Anthropic 官方工程指南，详述如何设计明确的成功门槛、结合代码确定性评分与模型裁判构建可靠评测集。"
+    }
+  ],
+  "code_replacements": [
+    [
+      "計算前 K 筆檢索結果命中多少比例的標準答案文件。",
+      "计算前 K 条检索结果命中标准答案文档的比例。"
+    ],
+    [
+      "計算多筆測試題之 MRR（首個正確文件排越前面分數越高）。",
+      "计算多条测试题的 MRR（首个正确文档排越靠前分数越高）。"
+    ],
+    [
+      "檢查模型回答中的所有關鍵數字是否皆有出處（防 RAG 數字幻覺）。",
+      "检查模型回答中的所有关键数字是否均有出处（防 RAG 数字幻觉）。"
+    ],
+    [
+      "忠實回答檢查: ",
+      "忠实回答检查: "
+    ],
+    [
+      " (缺漏=",
+      " (缺失="
+    ],
+    [
+      ") | 幻覺偵測: ",
+      ") | 幻觉检测: "
+    ],
+    [
+      " (未佐證=",
+      " (未佐证="
+    ],
+    [
+      "Book 1 Ch.04 RAG 評估與防幻覺：Recall@K、MRR 與引用溯源（Citation Faithfulness）檢查器",
+      "Book 1 Ch.04 RAG 评测与防幻觉：Recall@K、MRR 与引用溯源（Citation Faithfulness）检查器"
+    ],
+    [
+      "演示無須昂貴外部框架即可建立可重現的 RAG 檢索量化評測與回答忠實度驗證。",
+      "演示无需昂贵外部框架即可构建可复现的 RAG 检索量化评测与回答忠实度验证。"
+    ]
+  ],
+  "output_replacements": [
+    [
+      "忠實回答檢查:",
+      "忠实回答检查:"
+    ],
+    [
+      "(缺漏=",
+      "(缺失="
+    ],
+    [
+      "幻覺偵測:",
+      "幻觉检测:"
+    ],
+    [
+      "(未佐證=",
+      "(未佐证="
+    ]
+  ]
+}

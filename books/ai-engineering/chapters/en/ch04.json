@@ -1,0 +1,292 @@
+{
+  "book_id": "ai-engineering",
+  "chapter_id": "ch04",
+  "locale": "en",
+  "status": "published",
+  "badge": "Ch.04",
+  "part_id": "part2",
+  "title": "RAG Evaluation & Anti-Hallucination: Recall@K, MRR & Faithfulness Checks",
+  "short_title": "RAG Evals & Faithfulness",
+  "summary": "Stop tuning RAG by vibes: build CI-friendly Retrieval metrics (Recall@K, MRR) and Groundedness / Faithfulness verifiers that catch numeric hallucinations before deployment.",
+  "aeo_capsule": "<strong>Production RAG Evaluation</strong> separates retrieval quality from generation fidelity: <code>Recall@K</code> measures how much ground-truth evidence enters the Top-K pool, <code>MRR</code> (Mean Reciprocal Rank) rewards placing the first relevant document at rank 1, and deterministic groundedness checks (<code>check_numeric_faithfulness()</code>) catch unverified numeric hallucinations before answers reach users. This chapter implements a CI-ready verification suite in zero-dependency Python 3.12 (<code>examples/ai_ch04_rag_eval.py</code>).",
+  "reading_minutes": 18,
+  "lastmod": "2026-11-25",
+  "example_file": "examples/ai_ch04_rag_eval.py",
+  "keywords": [
+    "RAG Evaluation",
+    "Recall@K",
+    "Mean Reciprocal Rank MRR",
+    "Faithfulness Verification",
+    "Groundedness Checker",
+    "Golden Eval Set",
+    "RAG CI/CD Regression Gate",
+    "Purple Maple Press"
+  ],
+  "learning_objectives": [
+    "Decouple retrieval evaluation (Recall@K, MRR) from generation faithfulness so you diagnose missing context versus LLM fabrication accurately.",
+    "Implement a deterministic numeric groundedness verifier that flags unverified rates, amounts, and version numbers before deployment.",
+    "Wire a version-controlled Golden Eval Set into GitHub Actions CI/CD to prevent silent regressions whenever chunking, indexes, or prompts change."
+  ],
+  "sections": [
+    {
+      "id": "sec1-recall-mrr",
+      "heading": "4.1 Quantifying Retrieval Quality: Recall@K and MRR in Practice",
+      "paragraphs": [
+        "Many engineering teams iterate on RAG by spot-checking five prompts and shipping whenever the answers 'look better' (vibe-based evaluation). Weeks later, a seemingly harmless tweak to chunk size silently cuts recall in half on critical queries. Turning RAG from a black box into a debuggable system begins by evaluating Retrieval and Generation independently. At the retrieval layer, two lightweight metrics carry most of the diagnostic signal: Recall@K measures what fraction of relevant ground-truth documents appear inside the Top-K results—critical in medical, legal, and compliance domains where missing a single clause is unacceptable—while Mean Reciprocal Rank (MRR) measures how close to rank 1 the first relevant document lands, directly defending against the 'Lost in the Middle' attention decay in long prompts.",
+        "Every reliable evaluation pipeline starts with a version-controlled Golden Eval Set stored in JSONL inside Git, containing each query, its verified relevant document IDs, and reference facts. In recall_at_k(), we guard against empty relevant sets or non-positive K, then compute the intersection ratio between set(retrieved_ids[:k]) and relevant_ids. In mean_reciprocal_rank(), we scan each ranked list and stop at the very first relevant hit to record 1 / rank. Be careful with one subtle mathematical distinction: only truncated MRR@1 equals Recall@1 and Hit@1 when each query has exactly one relevant document. When multiple documents are relevant, Recall@1 is capped at 1 / len(relevant_ids), while full-list MRR still counts hits beyond rank 1 with decaying reciprocal weight.",
+        "Walking through this chapter's verified output—'Ch.04 Recall@2: 0.667 | MRR: 0.611'—shows why tracking both numbers pays off immediately. Across the three runs in eval_runs: query 1 places doc_1 at rank 2 (Recall@2 = 1.0, RR = 1/2 = 0.500); query 2 places doc_3 at rank 1 (Recall@2 = 1.0, RR = 1/1 = 1.000); query 3 places doc_7 at rank 3 (Recall@2 = 0.0, RR = 1/3 ~ 0.333). Averaging yields Recall@2 = (1 + 1 + 0) / 3 = 0.667 and MRR = (0.5 + 1.0 + 0.3333) / 3 = 11 / 18 ~ 0.611. If your production pipeline passes only Top-2 chunks to the LLM, query 3 never sees doc_7—meaning no amount of prompt engineering can fix it until you improve retrieval."
+      ],
+      "bullets": [
+        "Recall@K tracks Top-K coverage of ground-truth documents, protecting multi-evidence and high-compliance workflows from missed hits.",
+        "MRR averages 1 / rank of the first relevant document, directly exposing whether your ranker puts the best evidence at the top.",
+        "On the live 3-query fixture, Recall@2 = 0.667 exposes a 1/3 Top-2 truncation miss while MRR = 0.611 quantifies top-rank loss."
+      ],
+      "callout_title": "Engineering Note: The Recall@K vs. MRR Diagnostic Matrix",
+      "callout_body": "High Recall@10 (e.g., 0.95) paired with low MRR (e.g., 0.35) means your retriever finds the right documents but ranks them too low—tune RRF or add a Cross-Encoder reranker. Low Recall@10 means relevant chunks never entered the candidate pool at all—fix chunking, tokenization, or embeddings before touching rerankers."
+    },
+    {
+      "id": "sec2-faithfulness",
+      "heading": "4.2 Generative Faithfulness: Deterministic Numeric & Entity Groundedness Checks",
+      "paragraphs": [
+        "Even when retrieval achieves stellar Recall@K and MRR, LLMs can still ignore retrieved context or blend in stale pretraining memory to fabricate numbers. In our example, the retrieved tax snippet states a 10% treaty rate and a 30% default Non-Resident Alien (NRA) withholding rate—yet an unguarded model can still hallucinate 'The rate is 15% under default rules.' Numeric hallucinations are catastrophic in finance, pricing, healthcare, and legal assistants, yet they are also the easiest hallucinations to intercept at microsecond speed. Our check_numeric_faithfulness() function uses zero-cost regular expressions to extract every numeric token from both retrieved chunks and the model answer, flagging any orphan numbers absent from the source corpus.",
+        "The regex \\b\\d+(?:\\.\\d+)?%? captures integers, decimals, and percentages (such as 30%, 10%, and 15%) in microseconds. On the grounded response ('Default NRA rate is 30%, treaty rate is 10%.'), the checker returns True with an empty missing list; on the fabricated response ('15%'), it returns False and pinpoints ['15%']. Before deploying this rule in production, handle two common formatting traps: strip thousands separators and currency symbols (otherwise '1,000' splits into '1' and '000'), and normalize written numbers or decimals (such as 'ten percent' or '0.10' versus '10%') prior to set comparison to eliminate false positives.",
+        "When the groundedness checker catches an unverified number, avoid throwing a raw 500 error. Build an 'intercept -> retry -> safe fallback' loop: feed the unverified token list (['15%']) back into a constrained retry prompt instructing the model to cite only explicitly sourced figures with chunk IDs; if the second attempt still fails verification, gracefully return a safe refusal with links to the retrieved source passages. For non-numeric factual claims (people, conditions, causal statements), layer a lightweight LLM-as-a-Judge verifier behind the fast deterministic numeric gate."
+      ],
+      "bullets": [
+        "Deterministic numeric groundedness catches fabricated rates and amounts in microseconds with zero extra LLM API cost.",
+        "Normalize thousands separators (1,000), currency symbols, and written percentages ('ten percent' -> 10%) before set comparison.",
+        "Pair hard numeric interception with a constrained retry and safe fallback, adding LLM-as-a-Judge for non-numeric semantic claims."
+      ],
+      "callout_title": "Pitfall Guide: Valid Arithmetic Derivation vs. Hallucination",
+      "callout_body": "If the source says 'list price $100 with a $20 discount' and the model answers '$80', naive string matching will flag '80' as ungrounded. In calculation-heavy domains, require the LLM to call a deterministic calculator tool (see Ch.05 Tool Calling) and append the tool output to the trusted source set."
+    },
+    {
+      "id": "sec3-ci-integration",
+      "heading": "4.3 CI/CD Integration: Enforcing Golden Eval Thresholds in GitHub Actions",
+      "paragraphs": [
+        "An evaluation script that lives only inside a developer's local notebook goes stale within two weeks. Production teams wrap recall_at_k(), mean_reciprocal_rank(), and check_numeric_faithfulness() into standard Python unittest or pytest suites executed automatically by GitHub Actions on every Pull Request. Whenever a commit alters chunk boundaries, BM25 parameters, stop words, or prompt templates, CI replays the Golden Eval Set: if Recall@5 drops below 0.85, MRR drops below 0.75, or any compliance fixture emits an ungrounded number, the build fails and blocks the merge—eliminating silent regressions.",
+        "The main reason teams abandon CI evals is slow feedback and flaky API costs: running 2,000 full cloud LLM calls on every commit takes 15+ minutes and fails randomly on rate limits. The proven solution is a tiered evaluation pyramid. On every Pull Request (Fast Gate, under 3 minutes), run strictly deterministic offline retrieval metrics (caching model weights in ~/.cache or using precomputed vectors) plus deterministic numeric groundedness tests. Reserve full multi-thousand-item end-to-end generation and LLM-as-a-Judge scoring for scheduled Nightly runs that publish trend dashboards.",
+        "To keep CI trustworthy, enforce strict reproducibility: pin exact embedding model versions and checksums, set temperature = 0 with fixed seeds for evaluation runs, and archive structured JSON metric artifacts (e.g., Recall@2=0.667, MRR=0.611, Faithfulness=100%) on every build. When a PR causes a regression, diffing the per-query output immediately reveals which specific queries dropped from hit to miss, turning code reviews from subjective debates into objective evidence."
+      ],
+      "bullets": [
+        "Package Recall@K, MRR, and numeric faithfulness checks as standard unittest gates that block regressive PR merges.",
+        "Use a tiered eval pyramid: fast deterministic retrieval + numeric checks on every PR (<3 min), full LLM-as-a-Judge runs nightly.",
+        "Pin embedding model versions, enforce temperature = 0, and cache model weights in CI to eliminate flaky builds."
+      ],
+      "callout_title": "Best Practice: Never Gate PRs on High-Variance LLM Judges",
+      "callout_body": "Keep PR merge blockers 100% deterministic and reproducible (Recall@K, MRR, JSON schema validation, numeric groundedness). Track probabilistic semantic judge scores in Nightly regression charts and alert on statistically significant drift."
+    },
+    {
+      "id": "sec4-hallucination-guard",
+      "heading": "4.4 The Hallucination Interception Net: Tiered Production Guardrails",
+      "paragraphs": [
+        "An offline Golden Eval Set catches known failure modes, but real production users inevitably submit typos, edge-case negations, and out-of-domain questions. Complete anti-hallucination engineering therefore connects CI evals with live production observability. By logging retrieval candidates and generation outputs separately in structured telemetry, your dashboard tracks three vital signs continuously: empty-retrieval rate (coverage), top-rank click or citation position (ranking quality), and numeric faithfulness retry rate (groundedness). Any drift immediately reveals whether the root cause is stale documents, degraded ranking, or prompt regression.",
+        "Avoid one-size-fits-all guardrails across every product surface; calibrate enforcement to business risk. Internal knowledge search or casual support bots can treat numeric mismatches as soft warnings accompanied by inline source links to preserve speed and fluidity. High-stakes financial tax calculators (like our dividend withholding example), clinical assistants, and contract-review tools must enforce Fail-Closed guardrails: refuse to answer when retrieval similarity falls below cutoff, and trigger a constrained retry or human handoff on any unverified figure—because saying 'I cannot verify this number' is infinitely safer than stating a wrong rate.",
+        "Finally, close the loop into an Eval Flywheel: periodically anonymize and sample live failure cases (empty retrievals, blocked numeric hallucinations, and user thumbs-down queries) back into your Golden Eval Set. Every production incident becomes a permanent regression test so the same hallucination never ships twice. With Ch.03's hybrid retrieval engine and Ch.04's automated verification harness in place, you now own a production-grade RAG stack—ready for Ch.05's transition into stateful AI Agent architectures."
+      ],
+      "bullets": [
+        "Match guardrail strictness to risk: soft warnings with citations for low-risk QA; Fail-Closed interception for finance, tax, and healthcare.",
+        "Monitor empty-retrieval rate, citation rank, and faithfulness retry rate in production telemetry to spot drift early.",
+        "Operate an Eval Flywheel by feeding anonymized production failures back into the Golden Eval Set as permanent regression tests."
+      ],
+      "callout_title": "Architectural Mindset: RAG Is a Measurable Search + Verification Pipeline",
+      "callout_body": "Turning vague complaints like 'the bot feels worse lately' into 'Golden Set Recall@2 dropped from 0.88 to 0.67 and tax-rate interception jumped 3%' is what separates production AI engineering from fragile demos."
+    }
+  ],
+  "diagram_caption": "Figure 4-1: Dual-Layer RAG Evaluation & Anti-Hallucination Pipeline — Independent Retrieval Metrics (Recall@K / MRR) and Generation Groundedness Feeding the CI Gate",
+  "diagram_svg": "<svg viewBox=\"0 0 760 260\" role=\"img\" aria-label=\"Dual-layer RAG evaluation and anti-hallucination pipeline: Golden Eval Set on the left, parallel Retrieval Recall@2/MRR and Generation numeric faithfulness checks in the middle, and CI/CD regression gate on the right\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"ch04-arr\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"4\" orient=\"auto\"><path d=\"M0,1 L7,4 L0,7 z\" fill=\"#57534e\"/></marker></defs><rect width=\"760\" height=\"260\" rx=\"10\" fill=\"#fdfcf9\" stroke=\"#e7e5e4\"/><text x=\"380\" y=\"26\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"14\" font-weight=\"bold\" fill=\"#1c1917\">Dual-Layer RAG Evaluation &amp; CI Gate (examples/ai_ch04_rag_eval.py)</text><rect x=\"18\" y=\"48\" width=\"172\" height=\"190\" rx=\"8\" fill=\"#ffffff\" stroke=\"#d6d3d1\" stroke-width=\"1.5\"/><text x=\"104\" y=\"70\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"13\" font-weight=\"bold\" fill=\"#15803d\">1. Golden Eval Set</text><rect x=\"30\" y=\"86\" width=\"148\" height=\"44\" rx=\"6\" fill=\"#f5f5f4\" stroke=\"#a8a29e\"/><text x=\"104\" y=\"105\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" fill=\"#1c1917\">Versioned JSONL</text><text x=\"104\" y=\"121\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\" fill=\"#57534e\">Query + Relevant IDs</text><line x1=\"104\" y1=\"130\" x2=\"104\" y2=\"150\" stroke=\"#57534e\" stroke-width=\"1.5\" marker-end=\"url(#ch04-arr)\"/><rect x=\"30\" y=\"152\" width=\"148\" height=\"70\" rx=\"6\" fill=\"#fffbeb\" stroke=\"#b45309\"/><text x=\"104\" y=\"172\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" fill=\"#92400e\">RAG Pipeline Run</text><text x=\"104\" y=\"190\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\" fill=\"#57534e\">Top-K Retrieved IDs</text><text x=\"104\" y=\"206\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\" fill=\"#57534e\">+ Generated Answer</text><rect x=\"228\" y=\"48\" width=\"292\" height=\"190\" rx=\"8\" fill=\"#ffffff\" stroke=\"#d6d3d1\" stroke-width=\"1.5\"/><text x=\"374\" y=\"70\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"13\" font-weight=\"bold\" fill=\"#15803d\">2. Dual-Layer Verification</text><rect x=\"244\" y=\"84\" width=\"260\" height=\"64\" rx=\"6\" fill=\"#f0fdf4\" stroke=\"#15803d\"/><text x=\"374\" y=\"104\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" fill=\"#166534\">Retrieval: Recall@K &amp; MRR</text><text x=\"374\" y=\"121\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10.5\" fill=\"#1c1917\">Recall@2 = 0.667 | MRR = 0.611</text><text x=\"374\" y=\"138\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\" fill=\"#15803d\">Diagnoses Coverage &amp; Top-Rank Quality</text><rect x=\"244\" y=\"160\" width=\"260\" height=\"64\" rx=\"6\" fill=\"#fef2f2\" stroke=\"#b91c1c\"/><text x=\"374\" y=\"180\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" fill=\"#991b1b\">Generation: Numeric Faithfulness</text><text x=\"374\" y=\"197\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#1c1917\">30%/10% -&gt; True | 15% -&gt; False</text><text x=\"374\" y=\"214\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\" fill=\"#b91c1c\">Blocks Ungrounded Numeric Claims</text><path d=\"M190,186 C208,186 210,116 240,116\" fill=\"none\" stroke=\"#57534e\" stroke-width=\"1.6\" marker-end=\"url(#ch04-arr)\"/><path d=\"M190,186 C208,186 210,192 240,192\" fill=\"none\" stroke=\"#57534e\" stroke-width=\"1.6\" marker-end=\"url(#ch04-arr)\"/><rect x=\"558\" y=\"48\" width=\"184\" height=\"190\" rx=\"8\" fill=\"#ffffff\" stroke=\"#d6d3d1\" stroke-width=\"1.5\"/><text x=\"650\" y=\"70\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"13\" font-weight=\"bold\" fill=\"#15803d\">3. CI/CD Gate</text><rect x=\"574\" y=\"88\" width=\"152\" height=\"58\" rx=\"6\" fill=\"#f0fdf4\" stroke=\"#15803d\" stroke-width=\"1.5\"/><text x=\"650\" y=\"111\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" fill=\"#166534\">PASS: Ship PR</text><text x=\"650\" y=\"130\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\" fill=\"#3f3f46\">Merge &amp; Deploy Safely</text><rect x=\"574\" y=\"162\" width=\"152\" height=\"60\" rx=\"6\" fill=\"#fef2f2\" stroke=\"#b91c1c\" stroke-width=\"1.5\"/><text x=\"650\" y=\"184\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" fill=\"#991b1b\">FAIL: Block Merge</text><text x=\"650\" y=\"202\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\" fill=\"#3f3f46\">Feed Case to Eval Flywheel</text><path d=\"M504,116 C532,116 534,117 570,117\" fill=\"none\" stroke=\"#15803d\" stroke-width=\"1.6\" marker-end=\"url(#ch04-arr)\"/><path d=\"M504,192 C532,192 534,192 570,192\" fill=\"none\" stroke=\"#b91c1c\" stroke-width=\"1.6\" marker-end=\"url(#ch04-arr)\"/></svg>",
+  "comparison_table": {
+    "caption": "Table 4-1: Production RAG Evaluation Metrics Matrix (Retrieval Layer vs. Generation Layer)",
+    "headers": [
+      "Metric",
+      "Layer",
+      "Calculation Logic",
+      "Best-Fit Workload",
+      "Key Strengths",
+      "Main Limitations"
+    ],
+    "rows": [
+      [
+        "Recall@K",
+        "Retrieval",
+        "Relevant hits in Top-K / Total relevant docs",
+        "Compliance auditing, medical, multi-doc synthesis",
+        "Ensures vital evidence enters the prompt without rank noise",
+        "Ignores rank ordering inside the Top-K window"
+      ],
+      [
+        "MRR (Mean Reciprocal Rank)",
+        "Retrieval",
+        "Mean of 1 / rank for the first relevant document",
+        "Single-answer QA, FAQ lookup, clause search",
+        "Highly sensitive to placing the best evidence at rank 1",
+        "Ignores all relevant documents after the first hit"
+      ],
+      [
+        "Deterministic Numeric Faithfulness",
+        "Generation",
+        "Check if answer numbers are a subset of source numbers",
+        "Finance, tax rates, pricing, medical dosage, API specs",
+        "Microsecond speed, zero API cost, 100% reproducible",
+        "Requires number format normalization; misses semantic claims"
+      ],
+      [
+        "LLM-as-a-Judge Faithfulness",
+        "Generation",
+        "Independent judge LLM verifies if claims follow from context",
+        "Open-ended summaries, complex reasoning, Nightly evals",
+        "Handles paraphrasing and non-numeric factual claims",
+        "Adds inference cost and variance; requires human calibration"
+      ]
+    ]
+  },
+  "code_walkthrough": [
+    "recall_at_k(retrieved_ids, relevant_ids, k) guards against empty relevant sets or k <= 0, then intersects set(retrieved_ids[:k]) with relevant_ids to compute Top-K coverage.",
+    "mean_reciprocal_rank(runs) iterates over each ranked list, records 1.0 / rank on the very first relevant match and breaks immediately, then averages across all evaluation queries.",
+    "check_numeric_faithfulness(answer_text, source_chunks) extracts integers, decimals, and percentages via \\b\\d+(?:\\.\\d+)?%? and returns (is_grounded, ungrounded_numbers).",
+    "The entrypoint runs three retrieval fixtures plus a US dividend withholding tax check, producing Recall@2: 0.667, MRR: 0.611, True ([]) for the faithful answer, and False (['15%']) for the hallucinated rate."
+  ],
+  "pitfalls": [
+    {
+      "title": "Pitfall 1: Biased Golden Eval Sets Produce High CI Scores and Broken Production UX",
+      "symptom": "CI reports 0.95 Recall@5 and 100% faithfulness, yet live users complain about typos, edge-case negations, and out-of-scope questions.",
+      "root_cause_and_fix": "Synthetic 'happy-path' test sets miss messy real-world queries. Regularly sample anonymized low-confidence and empty-retrieval logs into the Golden Set, and include at least 20% negative (unanswerable) fixtures to verify honest abstention."
+    },
+    {
+      "title": "Pitfall 2: Skipping Numeric Normalization Triggers False-Positive Hallucination Blocks",
+      "symptom": "The source says '1,000 USD' or 'ten percent', and the checker blocks a correct answer containing '1000' or '10%'.",
+      "root_cause_and_fix": "Raw regex \\b\\d+(?:\\.\\d+)?%? does not normalize commas, written words, or equivalent decimals (0.1 vs 10%). Add a lightweight numeric normalization pass before set comparison and escalate flagged edge cases to a lightweight semantic check."
+    },
+    {
+      "title": "Pitfall 3: Running Slow Full-Scale LLM Evals Inside Every Pull Request",
+      "symptom": "Every PR waits 15-20 minutes for thousands of LLM calls and flakes on rate limits, tempting developers to bypass CI checks.",
+      "root_cause_and_fix": "Split evals into a Fast PR Gate (<3 minutes, running deterministic Recall@K, MRR with cached models/vectors, and numeric faithfulness unit tests) plus a Nightly Full Eval schedule for expensive LLM-as-a-Judge suites."
+    }
+  ],
+  "quiz": [
+    {
+      "question": "In RAG retrieval evaluation, which statement accurately compares Recall@K and MRR (Mean Reciprocal Rank)?",
+      "options": [
+        "Recall@K weights rank-1 hits higher than rank-5 hits, whereas MRR ignores rank order completely",
+        "Recall@K measures Top-K coverage without distinguishing order inside Top-K; MRR is highly sensitive to the rank position of the first relevant hit (1 / rank)",
+        "Recall@K strictly decreases as K grows larger",
+        "A high MRR guarantees that multi-document queries never miss a second relevant document"
+      ],
+      "answer_index": 1,
+      "explanation": "Recall@K measures the fraction of relevant documents found anywhere inside Top-K (monotonically non-decreasing with K) without rewarding top rank; MRR averages 1 / rank of the first hit, rewarding top placement but ignoring subsequent relevant documents."
+    },
+    {
+      "question": "If live metrics show Recall@5 = 0.96 and MRR = 0.90, yet Faithfulness checks fail frequently, what is the most likely diagnosis?",
+      "options": [
+        "Chunking and vector indexing are broken and require replacing the vector database immediately",
+        "Retrieval is placing the right evidence at the top; the defect lies in Generation (prompt constraints, conflicting context, or model hallucination) or overly strict faithfulness normalization",
+        "Increase K from 5 to 50 to solve the faithfulness failures",
+        "Switch to a 4096-dimension embedding model"
+      ],
+      "answer_index": 1,
+      "explanation": "Decoupling retrieval and generation metrics isolates the fault immediately: high Recall and MRR prove the right evidence reached the top of the prompt, pointing directly to generation constraints, contradictory snippets, or normalization false positives."
+    },
+    {
+      "question": "What is the best practice for wiring RAG evaluations into GitHub Actions CI/CD without slowing down developers?",
+      "options": [
+        "Run 10,000 full cloud LLM generation evals on every Pull Request regardless of duration",
+        "Run fast, deterministic retrieval metrics (Recall@K / MRR with cached artifacts) and numeric faithfulness hard gates on every PR, and schedule full LLM-as-a-Judge suites nightly",
+        "Skip CI automation and ask the chatbot two manual questions before each release",
+        "Set temperature = 1.0 in CI to test creativity and block merges on random score drops"
+      ],
+      "answer_index": 1,
+      "explanation": "A tiered evaluation pyramid keeps PR checks fast and 100% reproducible while reserving slower, higher-variance semantic judges for Nightly trend monitoring."
+    }
+  ],
+  "interview_faqs": [
+    {
+      "question": "How should you choose K in Recall@K, and should every stage of a RAG pipeline track the same K?",
+      "answer": "Different pipeline stages require different K values. For first-stage recall (BM25 + ANN), track Recall@20 or Recall@50 to verify relevant chunks reach the reranker pool. After Cross-Encoder reranking and right before prompt assembly, track Recall@3, Recall@5, and MRR to make sure the tight LLM context window contains the highest-value evidence. Single-answer FAQ bots often add a strict Recall@1 (Hit@1) gate."
+    },
+    {
+      "question": "When MRR is high but Faithfulness is low, in what order should you debug the pipeline?",
+      "answer": "Debug in three steps: first inspect 10 failing samples to confirm the faithfulness rule is not misfiring on formatting differences (such as 10% vs 0.1 or 1,000 vs 1000); second check whether retrieved chunks contain outdated or contradictory paragraphs; third tighten system prompt grounding rules (require inline [source_id] citations and explicit abstention when facts are missing) and lower temperature to 0."
+    },
+    {
+      "question": "How do you avoid false hallucination flags when the model correctly computes a derived figure not written verbatim in the source (such as 100 minus 20 = 80)?",
+      "answer": "In high-stakes domains, never rely on an LLM doing mental arithmetic and guessing afterward whether it was right. Have the model invoke a deterministic calculator or Python sandbox tool (Tool Calling) and append the verified tool output to the trusted source corpus. For non-arithmetic logical inference, pair deterministic checks with an LLM-as-a-Judge verifier."
+    },
+    {
+      "question": "How do you safely evaluate whether upgrading an Embedding model or changing chunk size actually improved your RAG system?",
+      "answer": "Replay the exact same version-controlled Golden Eval Set (including common queries, long-tail terms, and negative unanswerable queries) against both candidate pipelines. Compare aggregate Recall@K, MRR, and Faithfulness alongside a per-query regression diff showing every query that flipped from pass to fail. Re-index production only when aggregate metrics improve with zero regressions on critical compliance cases."
+    }
+  ],
+  "further_reading": [
+    {
+      "title": "Es et al. (EACL 2024) — RAGAS: Automated Evaluation of Retrieval Augmented Generation",
+      "url": "https://arxiv.org/abs/2309.15217",
+      "note": "Seminal paper introducing reference-free automated RAG evaluation metrics including Faithfulness, Answer Relevance, and Context Relevance."
+    },
+    {
+      "title": "Hamel Husain — Your AI Product Needs Evals",
+      "url": "https://hamel.dev/blog/posts/evals/",
+      "note": "Practical engineering field guide to building domain-specific evaluation loops, tiered eval pyramids, and CI regression gates."
+    },
+    {
+      "title": "Anthropic Official Docs — Define Success Criteria and Develop Evaluations",
+      "url": "https://docs.anthropic.com/en/docs/test-and-evaluate/develop-tests",
+      "note": "Official guide on defining measurable evaluation thresholds and combining deterministic code graders with model-based evaluators."
+    }
+  ],
+  "code_replacements": [
+    [
+      "計算前 K 筆檢索結果命中多少比例的標準答案文件。",
+      "Compute the fraction of ground-truth documents retrieved within the top K results."
+    ],
+    [
+      "計算多筆測試題之 MRR（首個正確文件排越前面分數越高）。",
+      "Compute Mean Reciprocal Rank (MRR) across queries (higher when the first relevant doc ranks earlier)."
+    ],
+    [
+      "檢查模型回答中的所有關鍵數字是否皆有出處（防 RAG 數字幻覺）。",
+      "Verify that every key numeric token in the answer is grounded in source chunks."
+    ],
+    [
+      "忠實回答檢查: ",
+      "Faithful check: "
+    ],
+    [
+      " (缺漏=",
+      " (missing="
+    ],
+    [
+      ") | 幻覺偵測: ",
+      ") | Hallucination check: "
+    ],
+    [
+      " (未佐證=",
+      " (ungrounded="
+    ],
+    [
+      "Book 1 Ch.04 RAG 評估與防幻覺：Recall@K、MRR 與引用溯源（Citation Faithfulness）檢查器",
+      "Book 1 Ch.04 RAG Evaluation & Anti-Hallucination: Recall@K, MRR & Citation Faithfulness Checker"
+    ],
+    [
+      "演示無須昂貴外部框架即可建立可重現的 RAG 檢索量化評測與回答忠實度驗證。",
+      "Zero-dependency Python 3.12 demo of reproducible RAG retrieval metrics and numeric faithfulness verification."
+    ]
+  ],
+  "output_replacements": [
+    [
+      "忠實回答檢查:",
+      "Faithful check:"
+    ],
+    [
+      "(缺漏=",
+      "(missing="
+    ],
+    [
+      "幻覺偵測:",
+      "Hallucination check:"
+    ],
+    [
+      "(未佐證=",
+      "(ungrounded="
+    ]
+  ]
+}
