@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -26,6 +27,15 @@ from affiliate_config import (  # noqa: E402
     AffiliateResource,
     get_chapter_book_recommendation,
     get_learning_resources,
+)
+from book_models import (  # noqa: E402
+    BookChapterData,
+    BookComparisonTable,
+    FB_GROUP_URL,
+    GITHUB_ISSUES_URL,
+    LoadedBook,
+    discover_books,
+    validate_svg_safe,
 )
 from chapter_content import CHAPTERS, ChapterSpec, ComparisonTable  # noqa: E402
 from i18n import (  # noqa: E402
@@ -42,7 +52,7 @@ ADSENSE_CLIENT_ID = f"ca-{ADSENSE_PUBLISHER_ID}"
 ADSENSE_IN_ARTICLE_SLOT_ID = "1673180799"
 ENABLE_MANUAL_AD_SLOTS = False  # Pre-approval SEO/UX hygiene: keep <head> verification script + ads.txt, hide empty dashed <ins> boxes until approved
 INDEXNOW_KEY = "7f4e9c2a8b1d6035e4a92c7f1b8d3e60"
-SITE_LASTMOD = "2026-11-24"
+SITE_LASTMOD = "2026-11-25"
 
 CREATOR_SAME_AS: list[str] = [
     "https://x.com/tbpfs1",
@@ -156,7 +166,7 @@ UI_ZH_TW: dict[str, Any] = {
         "練好「資料結構、演算法、物件導向」就是克服迷惘最紮實的基本功。"
     ),
     "cta_youtube": "▶ 觀看 YouTube 完整教學播放清單",
-    "cta_fb_group": "加入程式新手學習發問區（FB 社團）",
+    "cta_fb_group": "加入程式與 AI 學習發問社團（FB）",
     "cta_github": "GitHub 原始碼儲存庫",
     "cta_chapter_github": "檢視本章 GitHub 原始碼",
     "og_image_alt": "紫楓（AI王紫楓 / @tbpfs1）Python 資料結構與演算法互動教學｜原創看板娘白瀬アイリ（左紅 #fb7185、右藍 #38bdf8）",
@@ -283,7 +293,7 @@ UI_ZH_TW: dict[str, Any] = {
         'Google 及其合作夥伴會使用 Cookie（包含 DART Cookie），根據使用者造訪本站或其他網站的紀錄提供個人化廣告與匿名流量統計。'
         '您可隨時前往 <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google 廣告設定頁面</a> 停用個人化廣告，'
         '或查閱 <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">Google 廣告與隱私權政策</a>。'
-        '本站程式碼複製功能均於瀏覽器本機執行；讀者於章節講義點擊「有幫助／待改進」或提交私密提問時，僅透過加密安全通道傳送匿名回饋內容與 HMAC 雜湊限流識別，絕不公開顯示留言或儲存原始 IP。'
+        '本站程式碼複製、社團發問模板複製與隨堂互動測驗均於瀏覽器本機執行；讀者於章節講義點擊「有幫助／待改進」時，僅透過加密安全通道傳送匿名滿意度回饋與 HMAC 雜湊限流識別，絕不公開顯示留言或儲存原始 IP。'
     ),
     "footer_blog_label": "紫楓技術與創作日誌",
     "footer_github_label": "GitHub 原始碼",
@@ -293,8 +303,52 @@ UI_ZH_TW: dict[str, Any] = {
     "js_err_long": "字數請控制在 400 字以內",
     "js_err_generic": "送出失敗，請稍後再試",
     "js_fb_thanks": "感謝回饋！歡迎選填一句原因幫助我們補強講義。",
+    "js_fb_local_thanks": "感謝回饋！已記錄於你的本機瀏覽器偏好設定。",
     "js_fb_note_ok": "✓ 已收到你的回饋，謝謝！",
-    "js_ask_ok": "✓ 已收到提問！站長整理後會補充至本章 FAQ。",
+    "qa_heading": "讀到這章有疑問或實作卡關？到紫楓 FB 學習社團發問",
+    "qa_body": "為維持閱讀版面純淨、杜絕廣告留言，本章所有技術發問、除錯求助與程式碼健檢統一集中於官方 Facebook 學習社團。點擊下方按鈕可先一鍵複製標準發問模板，再貼到社團發文，紫楓與社群夥伴能更快幫你定位問題！",
+    "qa_copy_btn": "一鍵複製發問模板",
+    "qa_copy_done": "已複製發問模板 ✓",
+    "qa_primary_cta": "前往 FB 學習社團發問 ↗",
+    "qa_template_tpl": "【紫楓出版社提問】{chapter_label}\n- 參考頁面：{page_url}\n- 我看到的現象／錯誤訊息：\n- 我已嘗試過的方法：",
+    "press_section_heading": "紫楓出版社（Purple Maple Press）技術專書書架",
+    "press_section_intro": "比照歐萊禮（O'Reilly）與 MIT Press 教科書標準打造的免費開源技術專書系列：每章皆附實機驗證 Python 3.12 零依賴程式碼、原生架構圖解、生產環境踩坑指南與互動測驗。",
+    "book_status_serializing": "連載中（已上線 {pub}/{total} 章）",
+    "book_status_complete": "全書完結（共 7 章）",
+    "book_cta_open": "翻開專書目錄 →",
+    "book_cta_start_ch01": "從 Ch.01 開始讀",
+    "book_cta_read_dsa": "前往下方 7 章完整目錄 ↓",
+    "dsa_book_title": "Python 3.12 資料結構與演算法精解",
+    "dsa_book_desc": "涵蓋陣列與鏈結串列、堆疊佇列、二分搜尋與 Merge Sort、雜湊表與 BST、圖論 BFS/DFS、動態規劃與二元堆積 Top-K，結合 31 集 IT 鐵人賽實戰影片與 LeetCode 經典白板題。",
+    "dsa_cover_alt": "紫楓出版社《Python 3.12 資料結構與演算法精解》典藏書封插畫：白瀬アイリ（艾莉 / Aily）解析樹與演算法圖譜（左眼緋紅 #fb7185、右眼蒼藍 #38bdf8）",
+    "book_back_to_shelf": "← 返回紫楓出版社總書架",
+    "book_back_to_toc": "← 返回《{book_title}》全書目錄",
+    "book_toc_heading": "全書章節目錄（4 大篇 × 10 章）",
+    "book_sidebar_summary": "全書章節目錄（點擊展開／收合）",
+    "book_coming_soon": "撰寫中",
+    "book_published_badge": "已上線",
+    "book_reading_time_tpl": "預估精讀時間：約 {mins} 分鐘",
+    "book_audience_label": "適合讀者：",
+    "book_objectives_heading": "讀完本章你將徹底掌握",
+    "book_diagram_heading": "核心系統架構與資料流圖解",
+    "book_walkthrough_heading": "關鍵程式碼設計拆解",
+    "book_pitfalls_heading": "生產環境實戰踩坑與防禦對策",
+    "book_pitfall_symptom_label": "線上故障現象：",
+    "book_pitfall_fix_label": "底層根因與工程對策：",
+    "book_quiz_heading": "隨堂互動測驗（即時檢核觀念）",
+    "book_quiz_intro": "點選選項即可於本機瀏覽器即時對答案與查看深度解析，不傳送任何個人資料。",
+    "book_quiz_correct": "✓ 答對了！",
+    "book_quiz_wrong": "✗ 再想一下 — ",
+    "book_faq_heading": "AI 工程師技術面試高頻問答（FAQ）",
+    "book_further_heading": "延伸閱讀與官方原始論文／文件",
+    "book_pager_home": "返回本書目錄",
+    "book_nav_objectives": "學習目標",
+    "book_nav_diagram": "架構圖解",
+    "book_nav_comparison": "方案對照表",
+    "book_nav_code": "Python 實作",
+    "book_nav_pitfalls": "生產踩坑",
+    "book_nav_quiz": "隨堂測驗",
+    "book_nav_faq": "面試 FAQ",
 }
 
 
@@ -708,35 +762,47 @@ def render_interview_section(ch: ChapterSpec, ui: dict[str, Any]) -> str:
       </section>"""
 
 
-def render_feedback_section(ch: ChapterSpec, ui: dict[str, Any]) -> str:
-    """Render minimalist helpfulness vote + collapsed private Q&A box on standalone chapter pages."""
+def render_feedback_section(
+    chapter_slug: str,
+    chapter_label: str,
+    page_url: str,
+    locale_code: str,
+    ui: dict[str, Any],
+    *,
+    fb_mode: str = "api",
+) -> str:
+    """Render minimalist helpfulness vote + FB Group (zh-TW/zh-CN) or GitHub Issues (en) Q&A card."""
+    note_form_html = ""
+    if fb_mode == "api":
+        note_form_html = f"""
+        <form class="fb-note" id="fbNoteForm" hidden autocomplete="off">
+          <input id="fbNoteInput" maxlength="200" placeholder="{html.escape(ui["fb_note_placeholder"])}" aria-label="{html.escape(ui["fb_note_aria"])}">
+          <input class="fb-hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <button class="btn btn-secondary" id="fbNoteBtn" type="submit">{html.escape(ui["fb_note_submit"])}</button>
+        </form>"""
+
+    qa_url = GITHUB_ISSUES_URL if locale_code == "en" else FB_GROUP_URL
+    qa_template = ui["qa_template_tpl"].format(chapter_label=chapter_label, page_url=page_url)
+
     return f"""
-      <section class="chapter-card fb-box" id="fbBox" data-chapter="{html.escape(ch.id)}">
+      <section class="chapter-card fb-box" id="fbBox" data-chapter="{html.escape(chapter_slug)}" data-fb-mode="{html.escape(fb_mode)}">
         <div class="fb-row">
           <span class="fb-q">{html.escape(ui["fb_question"])}</span>
           <div class="fb-btns">
             <button class="fb-chip" type="button" data-fb-vote="1" aria-pressed="false">{html.escape(ui["fb_yes"])}</button>
             <button class="fb-chip" type="button" data-fb-vote="-1" aria-pressed="false">{html.escape(ui["fb_no"])}</button>
           </div>
-        </div>
-        <form class="fb-note" id="fbNoteForm" hidden autocomplete="off">
-          <input id="fbNoteInput" maxlength="200" placeholder="{html.escape(ui["fb_note_placeholder"])}" aria-label="{html.escape(ui["fb_note_aria"])}">
-          <input class="fb-hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-          <button class="btn btn-secondary" id="fbNoteBtn" type="submit">{html.escape(ui["fb_note_submit"])}</button>
-        </form>
+        </div>{note_form_html}
         <p class="fb-status" id="fbStatus" aria-live="polite"></p>
-        <details class="fb-ask">
-          <summary>{html.escape(ui["fb_ask_summary"])}</summary>
-          <p class="fb-ask-sub">{html.escape(ui["fb_ask_sub"])}</p>
-          <form class="fb-ask-form" id="askForm" autocomplete="off">
-            <textarea id="askInput" rows="3" maxlength="400" placeholder="{html.escape(ui["fb_ask_placeholder"])}" aria-label="{html.escape(ui["fb_ask_aria"])}" required></textarea>
-            <input class="fb-hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-            <div class="fb-ask-foot">
-              <button class="btn btn-primary" id="askSendBtn" type="submit">{html.escape(ui["fb_ask_submit"])}</button>
-              <span class="fb-status" id="askStatus" aria-live="polite"></span>
-            </div>
-          </form>
-        </details>
+        <div class="community-qa-card" id="communityQa">
+          <h3>{html.escape(ui["qa_heading"])}</h3>
+          <p class="community-qa-desc">{html.escape(ui["qa_body"])}</p>
+          <div class="community-qa-actions">
+            <a class="btn btn-primary" href="{qa_url}" target="_blank" rel="noopener noreferrer" data-qa-link="1">{html.escape(ui["qa_primary_cta"])}</a>
+            <button class="btn btn-secondary qa-copy-btn" type="button" data-qa-template="{html.escape(qa_template, quote=True)}">{html.escape(ui["qa_copy_btn"])}</button>
+          </div>
+          <p class="fb-status" id="qaCopyStatus" aria-live="polite"></p>
+        </div>
       </section>"""
 
 
@@ -1779,17 +1845,388 @@ def render_shared_styles() -> str:
       gap: 1rem;
       flex-wrap: wrap;
     }
+
+    /* Purple Maple Press Bookshelf, Book TOC, Diagrams, Quiz & Community Q&A */
+    .read-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: rgba(28, 25, 23, 0.08);
+      z-index: 90;
+      pointer-events: none;
+    }
+    .read-progress-bar {
+      width: 100%;
+      height: 100%;
+      background: var(--accent);
+      transform-origin: left center;
+      transform: scaleX(0);
+      will-change: transform;
+    }
+    .bookshelf-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top: 3px solid var(--border-strong);
+      border-radius: 4px;
+      padding: 1.8rem 2rem;
+      margin-bottom: 2.1rem;
+    }
+    .bookshelf-section h2 {
+      margin: 0 0 0.55rem;
+      font-family: var(--font-serif);
+      font-size: 1.45rem;
+      color: var(--text);
+    }
+    .bookshelf-intro {
+      margin: 0 0 1.35rem;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+    .bookshelf-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.35rem;
+    }
+    .book-card {
+      display: grid;
+      grid-template-columns: 148px minmax(0, 1fr);
+      gap: 1.15rem;
+      align-items: start;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent-strong);
+      border-radius: 4px;
+      padding: 1.1rem;
+    }
+    .book-cover-img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 12px rgba(28, 25, 23, 0.1);
+      background: var(--surface);
+    }
+    .book-card-body h3 {
+      margin: 0.45rem 0 0.4rem;
+      font-family: var(--font-serif);
+      font-size: 1.08rem;
+      line-height: 1.35;
+      color: var(--text);
+    }
+    .book-card-body p {
+      margin: 0 0 0.85rem;
+      font-size: 0.87rem;
+      color: var(--muted);
+      line-height: 1.62;
+    }
+    .book-card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .book-card-actions .btn {
+      padding: 0.46rem 0.82rem;
+      min-height: 38px;
+      font-size: 0.82rem;
+    }
+    .book-pill {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.14rem 0.52rem;
+      border-radius: 3px;
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      border: 1px solid #b6e0c5;
+    }
+    .book-hero-grid {
+      display: grid;
+      grid-template-columns: 200px minmax(0, 1fr);
+      gap: 1.6rem;
+      align-items: start;
+    }
+    .book-part-card {
+      margin-bottom: 1.4rem;
+    }
+    .book-part-card h3 {
+      margin: 0 0 0.75rem;
+      font-family: var(--font-serif);
+      font-size: 1.14rem;
+      color: var(--accent-strong);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.4rem;
+    }
+    .book-toc-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 0.65rem;
+    }
+    .book-toc-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.85rem;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.85rem 1rem;
+    }
+    .book-toc-row.is-live {
+      border-left: 4px solid var(--accent-strong);
+      background: var(--surface);
+    }
+    .book-toc-row.is-soon {
+      opacity: 0.84;
+    }
+    .book-toc-main strong {
+      display: block;
+      font-size: 0.96rem;
+      color: var(--text);
+      margin-bottom: 0.2rem;
+    }
+    .book-toc-main p {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .status-live, .status-soon {
+      flex-shrink: 0;
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      font-weight: 600;
+      padding: 0.16rem 0.55rem;
+      border-radius: 3px;
+    }
+    .status-live {
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      border: 1px solid #b6e0c5;
+    }
+    .status-soon {
+      background: #ece8de;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .book-container {
+      max-width: 1120px;
+    }
+    .book-layout {
+      display: grid;
+      grid-template-columns: 245px minmax(0, 1fr);
+      gap: 1.65rem;
+      align-items: start;
+    }
+    .book-toc-drawer {
+      position: sticky;
+      top: 1.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top: 2.5px solid var(--border-strong);
+      border-radius: 4px;
+      padding: 0.9rem 1rem;
+      font-size: 0.84rem;
+    }
+    .book-toc-drawer summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.65rem;
+    }
+    .book-sidebar-part {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin: 0.75rem 0 0.3rem;
+      font-weight: 600;
+    }
+    .book-sidebar-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 0.28rem;
+    }
+    .book-sidebar-link, .book-sidebar-soon {
+      display: block;
+      padding: 0.32rem 0.5rem;
+      border-radius: 3px;
+      line-height: 1.38;
+    }
+    .book-sidebar-link {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .book-sidebar-link[aria-current="page"] {
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      border-left: 3px solid var(--accent-strong);
+    }
+    .book-sidebar-soon {
+      color: var(--muted);
+      opacity: 0.72;
+    }
+    .book-prose {
+      max-width: 74ch;
+    }
+    .book-prose p {
+      margin: 0 0 1.05rem;
+      color: var(--text);
+      font-size: 0.99rem;
+      line-height: 1.84;
+    }
+    .book-prose ul {
+      margin: 0 0 1.1rem;
+      padding-left: 1.3rem;
+      color: var(--muted);
+    }
+    .book-prose li {
+      margin-bottom: 0.42rem;
+    }
+    .editorial-callout {
+      background: var(--accent-soft);
+      border: 1px solid #b6e0c5;
+      border-left: 4px solid var(--accent-strong);
+      border-radius: 4px;
+      padding: 0.95rem 1.15rem;
+      margin: 1rem 0 1.35rem;
+    }
+    .editorial-callout strong {
+      display: block;
+      color: var(--accent-strong);
+      margin-bottom: 0.3rem;
+    }
+    .diagram-figure {
+      margin: 1rem 0 0;
+      background: #fdfcf9;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1rem;
+      text-align: center;
+    }
+    .diagram-figure svg {
+      width: 100%;
+      max-width: 760px;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+    .diagram-figure figcaption {
+      margin-top: 0.65rem;
+      font-size: 0.84rem;
+      color: var(--muted);
+    }
+    .quiz-card {
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: 4px;
+      background: var(--surface-alt);
+      padding: 1rem 1.15rem;
+      margin: 0 0 1.1rem;
+    }
+    .quiz-card legend {
+      font-weight: 700;
+      color: var(--text);
+      padding: 0 0.35rem;
+      font-size: 0.96rem;
+    }
+    .quiz-options {
+      display: grid;
+      gap: 0.5rem;
+      margin-top: 0.6rem;
+    }
+    .quiz-opt {
+      text-align: left;
+      padding: 0.62rem 0.9rem;
+      min-height: 44px;
+      border-radius: 4px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+    .quiz-opt:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .quiz-opt.is-correct {
+      background: var(--accent-soft);
+      border-color: var(--accent-strong);
+      color: var(--accent-strong);
+      font-weight: 700;
+    }
+    .quiz-opt.is-wrong {
+      background: #fef2f2;
+      border-color: var(--danger);
+      color: #991b1b;
+    }
+    .quiz-feedback {
+      margin: 0.7rem 0 0;
+      font-size: 0.89rem;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.65rem 0.85rem;
+    }
+    .community-qa-card {
+      margin-top: 1.1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .community-qa-card h3 {
+      margin: 0 0 0.45rem;
+      font-family: var(--font-serif);
+      font-size: 1.06rem;
+      color: var(--text);
+    }
+    .community-qa-desc {
+      margin: 0 0 0.85rem;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+    .community-qa-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+    }
+    @media (max-width: 960px) {
+      .bookshelf-grid {
+        grid-template-columns: 1fr;
+      }
+      .book-layout {
+        grid-template-columns: 1fr;
+      }
+      .book-toc-drawer {
+        position: static;
+      }
+    }
     @media (max-width: 640px) {
       .container {
         padding: 1.5rem 1rem 3rem;
       }
       header.hero,
       .chapter-card,
-      .study-guide-card {
+      .study-guide-card,
+      .bookshelf-section {
         padding: 1.35rem 1.15rem;
       }
-      .fb-note input,
-      .fb-ask-form textarea {
+      .book-card,
+      .book-hero-grid {
+        grid-template-columns: 1fr;
+      }
+      .book-cover-img {
+        max-width: 200px;
+      }
+      .fb-note input {
         font-size: 16px;
       }
     }
@@ -1891,14 +2328,35 @@ def render_copy_script(ui: dict[str, Any], *, include_cms_fetch: bool) -> str:
             "errLong": ui["js_err_long"],
             "errGeneric": ui["js_err_generic"],
             "fbThanks": ui["js_fb_thanks"],
+            "fbLocalThanks": ui["js_fb_local_thanks"],
             "fbNoteOk": ui["js_fb_note_ok"],
-            "askOk": ui["js_ask_ok"],
+            "qaCopyDone": ui["qa_copy_done"],
+            "quizCorrect": ui["book_quiz_correct"],
+            "quizWrong": ui["book_quiz_wrong"],
         },
         ensure_ascii=False,
     )
 
     return f"""  <script>
     var UI_MSG = {js_msg};
+    function copyTextSafe(text, onDone) {{
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {{
+        navigator.clipboard.writeText(text).then(onDone).catch(function () {{ fallbackCopy(text, onDone); }});
+      }} else {{
+        fallbackCopy(text, onDone);
+      }}
+    }}
+    function fallbackCopy(text, onDone) {{
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try {{ document.execCommand('copy'); if (onDone) onDone(); }} catch (_) {{}}
+      document.body.removeChild(ta);
+    }}
     function bindCopyButtons() {{
       document.querySelectorAll('.copy-btn').forEach(function (btn) {{
         if (btn.getAttribute('data-bound') === '1') return;
@@ -1906,8 +2364,8 @@ def render_copy_script(ui: dict[str, Any], *, include_cms_fetch: bool) -> str:
         btn.addEventListener('click', function () {{
           var targetId = btn.getAttribute('data-target');
           var codeEl = document.getElementById(targetId);
-          if (!codeEl || !navigator.clipboard) return;
-          navigator.clipboard.writeText(codeEl.textContent || '').then(function () {{
+          if (!codeEl) return;
+          copyTextSafe(codeEl.textContent || '', function () {{
             var orig = btn.textContent;
             btn.textContent = UI_MSG.copied;
             if (typeof window.gtag === 'function') {{
@@ -1919,6 +2377,62 @@ def render_copy_script(ui: dict[str, Any], *, include_cms_fetch: bool) -> str:
       }});
     }}
     bindCopyButtons();
+    document.querySelectorAll('.qa-copy-btn').forEach(function (btn) {{
+      btn.addEventListener('click', function () {{
+        var tpl = btn.getAttribute('data-qa-template') || '';
+        var st = document.getElementById('qaCopyStatus');
+        copyTextSafe(tpl, function () {{
+          var orig = btn.textContent;
+          btn.textContent = UI_MSG.qaCopyDone;
+          if (st) st.textContent = UI_MSG.qaCopyDone;
+          if (typeof window.gtag === 'function') {{
+            window.gtag('event', 'copy_qa_template', {{ site: 'learn' }});
+          }}
+          setTimeout(function () {{ btn.textContent = orig; }}, 2000);
+        }});
+      }});
+    }});
+    document.querySelectorAll('[data-qa-link]').forEach(function (el) {{
+      el.addEventListener('click', function () {{
+        if (typeof window.gtag === 'function') {{
+          window.gtag('event', 'community_qa_click', {{ site: 'learn', href: el.getAttribute('href') || '' }});
+        }}
+      }});
+    }});
+    document.querySelectorAll('.quiz-opt').forEach(function (btn) {{
+      btn.addEventListener('click', function () {{
+        var card = btn.closest('.quiz-card');
+        if (!card) return;
+        var chosen = Number(btn.getAttribute('data-opt-idx'));
+        var correct = Number(card.getAttribute('data-answer-idx'));
+        card.querySelectorAll('.quiz-opt').forEach(function (b) {{
+          var idx = Number(b.getAttribute('data-opt-idx'));
+          b.classList.remove('is-correct', 'is-wrong');
+          b.setAttribute('aria-pressed', idx === chosen ? 'true' : 'false');
+          if (idx === correct) b.classList.add('is-correct');
+          else if (idx === chosen) b.classList.add('is-wrong');
+        }});
+        var fb = card.querySelector('.quiz-feedback');
+        if (fb) {{
+          var prefix = chosen === correct ? UI_MSG.quizCorrect : UI_MSG.quizWrong;
+          var exp = fb.getAttribute('data-explanation') || '';
+          fb.textContent = prefix + ' ' + exp;
+          fb.hidden = false;
+        }}
+      }});
+    }});
+    (function () {{
+      var bar = document.getElementById('readProgressBar');
+      if (!bar) return;
+      function updateBar() {{
+        var doc = document.documentElement;
+        var maxScroll = Math.max(1, doc.scrollHeight - window.innerHeight);
+        var ratio = Math.min(1, Math.max(0, window.scrollY / maxScroll));
+        bar.style.transform = 'scaleX(' + ratio.toFixed(4) + ')';
+      }}
+      window.addEventListener('scroll', updateBar, {{ passive: true }});
+      updateBar();
+    }})();
     document.querySelectorAll('[data-affiliate-partner]').forEach(function (el) {{
       el.addEventListener('click', function () {{
         if (typeof window.gtag === 'function') {{
@@ -1932,8 +2446,9 @@ def render_copy_script(ui: dict[str, Any], *, include_cms_fetch: bool) -> str:
     }});
     (function () {{
       var fbBox = document.getElementById('fbBox');
-      if (!fbBox || typeof fetch !== 'function') return;
+      if (!fbBox) return;
       var chId = fbBox.getAttribute('data-chapter') || '';
+      var fbMode = fbBox.getAttribute('data-fb-mode') || 'api';
       var apiBase = 'https://ai-purplemaple.com';
       var fbKey = 'learnFb:' + chId;
       var curVote = 0;
@@ -1988,6 +2503,16 @@ def render_copy_script(ui: dict[str, Any], *, include_cms_fetch: bool) -> str:
         btn.addEventListener('click', function () {{
           var vote = Number(btn.getAttribute('data-fb-vote'));
           var prevVote = curVote;
+          if (fbMode === 'local') {{
+            setFbBtns(vote);
+            try {{ localStorage.setItem(fbKey, String(vote)); }} catch (_) {{}}
+            setStatus(fbStatus, UI_MSG.fbLocalThanks, false);
+            if (typeof window.gtag === 'function') {{
+              window.gtag('event', 'chapter_feedback', {{ chapter_id: chId, vote: vote }});
+            }}
+            return;
+          }}
+          if (typeof fetch !== 'function') return;
           if (vote === prevVote) {{
             if (noteForm) noteForm.hidden = false;
             setStatus(fbStatus, UI_MSG.fbThanks, false);
@@ -2010,7 +2535,7 @@ def render_copy_script(ui: dict[str, Any], *, include_cms_fetch: bool) -> str:
         }});
       }});
 
-      if (noteForm) {{
+      if (noteForm && fbMode === 'api' && typeof fetch === 'function') {{
         noteForm.addEventListener('submit', function (e) {{
           e.preventDefault();
           var inp = document.getElementById('fbNoteInput');
@@ -2033,40 +2558,684 @@ def render_copy_script(ui: dict[str, Any], *, include_cms_fetch: bool) -> str:
             }});
         }});
       }}
-
-      var askForm = document.getElementById('askForm');
-      if (askForm) {{
-        askForm.addEventListener('submit', function (e) {{
-          e.preventDefault();
-          var inp = document.getElementById('askInput');
-          var askStatus = document.getElementById('askStatus');
-          var askBtn = document.getElementById('askSendBtn');
-          var text = ((inp && inp.value) || '').trim().replace(/\\s+/g, ' ');
-          if (text.length < 5) {{
-            setStatus(askStatus, errText('too_short'), true);
-            if (inp) inp.focus();
-            return;
-          }}
-          var hp = askForm.elements.website ? askForm.elements.website.value : '';
-          if (askBtn) askBtn.disabled = true;
-          postJson('/api/v1/learn-question', {{ slug: chId, text: text, website: hp }})
-            .then(function () {{
-              if (inp) inp.value = '';
-              setStatus(askStatus, UI_MSG.askOk, false);
-              if (typeof window.gtag === 'function') {{
-                window.gtag('event', 'chapter_question', {{ chapter_id: chId }});
-              }}
-            }})
-            .catch(function (err) {{
-              setStatus(askStatus, errText(err && err.message), true);
-            }})
-            .finally(function () {{
-              if (askBtn) askBtn.disabled = false;
-            }});
-        }});
-      }}
     }})();{cms_block}
   </script>"""
+
+
+def render_bookshelf_section(
+    locale_code: str,
+    ui: dict[str, Any],
+    books: Sequence[LoadedBook],
+) -> str:
+    """Render the Purple Maple Press 2-book showcase shelf on localized index pages."""
+    cards: list[str] = []
+    for book in books:
+        meta = book.meta
+        pub_count = len(book.published_chapter_ids)
+        total_count = len(book.outlines)
+        book_href = page_root_href(locale_code, f"books/{meta.id}/")
+        status_label = ui["book_status_serializing"].format(pub=pub_count, total=total_count)
+        ch01_cta = ""
+        if book.published_chapter_ids:
+            first_id = book.published_chapter_ids[0]
+            first_href = page_root_href(locale_code, f"books/{meta.id}/{first_id}.html")
+            ch01_cta = f'<a class="btn btn-secondary" href="{first_href}">{html.escape(ui["book_cta_start_ch01"])}</a>'
+        cards.append(
+            f"""          <article class="book-card">
+            <a href="{book_href}">
+              <img class="book-cover-img" src="{html.escape(meta.cover_image)}" width="{meta.cover_width}" height="{meta.cover_height}" loading="lazy" decoding="async" alt="{html.escape(meta.cover_alt[locale_code])}">
+            </a>
+            <div class="book-card-body">
+              <span class="book-pill">{html.escape(status_label)}</span>
+              <h3><a href="{book_href}" style="color: inherit;">{html.escape(meta.title[locale_code])}</a></h3>
+              <p>{html.escape(meta.description[locale_code])}</p>
+              <div class="book-card-actions">
+                <a class="btn btn-primary" href="{book_href}">{html.escape(ui["book_cta_open"])}</a>
+                {ch01_cta}
+              </div>
+            </div>
+          </article>"""
+        )
+
+    # Book 2 (Classic Python 3.12 DSA Handbook — hosted directly on this index page)
+    cards.append(
+        f"""          <article class="book-card">
+            <a href="#ch01">
+              <img class="book-cover-img" src="/assets/cover-python-dsa.webp" width="640" height="857" loading="lazy" decoding="async" alt="{html.escape(ui["dsa_cover_alt"])}">
+            </a>
+            <div class="book-card-body">
+              <span class="book-pill">{html.escape(ui["book_status_complete"])}</span>
+              <h3><a href="#ch01" style="color: inherit;">{html.escape(ui["dsa_book_title"])}</a></h3>
+              <p>{html.escape(ui["dsa_book_desc"])}</p>
+              <div class="book-card-actions">
+                <a class="btn btn-primary" href="#ch01">{html.escape(ui["book_cta_read_dsa"])}</a>
+              </div>
+            </div>
+          </article>"""
+    )
+
+    cards_joined = "\n".join(cards)
+    return f"""
+      <section class="bookshelf-section" id="purple-maple-press">
+        <h2>{html.escape(ui["press_section_heading"])}</h2>
+        <p class="bookshelf-intro">{html.escape(ui["press_section_intro"])}</p>
+        <div class="bookshelf-grid">
+{cards_joined}
+        </div>
+      </section>"""
+
+
+def build_book_index_json_ld(
+    locale_code: str,
+    ui: dict[str, Any],
+    book: LoadedBook,
+) -> dict[str, Any]:
+    """Build Schema.org @graph (Book + Course + BreadcrumbList) for a Press book cover page."""
+    loc = LOCALE_BY_CODE[locale_code]
+    meta = book.meta
+    home_url = page_canonical_url(locale_code, None)
+    book_url = page_canonical_url(locale_code, f"books/{meta.id}/")
+    cover_abs = f"https://learn.ai-purplemaple.com{meta.cover_image}"
+    creator_ref = {
+        "@type": "Person",
+        "@id": "https://ai-purplemaple.com/#creator",
+        "name": ui["brand_creator_name"],
+        "url": "https://ai-purplemaple.com/",
+        "sameAs": CREATOR_SAME_AS,
+    }
+    has_part = [
+        {
+            "@type": "TechArticle",
+            "@id": f"{page_canonical_url(locale_code, f'books/{meta.id}/{cid}.html')}#article",
+            "headline": f"{book.chapters_by_locale[locale_code][cid].badge} {book.chapters_by_locale[locale_code][cid].title}",
+            "url": page_canonical_url(locale_code, f"books/{meta.id}/{cid}.html"),
+        }
+        for cid in book.published_chapter_ids
+    ]
+    return {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "Book",
+                "@id": f"{book_url}#book",
+                "name": meta.title[locale_code],
+                "alternateName": meta.subtitle[locale_code],
+                "description": meta.description[locale_code],
+                "url": book_url,
+                "image": cover_abs,
+                "inLanguage": loc.jsonld_lang,
+                "bookFormat": "https://schema.org/EBook",
+                "isAccessibleForFree": True,
+                "datePublished": meta.date_published,
+                "dateModified": meta.date_modified,
+                "author": creator_ref,
+                "publisher": creator_ref,
+                "hasPart": has_part,
+            },
+            {
+                "@type": "Course",
+                "@id": f"{book_url}#course",
+                "name": meta.title[locale_code],
+                "description": meta.description[locale_code],
+                "url": book_url,
+                "inLanguage": loc.jsonld_lang,
+                "provider": creator_ref,
+                "speakable": {
+                    "@type": "SpeakableSpecification",
+                    "cssSelector": [".aeo-capsule", "header.hero h1"],
+                },
+                "hasPart": has_part,
+            },
+            {
+                "@type": "BreadcrumbList",
+                "@id": f"{book_url}#breadcrumb",
+                "itemListElement": [
+                    {"@type": "ListItem", "position": 1, "name": ui["breadcrumb_home_name"], "item": home_url},
+                    {"@type": "ListItem", "position": 2, "name": meta.title[locale_code], "item": book_url},
+                ],
+            },
+        ],
+    }
+
+
+def build_book_chapter_json_ld(
+    locale_code: str,
+    ui: dict[str, Any],
+    book: LoadedBook,
+    ch: BookChapterData,
+) -> dict[str, Any]:
+    """Build Schema.org @graph (TechArticle + FAQPage + 3-level BreadcrumbList) for a book chapter."""
+    loc = LOCALE_BY_CODE[locale_code]
+    meta = book.meta
+    home_url = page_canonical_url(locale_code, None)
+    book_url = page_canonical_url(locale_code, f"books/{meta.id}/")
+    ch_url = page_canonical_url(locale_code, f"books/{meta.id}/{ch.chapter_id}.html")
+    cover_abs = f"https://learn.ai-purplemaple.com{meta.cover_image}"
+    creator_ref = {
+        "@type": "Person",
+        "@id": "https://ai-purplemaple.com/#creator",
+        "name": ui["brand_creator_name"],
+        "url": "https://ai-purplemaple.com/",
+        "sameAs": CREATOR_SAME_AS,
+    }
+    return {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "TechArticle",
+                "@id": f"{ch_url}#article",
+                "headline": f"{ch.badge} {ch.title}",
+                "description": ch.summary,
+                "url": ch_url,
+                "mainEntityOfPage": ch_url,
+                "image": cover_abs,
+                "datePublished": meta.date_published,
+                "dateModified": ch.lastmod,
+                "inLanguage": loc.jsonld_lang,
+                "dependencies": "Python 3.12",
+                "keywords": ", ".join(ch.keywords),
+                "author": creator_ref,
+                "publisher": creator_ref,
+                "speakable": {
+                    "@type": "SpeakableSpecification",
+                    "cssSelector": [".aeo-capsule", "header.hero h1"],
+                },
+                "isPartOf": {
+                    "@type": "Book",
+                    "@id": f"{book_url}#book",
+                    "name": meta.title[locale_code],
+                    "url": book_url,
+                },
+            },
+            {
+                "@type": "FAQPage",
+                "@id": f"{ch_url}#faq",
+                "mainEntity": [
+                    {
+                        "@type": "Question",
+                        "name": faq.question,
+                        "acceptedAnswer": {"@type": "Answer", "text": faq.answer},
+                    }
+                    for faq in ch.interview_faqs
+                ],
+            },
+            {
+                "@type": "BreadcrumbList",
+                "@id": f"{ch_url}#breadcrumb",
+                "itemListElement": [
+                    {"@type": "ListItem", "position": 1, "name": ui["breadcrumb_home_name"], "item": home_url},
+                    {"@type": "ListItem", "position": 2, "name": meta.title[locale_code], "item": book_url},
+                    {"@type": "ListItem", "position": 3, "name": f"{ch.badge} {ch.title}", "item": ch_url},
+                ],
+            },
+        ],
+    }
+
+
+def render_book_index_page(
+    locale_code: str,
+    ui: dict[str, Any],
+    book: LoadedBook,
+) -> str:
+    """Render a localized Press Book Cover & Part I-IV TOC page."""
+    loc = LOCALE_BY_CODE[locale_code]
+    meta = book.meta
+    rel_path = f"books/{meta.id}/"
+    book_url = page_canonical_url(locale_code, rel_path)
+    home_href = page_root_href(locale_code, None)
+    cover_abs = f"https://learn.ai-purplemaple.com{meta.cover_image}"
+    page_title = f"{meta.title[locale_code]} | {ui['site_name']}"
+    pub_set = set(book.published_chapter_ids)
+    status_label = ui["book_status_serializing"].format(pub=len(pub_set), total=len(book.outlines))
+
+    start_cta = ""
+    if book.published_chapter_ids:
+        first_id = book.published_chapter_ids[0]
+        start_cta = f'<a class="btn btn-primary" href="{first_id}.html">{html.escape(ui["book_cta_start_ch01"])}</a>'
+    fb_cta = (
+        f'\n            <a class="btn btn-secondary" href="{FB_GROUP_URL}" target="_blank" rel="noopener noreferrer">{html.escape(ui["cta_fb_group"])}</a>'
+        if locale_code in ("zh-TW", "zh-CN")
+        else ""
+    )
+
+    parts_html: list[str] = []
+    for part in meta.parts:
+        rows: list[str] = []
+        for cid in part.chapters:
+            outline = book.outlines_by_id[cid]
+            title_txt = outline.title[locale_code]
+            summary_txt = outline.summary[locale_code]
+            if cid in pub_set:
+                rows.append(
+                    f"""          <li class="book-toc-row is-live">
+            <div class="book-toc-main">
+              <strong><a href="{cid}.html">{html.escape(outline.badge)} {html.escape(title_txt)}</a></strong>
+              <p>{html.escape(summary_txt)}</p>
+            </div>
+            <span class="status-live">{html.escape(ui["book_published_badge"])}</span>
+          </li>"""
+                )
+            else:
+                rows.append(
+                    f"""          <li class="book-toc-row is-soon">
+            <div class="book-toc-main">
+              <strong><span>{html.escape(outline.badge)} {html.escape(title_txt)}</span></strong>
+              <p>{html.escape(summary_txt)}</p>
+            </div>
+            <span class="status-soon">{html.escape(ui["book_coming_soon"])}</span>
+          </li>"""
+                )
+        rows_joined = "\n".join(rows)
+        parts_html.append(
+            f"""        <section class="book-part-card" id="{html.escape(part.id)}">
+          <h3>{html.escape(part.title[locale_code])}</h3>
+          <ol class="book-toc-list">
+{rows_joined}
+          </ol>
+        </section>"""
+        )
+
+    parts_joined = "\n".join(parts_html)
+    json_ld_block = render_json_ld_script(build_book_index_json_ld(locale_code, ui, book))
+
+    return f"""<!DOCTYPE html>
+<html lang="{loc.html_lang}">
+<head>
+  <script async src="https://www.googletagmanager.com/gtm.js?id=GTM-WNSFQT5V"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){{dataLayer.push(arguments);}}
+    gtag('js', new Date());
+    gtag('config', 'G-B24GXZ32MW');
+  </script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B24GXZ32MW"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{html.escape(page_title)}</title>
+  <meta name="description" content="{html.escape(meta.description[locale_code])}">
+  <meta name="keywords" content="{html.escape(meta.keywords[locale_code])}">
+  <meta name="google-adsense-account" content="{ADSENSE_CLIENT_ID}">
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADSENSE_CLIENT_ID}" crossorigin="anonymous"></script>
+  <link rel="canonical" href="{book_url}">
+{render_hreflang_and_og_locale(locale_code, rel_path)}
+  <meta property="og:site_name" content="{html.escape(ui["site_name"])}">
+  <meta property="og:url" content="{book_url}">
+  <meta property="og:type" content="book">
+  <meta property="og:title" content="{html.escape(meta.title[locale_code])}">
+  <meta property="og:description" content="{html.escape(meta.description[locale_code])}">
+  <meta property="og:image" content="{cover_abs}">
+  <meta property="og:image:alt" content="{html.escape(meta.cover_alt[locale_code])}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@tbpfs1">
+  <meta name="twitter:creator" content="@tbpfs1">
+  <meta name="twitter:title" content="{html.escape(meta.title[locale_code])}">
+  <meta name="twitter:description" content="{html.escape(meta.description[locale_code])}">
+  <meta name="twitter:image" content="{cover_abs}">
+  <meta name="twitter:image:alt" content="{html.escape(meta.cover_alt[locale_code])}">
+{json_ld_block}
+{render_shared_styles()}
+</head>
+<body>
+  <div class="container">
+    <header class="hero">
+{render_lang_switcher(locale_code, rel_path)}
+      <div class="book-hero-grid">
+        <img class="book-cover-img" src="{html.escape(meta.cover_image)}" width="{meta.cover_width}" height="{meta.cover_height}" decoding="async" alt="{html.escape(meta.cover_alt[locale_code])}">
+        <div>
+          <span class="hero-eyebrow">{html.escape(meta.eyebrow[locale_code])}</span>
+          <h1>{html.escape(meta.title[locale_code])}</h1>
+          <p><a href="{home_href}">{html.escape(ui["book_back_to_shelf"])}</a></p>
+          <p>{html.escape(meta.subtitle[locale_code])}</p>
+          <p><strong>{html.escape(ui["book_audience_label"])}</strong>{html.escape(meta.audience[locale_code])}</p>
+          <div class="cta-group">
+            {start_cta}
+            <span class="book-pill" style="align-self: center;">{html.escape(status_label)}</span>{fb_cta}
+            <a class="btn btn-secondary" href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer">{html.escape(ui["cta_github"])}</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <p class="aeo-capsule">{meta.aeo_capsule[locale_code]}</p>
+      <section class="chapter-card" id="book-toc">
+        <h2>{html.escape(ui["book_toc_heading"])}</h2>
+{parts_joined}
+      </section>
+    </main>
+
+{render_footer(ui)}
+  </div>
+{render_copy_script(ui, include_cms_fetch=False)}
+</body>
+</html>
+"""
+
+
+def render_book_chapter_page(
+    locale_code: str,
+    ui: dict[str, Any],
+    book: LoadedBook,
+    ch: BookChapterData,
+    source_code: str,
+    live_output: str,
+) -> str:
+    """Render a standalone Purple Maple Press chapter page with sticky TOC, SVG diagram, code & quiz."""
+    svg_errors = validate_svg_safe(ch.diagram_svg)
+    if svg_errors:
+        raise ValueError(f"Invalid diagram_svg in {book.meta.id}/{locale_code}/{ch.chapter_id}: {svg_errors}")
+
+    loc = LOCALE_BY_CODE[locale_code]
+    meta = book.meta
+    rel_path = f"books/{meta.id}/{ch.chapter_id}.html"
+    ch_url = page_canonical_url(locale_code, rel_path)
+    book_href = page_root_href(locale_code, f"books/{meta.id}/")
+    cover_abs = f"https://learn.ai-purplemaple.com{meta.cover_image}"
+    page_title = f"{ch.badge} {ch.title} | {meta.title[locale_code]}"
+    pub_ids = book.published_chapter_ids
+    pub_set = set(pub_ids)
+    pub_idx = pub_ids.index(ch.chapter_id)
+
+    # Single shared responsive Book TOC drawer (1 DOM instance -> keeps DOM lean)
+    sidebar_parts: list[str] = []
+    for part in meta.parts:
+        items: list[str] = []
+        for cid in part.chapters:
+            outline = book.outlines_by_id[cid]
+            label = f"{outline.badge} {outline.short_title[locale_code]}"
+            if cid in pub_set:
+                cur = ' aria-current="page"' if cid == ch.chapter_id else ""
+                items.append(f'            <li><a class="book-sidebar-link" href="{cid}.html"{cur}>{html.escape(label)}</a></li>')
+            else:
+                items.append(
+                    f'            <li><span class="book-sidebar-soon">{html.escape(label)} ({html.escape(ui["book_coming_soon"])})</span></li>'
+                )
+        items_joined = "\n".join(items)
+        sidebar_parts.append(
+            f"""          <div class="book-sidebar-part">{html.escape(part.title[locale_code])}</div>
+          <ul class="book-sidebar-list">
+{items_joined}
+          </ul>"""
+        )
+
+    objectives_html = "\n".join(f"            <li>{html.escape(item)}</li>" for item in ch.learning_objectives)
+
+    prose_sections_html: list[str] = []
+    for sec in ch.sections:
+        paras = "\n".join(f"          <p>{html.escape(p)}</p>" for p in sec.paragraphs)
+        bullets = ""
+        if sec.bullets:
+            li_items = "\n".join(f"            <li>{html.escape(b)}</li>" for b in sec.bullets)
+            bullets = f"\n          <ul>\n{li_items}\n          </ul>"
+        callout = ""
+        if sec.callout_title and sec.callout_body:
+            callout = (
+                f'\n          <aside class="editorial-callout">'
+                f"<strong>{html.escape(sec.callout_title)}</strong>"
+                f"<p style=\"margin:0;\">{html.escape(sec.callout_body)}</p>"
+                f"</aside>"
+            )
+        prose_sections_html.append(
+            f"""      <section class="chapter-card" id="{html.escape(sec.id)}">
+        <h2>{html.escape(sec.heading)}</h2>
+        <div class="book-prose">
+{paras}{bullets}{callout}
+        </div>
+      </section>"""
+        )
+
+    # Comparison table
+    tbl = ch.comparison_table
+    tbl_ths = "".join(f'<th scope="col">{html.escape(h)}</th>' for h in tbl.headers)
+    tbl_rows = "\n".join(
+        "              <tr>"
+        + f'<th scope="row">{html.escape(row[0])}</th>'
+        + "".join(f"<td>{html.escape(c)}</td>" for c in row[1:])
+        + "</tr>"
+        for row in tbl.rows
+    )
+
+    walkthrough_items = "\n".join(f"            <li>{html.escape(w)}</li>" for w in ch.code_walkthrough)
+    pitfalls_html = "\n".join(
+        f"""          <div class="pitfall-card">
+            <h3>{html.escape(pf.title)}</h3>
+            <p class="pitfall-symptom"><strong>{html.escape(ui["book_pitfall_symptom_label"])}</strong>{html.escape(pf.symptom)}</p>
+            <p class="pitfall-fix"><strong>{html.escape(ui["book_pitfall_fix_label"])}</strong>{html.escape(pf.root_cause_and_fix)}</p>
+          </div>"""
+        for pf in ch.pitfalls
+    )
+
+    quiz_blocks: list[str] = []
+    for q_idx, q in enumerate(ch.quiz, start=1):
+        opts = "\n".join(
+            f'            <button class="quiz-opt" type="button" data-opt-idx="{o_idx}" aria-pressed="false">{html.escape(opt)}</button>'
+            for o_idx, opt in enumerate(q.options)
+        )
+        quiz_blocks.append(
+            f"""        <fieldset class="quiz-card" data-answer-idx="{q.answer_index}">
+          <legend>Q{q_idx}. {html.escape(q.question)}</legend>
+          <div class="quiz-options">
+{opts}
+          </div>
+          <p class="quiz-feedback" data-explanation="{html.escape(q.explanation, quote=True)}" hidden aria-live="polite"></p>
+        </fieldset>"""
+        )
+
+    faq_items = "\n".join(
+        f"""          <details class="faq-item"{' open' if idx == 0 else ''}>
+            <summary>Q. {html.escape(faq.question)}</summary>
+            <div class="faq-answer"><p>{html.escape(faq.answer)}</p></div>
+          </details>"""
+        for idx, faq in enumerate(ch.interview_faqs)
+    )
+
+    further_block = ""
+    if ch.further_reading:
+        fr_items = "\n".join(
+            f'          <li><a href="{html.escape(item.url)}" target="_blank" rel="noopener noreferrer">{html.escape(item.title)}</a> — {html.escape(item.note)}</li>'
+            for item in ch.further_reading
+        )
+        further_block = f"""
+      <section class="chapter-card" id="further-reading">
+        <h2>{html.escape(ui["book_further_heading"])}</h2>
+        <div class="book-prose">
+          <ul>
+{fr_items}
+          </ul>
+        </div>
+      </section>"""
+
+    # Pager skips unpublished chapters
+    prev_cid = pub_ids[pub_idx - 1] if pub_idx > 0 else None
+    next_cid = pub_ids[pub_idx + 1] if pub_idx + 1 < len(pub_ids) else None
+    if prev_cid:
+        po = book.outlines_by_id[prev_cid]
+        prev_html = f'<a class="pager-link" href="{prev_cid}.html">{html.escape(ui["pager_prev_tpl"].format(badge=po.badge, short=po.short_title[locale_code]))}</a>'
+    else:
+        prev_html = f'<span class="pager-link pager-disabled">{html.escape(ui["pager_first"])}</span>'
+    if next_cid:
+        no = book.outlines_by_id[next_cid]
+        next_html = f'<a class="pager-link" href="{next_cid}.html">{html.escape(ui["pager_next_tpl"].format(badge=no.badge, short=no.short_title[locale_code]))}</a>'
+    else:
+        next_html = f'<span class="pager-link pager-disabled">{html.escape(ui["pager_last"])}</span>'
+
+    json_ld_block = render_json_ld_script(build_book_chapter_json_ld(locale_code, ui, book, ch))
+    toolbar_lbl = html.escape(ui["code_toolbar_tpl"].format(file=ch.example_file))
+    reading_lbl = html.escape(ui["book_reading_time_tpl"].format(mins=ch.reading_minutes))
+    back_book_lbl = html.escape(ui["book_back_to_toc"].format(book_title=meta.title[locale_code]))
+    sidebar_joined = "\n".join(sidebar_parts)
+    prose_sections_joined = "\n".join(prose_sections_html)
+    quiz_blocks_joined = "\n".join(quiz_blocks)
+
+    return f"""<!DOCTYPE html>
+<html lang="{loc.html_lang}">
+<head>
+  <script async src="https://www.googletagmanager.com/gtm.js?id=GTM-WNSFQT5V"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){{dataLayer.push(arguments);}}
+    gtag('js', new Date());
+    gtag('config', 'G-B24GXZ32MW');
+  </script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B24GXZ32MW"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{html.escape(page_title)}</title>
+  <meta name="description" content="{html.escape(ch.summary)}">
+  <meta name="keywords" content="{html.escape(', '.join(ch.keywords))}">
+  <meta name="google-adsense-account" content="{ADSENSE_CLIENT_ID}">
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADSENSE_CLIENT_ID}" crossorigin="anonymous"></script>
+  <link rel="canonical" href="{ch_url}">
+{render_hreflang_and_og_locale(locale_code, rel_path)}
+  <meta property="og:site_name" content="{html.escape(ui["site_name"])}">
+  <meta property="og:url" content="{ch_url}">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="{html.escape(page_title)}">
+  <meta property="og:description" content="{html.escape(ch.summary)}">
+  <meta property="og:image" content="{cover_abs}">
+  <meta property="og:image:alt" content="{html.escape(meta.cover_alt[locale_code])}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@tbpfs1">
+  <meta name="twitter:creator" content="@tbpfs1">
+  <meta name="twitter:title" content="{html.escape(page_title)}">
+  <meta name="twitter:description" content="{html.escape(ch.summary)}">
+  <meta name="twitter:image" content="{cover_abs}">
+  <meta name="twitter:image:alt" content="{html.escape(meta.cover_alt[locale_code])}">
+{json_ld_block}
+{render_shared_styles()}
+</head>
+<body>
+  <div class="read-progress" aria-hidden="true"><div class="read-progress-bar" id="readProgressBar"></div></div>
+  <div class="container book-container">
+    <header class="hero">
+{render_lang_switcher(locale_code, rel_path)}
+      <span class="hero-eyebrow">{html.escape(meta.eyebrow[locale_code])} · {html.escape(ch.badge)}</span>
+      <h1>{html.escape(ch.badge + " " + ch.title)}</h1>
+      <p><a href="{book_href}">{back_book_lbl}</a></p>
+      <p>{html.escape(ch.summary)}</p>
+      <div class="meta-bar" style="margin-top: 1rem; margin-bottom: 0;">
+        <span>{reading_lbl}</span>
+        <span><strong>{html.escape(ui["label_source_path"])}</strong><code>{html.escape(ch.example_file)}</code></span>
+      </div>
+      <div class="cta-group">
+        <a class="btn btn-primary" href="#code-section">{html.escape(ui["book_nav_code"])}</a>
+        <a class="btn btn-secondary" href="https://github.com/tbpfs/learning/blob/main/{html.escape(ch.example_file)}" target="_blank" rel="noopener noreferrer">{html.escape(ui["cta_chapter_github"])}</a>
+        <a class="btn btn-secondary" href="{book_href}">{html.escape(ui["book_pager_home"])}</a>
+      </div>
+    </header>
+
+    <nav class="section-subnav" aria-label="{html.escape(ui["section_subnav_aria"])}">
+      <span>{html.escape(ui["section_subnav_label"])}</span>
+      <a href="#objectives">{html.escape(ui["book_nav_objectives"])}</a>
+      <a href="#diagram">{html.escape(ui["book_nav_diagram"])}</a>
+      <a href="#comparison">{html.escape(ui["book_nav_comparison"])}</a>
+      <a href="#code-section">{html.escape(ui["book_nav_code"])}</a>
+      <a href="#pitfalls">{html.escape(ui["book_nav_pitfalls"])}</a>
+      <a href="#quiz">{html.escape(ui["book_nav_quiz"])}</a>
+      <a href="#interview-faq">{html.escape(ui["book_nav_faq"])}</a>
+    </nav>
+
+    <div class="book-layout">
+      <aside aria-label="{html.escape(ui["book_toc_heading"])}">
+        <details class="book-toc-drawer" open>
+          <summary>{html.escape(ui["book_sidebar_summary"])}</summary>
+{sidebar_joined}
+        </details>
+      </aside>
+
+      <main>
+        <article class="chapter-card" id="objectives">
+          <h2>{html.escape(ui["book_objectives_heading"])}</h2>
+          <p class="aeo-capsule">{ch.aeo_capsule}</p>
+          <div class="concepts-box">
+            <ul>
+{objectives_html}
+            </ul>
+          </div>
+        </article>
+
+{prose_sections_joined}
+
+        <section class="chapter-card" id="diagram">
+          <h2>{html.escape(ui["book_diagram_heading"])}</h2>
+          <figure class="diagram-figure">
+            {ch.diagram_svg}
+            <figcaption>{html.escape(ch.diagram_caption)}</figcaption>
+          </figure>
+        </section>
+
+        <section class="chapter-card" id="comparison">
+          <h2>{html.escape(ui["comparison_heading"])}</h2>
+          <div class="table-responsive">
+            <table class="comparison-table">
+              <caption>{html.escape(tbl.caption)}</caption>
+              <thead>
+                <tr>{tbl_ths}</tr>
+              </thead>
+              <tbody>
+{tbl_rows}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="chapter-card" id="code-section">
+          <h2>{html.escape(ui["code_section_heading"])}</h2>
+          <div class="concepts-box">
+            <h3>{html.escape(ui["book_walkthrough_heading"])}</h3>
+            <ul>
+{walkthrough_items}
+            </ul>
+          </div>
+          <div class="code-container">
+            <div class="code-toolbar">
+              <span>{toolbar_lbl}</span>
+              <button type="button" class="copy-btn" data-target="code-{html.escape(meta.id)}-{html.escape(ch.chapter_id)}">{html.escape(ui["copy_btn"])}</button>
+            </div>
+            <pre><code id="code-{html.escape(meta.id)}-{html.escape(ch.chapter_id)}">{html.escape(source_code)}</code></pre>
+          </div>
+          <div class="output-box">
+            <div class="output-label">{html.escape(ui["output_label_chapter"])}</div>
+            <pre class="output-pre">{html.escape(live_output)}</pre>
+          </div>
+        </section>
+
+        <section class="chapter-card" id="pitfalls">
+          <h2>{html.escape(ui["book_pitfalls_heading"])}</h2>
+          <div class="pitfall-list">
+{pitfalls_html}
+          </div>
+        </section>
+
+        <section class="chapter-card" id="quiz">
+          <h2>{html.escape(ui["book_quiz_heading"])}</h2>
+          <p class="chapter-summary">{html.escape(ui["book_quiz_intro"])}</p>
+{quiz_blocks_joined}
+        </section>
+
+        <section class="chapter-card" id="interview-faq">
+          <h2>{html.escape(ui["book_faq_heading"])}</h2>
+          <div class="faq-list">
+{faq_items}
+          </div>
+        </section>{further_block}
+
+{render_feedback_section(f"{meta.id}-{ch.chapter_id}", f"{meta.title[locale_code]} — {ch.badge} {ch.title}", ch_url, locale_code, ui, fb_mode="local")}
+
+        <nav class="chapter-pager" aria-label="{html.escape(ui["pager_aria"])}">
+          {prev_html}
+          <a class="pager-link pager-home" href="{book_href}">{html.escape(ui["book_pager_home"])}</a>
+          {next_html}
+        </nav>
+      </main>
+    </div>
+
+{render_footer(ui)}
+  </div>
+{render_copy_script(ui, include_cms_fetch=False)}
+</body>
+</html>
+"""
 
 
 def render_index_page(
@@ -2076,6 +3245,7 @@ def render_index_page(
     exec_cache: dict[str, tuple[str, str]],
     chapter_titles_short: str,
     resources: Sequence[AffiliateResource],
+    books: Sequence[LoadedBook] = (),
 ) -> str:
     """Render a localized Course Hub index.html (summary cards + progressive disclosure code sandbox)."""
     loc = LOCALE_BY_CODE[locale_code]
@@ -2153,11 +3323,12 @@ def render_index_page(
     json_ld_block = render_json_ld_script(build_index_json_ld(locale_code, ui, chapters, chapter_titles_short))
 
     fb_cta = (
-        f'\n        <a class="btn btn-secondary" href="https://www.facebook.com/groups/914880435669061" target="_blank" rel="noopener noreferrer">{html.escape(ui["cta_fb_group"])}</a>'
-        if locale_code == "zh-TW"
+        f'\n        <a class="btn btn-secondary" href="{FB_GROUP_URL}" target="_blank" rel="noopener noreferrer">{html.escape(ui["cta_fb_group"])}</a>'
+        if locale_code in ("zh-TW", "zh-CN")
         else ""
     )
     cms_div = '\n      <div id="cms-tutorials-container"></div>' if locale_code == "zh-TW" else ""
+    bookshelf_html = render_bookshelf_section(locale_code, ui, books) if books else ""
     study_items_html = "\n".join(
         f"            <li><strong>{html.escape(label)}</strong>{body_html}</li>"
         for label, body_html in ui["study_guide_items"]
@@ -2221,7 +3392,7 @@ def render_index_page(
     </nav>
 
     <main>
-      <p class="aeo-capsule">{ui["index_aeo_capsule"]}</p>{cms_div}
+      <p class="aeo-capsule">{ui["index_aeo_capsule"]}</p>{bookshelf_html}{cms_div}
 {all_cards}
 {render_affiliate_resources_section(locale_code, ui, resources)}
 
@@ -2411,7 +3582,7 @@ def render_chapter_page(
 
 {render_chapter_book_callout(locale_code, ch, ui, chapter_resources=chapter_resources)}
 
-{render_feedback_section(ch, ui)}
+{render_feedback_section(ch.id, f"{ch.badge} {ch.title}", ch_url, locale_code, ui, fb_mode="api")}
 
 {render_ad_slot(f"{ch.badge} Footer Ad Slot")}
 
@@ -2470,6 +3641,17 @@ def build_site(out_dir: Path) -> Path:
         "# LLMs Full Code & Output Corpus: https://learn.ai-purplemaple.com/llms-full.txt\n",
         encoding="utf-8",
     )
+
+    assets_src = REPO_ROOT / "assets"
+    if assets_src.is_dir():
+        shutil.copytree(assets_src, out_dir / "assets", dirs_exist_ok=True)
+
+    books = discover_books(REPO_ROOT / "books")
+    book_exec_cache: dict[tuple[str, str], tuple[str, str]] = {}
+    for book in books:
+        for cid in book.published_chapter_ids:
+            ch_tw = book.chapters_by_locale["zh-TW"][cid]
+            book_exec_cache[(book.meta.id, cid)] = run_example(ch_tw.example_file)
 
     raw_exec_cache = execute_all_examples(CHAPTERS)
 
@@ -2538,6 +3720,7 @@ def build_site(out_dir: Path) -> Path:
         raw_exec_cache,
         chapter_titles_short_tw,
         get_learning_resources(),
+        books=books,
     )
     index_path = out_dir / "index.html"
     index_path.write_text(index_html, encoding="utf-8")
@@ -2552,6 +3735,43 @@ def build_site(out_dir: Path) -> Path:
             CHAPTER_YOUTUBE_VIDEOS,
         )
         (out_dir / f"{ch.id}.html").write_text(ch_html, encoding="utf-8")
+
+    # 1b. Build Purple Maple Press books (zh-TW)
+    for book in books:
+        bdir = out_dir / "books" / book.meta.id
+        bdir.mkdir(parents=True, exist_ok=True)
+        book_url = page_canonical_url("zh-TW", f"books/{book.meta.id}/")
+        sitemap_urls.append((book_url, "0.95", book.meta.date_modified))
+        llms_chapter_lines.append(
+            f"- [專書：{book.meta.title['zh-TW']}]({book_url}): 已上線 {len(book.published_chapter_ids)}/{len(book.outlines)} 章"
+        )
+        (bdir / "index.html").write_text(render_book_index_page("zh-TW", UI_ZH_TW, book), encoding="utf-8")
+        for cid in book.published_chapter_ids:
+            bch = book.chapters_by_locale["zh-TW"][cid]
+            bsrc, bout = book_exec_cache[(book.meta.id, cid)]
+            bch_url = page_canonical_url("zh-TW", f"books/{book.meta.id}/{cid}.html")
+            sitemap_urls.append((bch_url, "0.9", bch.lastmod))
+            llms_chapter_lines.append(
+                f"- [{book.meta.title['zh-TW']} — {bch.badge} {bch.title}]({bch_url}): `{bch.example_file}`"
+            )
+            (bdir / f"{cid}.html").write_text(
+                render_book_chapter_page("zh-TW", UI_ZH_TW, book, bch, bsrc, bout),
+                encoding="utf-8",
+            )
+            sec_md = "\n\n".join(
+                f"### {sec.heading}\n" + "\n\n".join(sec.paragraphs) for sec in bch.sections
+            )
+            llms_full_sections.append(
+                f"## {book.meta.title['zh-TW']} — {bch.badge} {bch.title}\n"
+                f"- **獨立章節網址**：{bch_url}\n"
+                f"- **原始碼路徑**：`{bch.example_file}`\n"
+                f"- **章節摘要**：{bch.summary}\n\n"
+                f"{sec_md}\n\n"
+                f"### Python 3.12 完整範例原始碼 (`{bch.example_file}`)\n"
+                f"```python\n{bsrc.rstrip()}\n```\n\n"
+                f"### CI 實機執行輸出驗證\n"
+                f"```text\n{bout}\n```"
+            )
 
     # 2. Build Simplified Chinese (/zh-cn/) and International English (/en/)
     for loc_code in ("zh-CN", "en"):
@@ -2586,6 +3806,7 @@ def build_site(out_dir: Path) -> Path:
             loc_exec_cache,
             loc_titles_short,
             loc_resources,
+            books=books,
         )
         (loc_dir / "index.html").write_text(loc_index_html, encoding="utf-8")
 
@@ -2607,7 +3828,38 @@ def build_site(out_dir: Path) -> Path:
             )
             (loc_dir / f"{ch.id}.html").write_text(loc_ch_html, encoding="utf-8")
 
-    # Keep Google XML sitemap strictly for canonical HTML pages (24 URLs across 3 locales)
+        # 2b. Build Purple Maple Press books for zh-CN / en
+        for book in books:
+            bdir = loc_dir / "books" / book.meta.id
+            bdir.mkdir(parents=True, exist_ok=True)
+            book_url = page_canonical_url(loc_code, f"books/{book.meta.id}/")
+            sitemap_urls.append((book_url, "0.95", book.meta.date_modified))
+            target_llms_list.append(
+                f"- [{book.meta.title[loc_code]}]({book_url}): {len(book.published_chapter_ids)}/{len(book.outlines)}"
+            )
+            (bdir / "index.html").write_text(render_book_index_page(loc_code, loc_ui, book), encoding="utf-8")
+            for cid in book.published_chapter_ids:
+                bch = book.chapters_by_locale[loc_code][cid]
+                raw_src, raw_out = book_exec_cache[(book.meta.id, cid)]
+                loc_src, loc_out = localize_code_and_output(
+                    loc_code,
+                    cid,
+                    raw_src,
+                    raw_out,
+                    {cid: bch.code_replacements},
+                    {cid: bch.output_replacements},
+                )
+                bch_url = page_canonical_url(loc_code, f"books/{book.meta.id}/{cid}.html")
+                sitemap_urls.append((bch_url, "0.9", bch.lastmod))
+                target_llms_list.append(
+                    f"- [{book.meta.title[loc_code]} — {bch.badge} {bch.title}]({bch_url}): `{bch.example_file}`"
+                )
+                (bdir / f"{cid}.html").write_text(
+                    render_book_chapter_page(loc_code, loc_ui, book, bch, loc_src, loc_out),
+                    encoding="utf-8",
+                )
+
+    total_pages = len(sitemap_urls)
     sitemap_entries = "\n".join(
         f"  <url>\n    <loc>{loc_url}</loc>\n    <lastmod>{lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>{prio}</priority>\n  </url>"
         for loc_url, prio, lastmod in sitemap_urls
@@ -2633,11 +3885,12 @@ def build_site(out_dir: Path) -> Path:
         "- [WaifuScan（二次元角色六維性格數據百科）](https://waifu.ai-purplemaple.com/): 四語系 612 頁角色評測百科、5 題靈魂波長診斷與 16 位原創角色互動\n"
         "- [AI王紫楓官方部落格](https://blog.ai-purplemaple.com/)\n"
         "- [YouTube 完整教學播放清單](https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd)\n"
+        f"- [紫楓程式與 AI 學習發問社團（Facebook）]({FB_GROUP_URL})\n"
         "- 官方社群矩陣：X (https://x.com/tbpfs1)｜YouTube (https://www.youtube.com/@PurpleMapleAI)｜YouTube Music (https://music.youtube.com/channel/UCcEBgbHV3rcee1FfgfHXprw)｜Spotify (https://open.spotify.com/artist/7D7CLJoxLhsMos8xI9H2kx)｜Apple Music (https://music.apple.com/tw/artist/purple-maple/1745241062)｜Pixiv (https://www.pixiv.net/users/3503246)｜Facebook 紫楓 (https://www.facebook.com/tbpfs2/)｜Facebook 艾莉 (https://www.facebook.com/AilyAIAI/)｜TikTok (https://www.tiktok.com/@ai_purple_maple)｜LinkedIn (https://www.linkedin.com/in/tbpfs2/)\n"
     )
     (out_dir / "llms.txt").write_text(
-        "# 紫楓 (AI王紫楓 / Purple Maple) — Python 資料結構、演算法與物件導向互動教學\n\n"
-        f"> 紫楓（AI王紫楓 / Purple Maple / @tbpfs1）開設之 Python 3.12 資料結構、演算法與物件導向基本功鐵人賽教學網站（`https://learn.ai-purplemaple.com/`），提供繁體中文（`/`）、簡體中文（`/zh-cn/`）與英文（`/en/`）三語 24 頁完整講義，涵蓋 {chapter_titles_short_tw} 實機執行驗證範例。\n"
+        "# 紫楓出版社 (Purple Maple Press) — AI 工程與 Python 3.12 資料結構演算法技術專書\n\n"
+        f"> 紫楓（AI王紫楓 / Purple Maple / @tbpfs1）創辦之免費開源技術專書出版平台（`https://learn.ai-purplemaple.com/`），提供繁體中文（`/`）、簡體中文（`/zh-cn/`）與英文（`/en/`）三語 {total_pages} 頁完整專書與講義，收錄《AI 工程師實戰聖經》與《Python 3.12 資料結構與演算法精解》（{chapter_titles_short_tw}）。\n"
         "> - **三語入口**：[繁體中文](https://learn.ai-purplemaple.com/) ｜ [简体中文](https://learn.ai-purplemaple.com/zh-cn/) ｜ [English](https://learn.ai-purplemaple.com/en/)\n"
         "> - **本站完整程式碼與輸出語料（Full Tutorial Corpus）**：https://learn.ai-purplemaple.com/llms-full.txt\n"
         "> - **創作者與品牌完整知識庫（Brand Full Corpus）**：https://ai-purplemaple.com/llms-full.txt\n\n"
@@ -2652,8 +3905,8 @@ def build_site(out_dir: Path) -> Path:
         encoding="utf-8",
     )
     (out_dir / "llms-full.txt").write_text(
-        "# 紫楓 (AI王紫楓 / Purple Maple) — Python 3.12 資料結構、演算法與物件導向完整教學語料庫 (llms-full.txt)\n\n"
-        f"> 本文件收錄 `https://learn.ai-purplemaple.com/` 全部 {len(CHAPTERS)} 章節（{chapter_titles_short_tw}）之核心觀念、結構化複雜度對照表、逐步狀態追蹤、CPython 底層陷阱、LeetCode 面試 FAQ、完整 Python 3.12 標準庫實作原始碼及 CI 實機執行驗證輸出。亦同步提供簡體中文版（`https://learn.ai-purplemaple.com/zh-cn/`）與英文版（`https://learn.ai-purplemaple.com/en/`）；精簡索引請見 `https://learn.ai-purplemaple.com/llms.txt`。\n\n"
+        "# 紫楓出版社 (Purple Maple Press) — AI 工程與 Python 3.12 完整教學語料庫 (llms-full.txt)\n\n"
+        f"> 本文件收錄 `https://learn.ai-purplemaple.com/` 紫楓出版社全站已上線專書章節與 {len(CHAPTERS)} 篇 Python 資料結構演算法講義（{chapter_titles_short_tw}）之核心觀念、架構解析、完整 Python 3.12 標準庫實作原始碼及 CI 實機執行驗證輸出。亦同步提供簡體中文版（`https://learn.ai-purplemaple.com/zh-cn/`）與英文版（`https://learn.ai-purplemaple.com/en/`）；精簡索引請見 `https://learn.ai-purplemaple.com/llms.txt`。\n\n"
         + "\n\n---\n\n".join(llms_full_sections)
         + "\n\n---\n\n"
         + ecosystem_footer_md,
@@ -2668,7 +3921,9 @@ def main() -> int:
     parser.add_argument("-o", "--output", default="_site", help="Output directory (default: _site)")
     args = parser.parse_args()
     out_path = build_site(Path(args.output))
-    print(f"[OK] Built 24-page trilingual GitHub Pages site at: {out_path}")
+    sitemap_text = (Path(args.output) / "sitemap.xml").read_text(encoding="utf-8")
+    page_count = sitemap_text.count("<loc>")
+    print(f"[OK] Built {page_count}-page trilingual Purple Maple Press site at: {out_path}")
     return 0
 
 

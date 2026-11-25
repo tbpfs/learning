@@ -29,7 +29,7 @@ jobs:
 
       - name: Run unit tests & build static site
         run: |
-          python3 -m py_compile build_site.py chapter_content.py affiliate_config.py i18n/*.py examples/*.py tests/*.py
+          python3 -m py_compile build_site.py book_models.py chapter_content.py affiliate_config.py i18n/*.py scripts/*.py examples/*.py tests/*.py
           python3 -W error -m unittest discover -s tests -v
           python3 build_site.py -o _site
 
@@ -71,6 +71,8 @@ jobs:
                 "https://learn.ai-purplemaple.com/ch05.html",
                 "https://learn.ai-purplemaple.com/ch06.html",
                 "https://learn.ai-purplemaple.com/ch07.html",
+                "https://learn.ai-purplemaple.com/books/ai-engineering/",
+                "https://learn.ai-purplemaple.com/books/ai-engineering/ch01.html",
                 "https://learn.ai-purplemaple.com/zh-cn/",
                 "https://learn.ai-purplemaple.com/zh-cn/ch01.html",
                 "https://learn.ai-purplemaple.com/zh-cn/ch02.html",
@@ -79,6 +81,8 @@ jobs:
                 "https://learn.ai-purplemaple.com/zh-cn/ch05.html",
                 "https://learn.ai-purplemaple.com/zh-cn/ch06.html",
                 "https://learn.ai-purplemaple.com/zh-cn/ch07.html",
+                "https://learn.ai-purplemaple.com/zh-cn/books/ai-engineering/",
+                "https://learn.ai-purplemaple.com/zh-cn/books/ai-engineering/ch01.html",
                 "https://learn.ai-purplemaple.com/en/",
                 "https://learn.ai-purplemaple.com/en/ch01.html",
                 "https://learn.ai-purplemaple.com/en/ch02.html",
@@ -87,6 +91,8 @@ jobs:
                 "https://learn.ai-purplemaple.com/en/ch05.html",
                 "https://learn.ai-purplemaple.com/en/ch06.html",
                 "https://learn.ai-purplemaple.com/en/ch07.html",
+                "https://learn.ai-purplemaple.com/en/books/ai-engineering/",
+                "https://learn.ai-purplemaple.com/en/books/ai-engineering/ch01.html",
                 "https://learn.ai-purplemaple.com/llms.txt",
                 "https://learn.ai-purplemaple.com/llms-full.txt"
               ]

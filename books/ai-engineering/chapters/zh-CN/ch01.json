@@ -1,0 +1,225 @@
+{
+  "book_id": "ai-engineering",
+  "chapter_id": "ch01",
+  "locale": "zh-CN",
+  "status": "published",
+  "badge": "Ch.01",
+  "part_id": "part1",
+  "title": "大模型底层直觉：分词机制、词向量与自注意力运作原理",
+  "short_title": "大模型底层与 BPE 分词",
+  "summary": "拆解大语言模型真正理解文本的方式：从手写 Byte Pair Encoding (BPE) 子词合并、高维语义向量余弦相似度，到单头缩放点积注意力（Scaled Dot-Product Attention）与长文本 KV Cache 显存瓶颈。",
+  "aeo_capsule": "大语言模型（LLM）并非直接阅读人类字符或单词，而是通过 <strong>Byte Pair Encoding (BPE) 分词器</strong>将字符串切分为整数 Token ID，查询高维 <strong>Embedding 词向量矩阵</strong>后，再以 <strong>Scaled Dot-Product Attention</strong>（缩放因子 <code>1 / sqrt(d_k)</code>）计算上下文关联权重并预测下一个 Token 概率分布。本章以零外部依赖的 Python 3.12（<code>examples/ai_ch01_tokenizer_embedding.py</code>）完整复现这三个核心运算模块。",
+  "reading_minutes": 18,
+  "lastmod": "2026-11-25",
+  "example_file": "examples/ai_ch01_tokenizer_embedding.py",
+  "keywords": [
+    "大模型底层原理",
+    "BPE 分词器",
+    "Byte Pair Encoding Python",
+    "词向量 Embedding",
+    "余弦相似度 Cosine Similarity",
+    "Scaled Dot-Product Attention",
+    "Transformer 自注意力机制",
+    "KV Cache 显存",
+    "紫枫出版社"
+  ],
+  "learning_objectives": [
+    "彻底理解 BPE（Byte Pair Encoding）子词合并算法，看懂为什么大模型常常数错单词里有几个 r，以及为何中文消耗的 Token 数通常高于英文。",
+    "建立高维语义嵌入空间（Embedding Space）的几何直觉，并能手写推导与实现余弦相似度（Cosine Similarity）而不受向量长度干扰。",
+    "看懂 Transformer 核心公式 Softmax((Q · K^T) / sqrt(d_k)) · V 中，为何必须除以维度开根号来避免 Softmax 梯度饱和。",
+    "评估生产环境中上下文窗口长度、自注意力 O(n²) 计算量与推理阶段 KV Cache 显存膨胀对延迟与成本的真实影响。"
+  ],
+  "sections": [
+    {
+      "id": "sec1-why-internals",
+      "heading": "1.1 为什么 AI 工程师不能只会调用接口？",
+      "paragraphs": [
+        "许多刚进入 AI 应用开发的工程师，第一直觉往往是把大语言模型（Large Language Model, LLM）当成一个「输入自然语言、输出聪明答案」的黑盒 HTTP 接口。这种思维在做周末演示项目时毫无问题，但只要系统进入正式线上流量，黑盒心态就会立刻在账单、延迟与难以复现的线上故障上反噬。举几个真实生产事故：为什么把同一份 10 页中文合同送进模型，费用是英文版的接近两倍？为什么明明在提示词里写了严格规则，模型在数一个单词里的字母个数或对齐 JSON 缩进时却屡屡翻车？为什么把检索到的 40 段参考文档全部塞进 128K 上下文窗口，响应时间突然暴涨五倍，而且模型竟然漏看中间最关键的一条条款？",
+        "这三个看似毫不相干的线上痛点，其实全部源自大模型内部最底层的三道齿轮：分词器（Tokenizer）、词向量空间（Embedding Space）与自注意力机制（Self-Attention）。当你理解模型眼中的世界不是单个字符、而是由 BPE 算法压缩出来的整数编号；当你知道语义搜索比对的是高维空间里向量的方向夹角而非字面拼写；当你明白每生成一个新 Token 都要把历史的 Key 与 Value 向量留在显存（KV Cache）里反复做点积运算，你在设计提示词、规划 RAG 分块大小、挑选本地量化模型与估算云端预算时，就会从「盲目试错」进化为「精准工程计算」。",
+        "本章不依赖 PyTorch、NumPy 或任何第三方黑盒依赖库，我们将仅使用 Python 3.12 标准库，亲手把 BPE 训练与编解码器、余弦相似度计算、以及单头缩放点积注意力权重全部写出来并实际验证输出，帮你把欧莱礼级别的底层心智模型一次打牢。"
+      ],
+      "bullets": [
+        "账单与延迟的根源是 Token 数量，而不是字符数或字数。",
+        "语义理解的数学本质是高维向量空间中的方向对齐（余弦相似度）。",
+        "上下文推理的核心代价是序列长度的平方复杂度 O(n²) 与 KV Cache 显存占用。"
+      ],
+      "callout_title": "紫枫实战笔记：先看懂管线，再碰框架",
+      "callout_body": "市面上的 AI 开发框架每隔半年就会换一轮接口，但「Text -> BPE Token IDs -> Embeddings -> Attention -> Next-Token Logits」这条核心管线自 2017 年 Transformer 问世以来从未动摇。花半小时把这条管线摸透，未来五年任何新模型架构你都能在十分钟内看穿它的成本结构与能力边界。"
+    },
+    {
+      "id": "sec2-bpe-tokenization",
+      "heading": "1.2 BPE 分词器：模型真正看见世界的镜头",
+      "paragraphs": [
+        "神经网络只能对数字张量做矩阵乘法，无法直接处理 UTF-8 字符串。早期的自然语言处理曾尝试过两种极端切分方式：第一种是「按字符切分（Character-level）」，优点是词表极小、几乎不会遇到未知词，缺点是序列长度暴增，让自注意力的 O(n²) 计算完全无法承受，且单个字符缺乏独立语义；第二种是「按英文单词切分（Word-level）」，缺点是词表会膨胀到数百万个词条，只要遇到一个新造词、变量名或拼写错误就会直接退化成毫无信息量的 <unk> 未知标记。",
+        "现代主流大模型（包括 GPT、Claude、Llama、Qwen 与 Gemma 系列）全面采用子词分词（Subword Tokenization），其中最具代表性的算法就是 Byte Pair Encoding（BPE）。BPE 的核心思想极为优雅：先把训练语料里的每个单词拆成最细的基础符号（或 UTF-8 字节），接着不断扫描整个语料库，找出「出现频率最高的相邻符号对」，将这对符号合并成一个全新的子词 Token 加入词表，如此重复数万次直到达到目标词表大小（现代多语种模型常见为 100,000 至 256,000 个 Token）。",
+        "这种贪心压缩策略带来了非常有意思的工程副产品：高频英文单词（如 attention、function）会被压成单个 Token，罕见单词则会自然拆成有意义的词根与词缀（例如 token + ization），让模型既能控制词表体积又保留对新词的泛化能力。然而，这也直接解释了为什么大模型经常答错「strawberry 里有几个 r」——在文本送进第一层神经网络之前，strawberry 早就被分词器打包成 2 到 3 个整数 ID（例如 [str, aw, berry]），模型根本没有直接看到单独拆开的 10 个英文字母！同理，如果某款模型的训练语料中中文占比偏低，许多汉字甚至会被拆成 2 到 3 个 UTF-8 字节 Token，造成同样一段中文在输入输出时消耗的 Token 数比英文高出 1.5 到 3 倍。"
+      ],
+      "bullets": [
+        "空格与换行同样会被编码成 Token，编写 JSON 或 Markdown 表格时过多的空白缩进会直接推高接口账单。",
+        "数字切分没有固定语义边界（例如 2026 可能被拆成 20 与 26），这是纯大模型做多位数加减乘除容易失误的重要原因，必须交由 Ch.05 的工具调用计算器完成。",
+        "为多语种任务或中文项目选型时，务必实测同一份中文样本的「每千字消耗 Token 数（Tokenizer Fertility）」，而非只看每百万 Token 单价。"
+      ],
+      "callout_title": "进阶工程提醒：Byte-level BPE 如何消灭 <unk>",
+      "callout_body": "本章示例为了教学清晰，在找不到符号时退回 <unk>；真实生产级模型（如 tiktoken 或 SentencePiece Byte-fallback）则以 256 个原始 UTF-8 字节作为基础词表，确保任何生僻汉字、Emoji 或二进制乱码都能被无损切分与恢复，彻底消灭 <unk> 丢失问题。"
+    },
+    {
+      "id": "sec3-embeddings-cosine",
+      "heading": "1.3 词向量（Embeddings）与余弦相似度的几何直觉",
+      "paragraphs": [
+        "当文本被 BPE 转换成一串整数 ID 后，下一个关键步骤是「查表（Embedding Lookup）」。模型内部维护着一张巨大的词向量表 E，形状为 [V, d_model]（V 是词表大小，d_model 是隐藏维度，例如 3,072 或 8,192）。每一个 Token ID 都会对应到这张表里的一条高维浮点数向量。请特别注意：Token ID 本身只是流水号，ID 42 与 ID 43 之间完全没有语义相近的含义；真正承载语义关系的是它们查表后得到的高维向量坐标。",
+        "经过海量语料预训练后，语义相近或在相似上下文中出现的概念，在这个高维空间里会彼此靠拢。到了工程实战的语义检索（例如 Ch.03 要实现的 RAG 向量数据库），我们需要一把数学尺子来衡量两个句子向量有多接近。工程上几乎一律优先使用余弦相似度（Cosine Similarity），公式为 cos(a, b) = (a · b) / (||a|| · ||b||)，结果落在 -1.0 到 1.0 之间。为什么不用直观的欧几里得距离（Euclidean Distance）？因为两段表达相同意思的文本，可能因为长短不同或词频倍增导致向量长度（L2 范数）相差甚远；欧几里得距离会把长度差异误判成语义疏离，而余弦相似度先对向量做长度归一化，只专注比较两支向量指向的「语义方向」夹角。",
+        "在本章的可运行源码中，我们用 3 个可解释维度 [编程概念, AI 模型, 料理] 构造了 RAG、Agent 与 Ramen 三个示范向量。实测计算后可以看到：RAG 与 Agent 的余弦相似度高达 0.9987，而 RAG 与 Ramen 只有 0.0968。真实的商用 Embedding 模型（如 text-embedding-3-large 或 bge-m3）只是把维度从 3 维扩展到 1,024 至 3,072 维，并通过对比学习（Contrastive Learning）自动学出这套空间坐标系。"
+      ],
+      "bullets": [
+        "若检索系统在建索引前已先将所有向量做单位长度归一化（||v|| = 1），余弦相似度就会直接等价于点积（Dot Product），可省去查询时重复开根号的算力开销。",
+        "跨模型混用 Embedding 是 RAG 线上常见致命错误：A 模型的 1,536 维空间与 B 模型的 1,536 维空间坐标轴毫无对应关系，更换 Embedding 模型时整座向量索引必须全量重建。"
+      ]
+    },
+    {
+      "id": "sec4-attention-kv-cache",
+      "heading": "1.4 自注意力缩放点积与 KV Cache 的生产成本",
+      "paragraphs": [
+        "静态词向量有一个根本限制：同一个词在不同语境下含义完全不同。举例来说，「苹果刚发布新芯片」与「桌上的苹果很甜」里的「苹果」，在刚查出 Embedding 表时拿到的是完全相同的初始向量。Transformer 之所以能彻底改变人工智能历史，靠的就是 Self-Attention（自注意力机制），让序列里的每一个 Token 都能回头扫描整个上下文，动态决定该从哪些相邻词汇吸收多少语义信息。",
+        "每个 Token 向量会通过三组可学习线性投影矩阵，分别转换出 Query（查询：我现在在找什么信息）、Key（键：我身上带有什么标签）与 Value（值：我实际能贡献的语义内容）。接着将当前的 Query 与序列中所有 Token 的 Key 做点积，衡量彼此相关程度，再除以维度开根号 sqrt(d_k)，最后通过 Softmax 转成总和为 1 的注意力概率权重去加权平均所有 Value。为什么非得除以 sqrt(d_k) 不可？假设 Q 与 K 的每个分量都是均值 0、方差 1 的独立随机变量，两者做点积后的方差会线性放大成 d_k。当维度高达 128 甚至 256 时，点积值会出现极端正负数，一进到指数函数 Softmax 就会瞬间塌缩成接近 [1.0, 0.0, 0.0] 的独热分布，导致反向传播梯度几乎归零（梯度消失）而无法训练。除以 sqrt(d_k) 恰好能把方差稳稳压回 1。",
+        "站在系统工程师的角度，理解注意力机制更要看懂它在「推理（Inference）」阶段的显存代价。大模型生成回答是自回归的（一次只吐出一个 Token）：算第 10,000 个 Token 时，需要用到前面 9,999 个 Token 的 Key 与 Value。为了避免每次吐字都把整篇历史重算一遍，推理引擎（vLLM、llama.cpp、LM Studio）会把历史的 K 与 V 缓存在 GPU 显存中，这就是知名的 KV Cache。KV Cache 显存大小与「层数 × 上下文长度 × 并发批大小」成正比。这也是为什么 Ch.08 我们在估算本地显卡显存时，绝不能只算模型权重文件大小，还必须为长上下文的 KV Cache 预留数 GB 缓冲空间；否则只要同时进来几条长对话请求，推理服务就会立刻 OOM 崩溃。"
+      ],
+      "bullets": [
+        "Prefill 阶段（消化输入提示词）属于计算密集型（Compute-bound），受限于上下文长度平方复杂度 O(n²)。",
+        "Decode 阶段（逐字生成回答）属于显存带宽密集型（Memory-bandwidth-bound），受限于每轮搬运权重与 KV Cache 的速度。",
+        "善用前缀缓存（Prompt Prefix Caching，将不变的系统指令与工具定义固定放在最前面）能大幅复用已有 KV Cache，在云端接口上直接省下 50% 至 90% 的输入计费与首字延迟（TTFT）。"
+      ],
+      "callout_title": "数值稳定性细节：Safe Softmax",
+      "callout_body": "观察本章源码的 scaled_dot_product_weights()，你会看到我们在计算 math.exp(x) 之前，先减去了 max_logit。因为 exp(x - c) / sum(exp(x_i - c)) 在数学上与原式完全等价，但减去最大值能保证指数输入永远 <= 0，彻底根除浮点数 OverflowError 溢出崩溃。"
+    }
+  ],
+  "diagram_caption": "图 1-1：大模型从原始字符串到下一个 Token 概率分布的五阶段核心数据流（BPE 分词 → 向量查表 → 缩放点积注意力 → Logits 概率输出）。",
+  "diagram_svg": "<svg viewBox=\"0 0 760 260\" role=\"img\" aria-label=\"大模型五阶段数据流架构图：原始文本经 BPE 分词器转为 Token ID，再查词向量表进入缩放点积注意力与 Softmax 权重输出下一个 Token 概率\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"4\" y=\"4\" width=\"752\" height=\"252\" rx=\"8\" fill=\"#fdfcf9\" stroke=\"#dcd5c7\" stroke-width=\"1.5\"/><text x=\"380\" y=\"32\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"15\" font-weight=\"700\" fill=\"#1c1917\">大模型核心推理管线：从原始字符串到 Attention 概率分布</text><rect x=\"22\" y=\"62\" width=\"118\" height=\"92\" rx=\"6\" fill=\"#f2efe7\" stroke=\"#1c1917\" stroke-width=\"1.5\"/><text x=\"81\" y=\"92\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"13\" font-weight=\"700\" fill=\"#1c1917\">1. 原始文本</text><text x=\"81\" y=\"114\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"11\" fill=\"#57534e\">\"token</text><text x=\"81\" y=\"130\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"11\" fill=\"#57534e\">attention\"</text><line x1=\"140\" y1=\"108\" x2=\"168\" y2=\"108\" stroke=\"#15803d\" stroke-width=\"2\"/><polygon points=\"168,103 178,108 168,113\" fill=\"#15803d\"/><rect x=\"178\" y=\"62\" width=\"126\" height=\"92\" rx=\"6\" fill=\"#eef8f1\" stroke=\"#15803d\" stroke-width=\"1.8\"/><text x=\"241\" y=\"90\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"13\" font-weight=\"700\" fill=\"#166534\">2. BPE 分词器</text><text x=\"241\" y=\"112\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11\" fill=\"#44403c\">高频子词合并</text><text x=\"241\" y=\"132\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"11\" fill=\"#14532d\">IDs: [19, 4, ...]</text><line x1=\"304\" y1=\"108\" x2=\"332\" y2=\"108\" stroke=\"#15803d\" stroke-width=\"2\"/><polygon points=\"332,103 342,108 332,113\" fill=\"#15803d\"/><rect x=\"342\" y=\"62\" width=\"126\" height=\"92\" rx=\"6\" fill=\"#f2efe7\" stroke=\"#1c1917\" stroke-width=\"1.5\"/><text x=\"405\" y=\"90\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"13\" font-weight=\"700\" fill=\"#1c1917\">3. 词向量查表</text><text x=\"405\" y=\"112\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11\" fill=\"#57534e\">Embedding 矩阵</text><text x=\"405\" y=\"132\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"11\" fill=\"#14532d\">cos(a,b)=0.9987</text><line x1=\"468\" y1=\"108\" x2=\"496\" y2=\"108\" stroke=\"#15803d\" stroke-width=\"2\"/><polygon points=\"496,103 506,108 496,113\" fill=\"#15803d\"/><rect x=\"506\" y=\"62\" width=\"136\" height=\"92\" rx=\"6\" fill=\"#fffbeb\" stroke=\"#b45309\" stroke-width=\"1.8\"/><text x=\"574\" y=\"88\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"700\" fill=\"#92400e\">4. Self-Attention</text><text x=\"574\" y=\"110\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"11\" fill=\"#44403c\">Q·K^T / sqrt(d_k)</text><text x=\"574\" y=\"132\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"11\" fill=\"#92400e\">Softmax [0.70,0.30]</text><line x1=\"642\" y1=\"108\" x2=\"662\" y2=\"108\" stroke=\"#15803d\" stroke-width=\"2\"/><polygon points=\"662,103 672,108 662,113\" fill=\"#15803d\"/><rect x=\"672\" y=\"62\" width=\"72\" height=\"92\" rx=\"6\" fill=\"#161922\" stroke=\"#1c1917\" stroke-width=\"1.5\"/><text x=\"708\" y=\"96\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"700\" fill=\"#ffffff\">5. 概率</text><text x=\"708\" y=\"116\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11\" fill=\"#6ee7b7\">下一词</text><text x=\"708\" y=\"134\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#e6edf3\">Next Tok</text><rect x=\"178\" y=\"182\" width=\"464\" height=\"52\" rx=\"5\" fill=\"#f2efe7\" stroke=\"#dcd5c7\" stroke-width=\"1.2\"/><text x=\"410\" y=\"203\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"700\" fill=\"#1c1917\">KV Cache 显存热区（随上下文长度 n 与并发数线性增长）</text><text x=\"410\" y=\"223\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"11\" fill=\"#57534e\">固定前缀 System Prompt -&gt; 命中 Prefix Cache -&gt; 降低 TTFT 与输入 Token 成本</text></svg>",
+  "comparison_table": {
+    "caption": "表 1-1：三种文本切分策略与语义相似度指标的工程特性对比",
+    "headers": ["技术方案", "词表体积", "序列长度 / 计算负担", "OOV 未知词处理", "生产环境适用定位"],
+    "rows": [
+      ["字符级切分 (Char-level)", "极小 (~100–5,000)", "极长，Attention O(n²) 昂贵", "几乎不会 OOV", "早期 RNN 或极端拼写纠错模型"],
+      ["单词级切分 (Word-level)", "极大 (>500,000)", "最短，但矩阵参数量爆炸", "严重 OOV，频繁退回 <unk>", "传统 TF-IDF / BM25 词袋检索"],
+      ["Byte-level BPE（现代主流）", "适中 (32K–256K)", "在压缩率与语义粒度间达最优平衡", "零 OOV（任意 UTF-8 无损回退）", "GPT / Claude / Qwen / Llama / Gemma 标配"],
+      ["欧几里得距离 (L2)", "不适用", "受向量长度与文长影响", "对词频倍增敏感", "已强制归一化的密集聚类场景"],
+      ["余弦相似度 (Cosine)", "不适用", "只看方向夹角，对长度不变", "语义检索最稳健指标", "RAG 向量检索、语义缓存与去重首选"]
+    ]
+  },
+  "code_walkthrough": [
+    "MiniBPETokenizer.train() 在每个单词末尾附加 </w> 词尾标记，并用 Counter 统计相邻符号对频次，通过确定性排序键 key=lambda kv: (kv[1], kv[0]) 确保每次 CI 运行结果完全一致。",
+    "MiniBPETokenizer._encode_word() 严格按照训练阶段学到的 merges 先后顺序应用合并规则，而非贪心最长匹配——这正是真实 GPT / tiktoken BPE 的核心规范。",
+    "cosine_similarity() 加入维度一致性防御与零向量（norm == 0.0）保护，避免线上遇到空文本向量时抛出 ZeroDivisionError。",
+    "scaled_dot_product_weights() 实现除以 math.sqrt(dim) 缩放与减去 max_logit 的 Safe Softmax，对 RAG 向量（Query）与 Agent / Ramen 向量（Keys）给出清晰的 [0.6961, 0.3039] 注意力权重分布。"
+  ],
+  "pitfalls": [
+    {
+      "title": "陷阱 1：误把「中文字数」直接当成「Token 数」估算上下文与费用",
+      "symptom": "工程师按 1 个汉字 = 1 Token 切分文档，结果送入 8K 上下文模型时频繁触发 context_length_exceeded 报错，或月结账单比预估翻倍。",
+      "root_cause_and_fix": "不同模型词表对中文的压缩率差异极大（约 1.2 至 2.5 Tokens/字），再加上 JSON 键名、缩进与工具声明都会占用额度。正确做法是上线前使用对应模型的官方 Tokenizer 实测样本，或对中文保守按「字数 × 2.0 + 15% 安全缓冲」作为预算门槛。"
+    },
+    {
+      "title": "陷阱 2：在 System Prompt 开头放「动态时间戳」，悄悄摧毁前缀缓存",
+      "symptom": "云端接口账单的 Cached Input Tokens 命中率始终为 0%，长对话首字延迟（TTFT）居高不下。",
+      "root_cause_and_fix": "KV Cache 的前缀复用要求从第 0 个 Token 开始必须「逐个 Token 完全一致」。只要把 `当前时间: 2026-11-25 08:01:22` 放在 System Prompt 第一行，整份后续的规则与工具定义就会每分钟失效一次。应将完全静态的指令与 Tools 置顶，把动态时间与用户信息放到最后的 User Message。"
+    },
+    {
+      "title": "陷阱 3：更换 Embedding 模型却没有重建向量数据库索引",
+      "symptom": "升级新版 Embedding 模型后系统没有报错（因为维度刚好都是 1,536 维），但线上 RAG 检索准确率断崖式下跌，召回风马牛不相及的段落。",
+      "root_cause_and_fix": "不同模型（甚至同系列不同版本）的向量空间完全没有几何对齐，两者计算余弦相似度毫无意义。务必在向量数据库元数据中写入 `embedding_model_version` 字段，并将模型版本锁定进 CI 与索引重建脚本。"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "为什么 Transformer 的 Scaled Dot-Product Attention 必须将 Q · K^T 除以 sqrt(d_k) 再送进 Softmax？",
+      "options": [
+        "为了减少矩阵乘法的时间复杂度，从 O(n²) 降为 O(n log n)",
+        "为了避免高维点积数值方差过大，导致 Softmax 进入饱和区、梯度趋近于零",
+        "为了把负数相似度全部转成正数，否则 Softmax 无法计算",
+        "为了让不同长度的句子拥有相同的 Token 数量"
+      ],
+      "answer_index": 1,
+      "explanation": "当维度 d_k 很大时，点积结果的方差会放大成 d_k 倍，使 Softmax 输出极端趋近 0 或 1 而产生梯度消失；除以 sqrt(d_k) 可将方差稳定维持在 1。"
+    },
+    {
+      "question": "某款纯文本大模型经常答错「strawberry 里有几个字母 r」，最根本的技术原因是什么？",
+      "options": [
+        "模型没有内置英文字典数据库",
+        "BPE 分词器把单词打包成多字符子词 Token ID，模型在底层并未逐字符读取输入",
+        "Softmax 函数不支持重复字符计数",
+        "GPU 浮点数精度不足以表达整数 3"
+      ],
+      "answer_index": 1,
+      "explanation": "BPE 会将常见词根与整个单词合并成单个或少数几个整数 ID，模型看见的是子词编号而非拆开的字符数组，因此对字符级计数或反转格外吃力。"
+    },
+    {
+      "question": "为了最大化云端与本地大模型推理的 KV Cache 前缀命中率，动态时间戳与用户 ID 应该放在提示词的哪个位置？",
+      "options": [
+        "System Prompt 最开头的第一行，方便模型第一时间看到",
+        "穿插在每个 Few-Shot 示例标题中",
+        "将完全不变的 System 指令与工具定义置顶，把动态时间戳与用户信息放到尾端 User Message",
+        "放在任何位置都没有差别，KV Cache 会自动排序"
+      ],
+      "answer_index": 2,
+      "explanation": "Prefix Cache 要求从第 0 个 Token 开始连续一致；任何置于开头的动态字段都会让后方全部前缀缓存失效，因此静态内容必须置顶、动态内容置尾。"
+    }
+  ],
+  "interview_faqs": [
+    {
+      "question": "面试官问：为什么 RAG 语义检索通常用余弦相似度而不是欧几里得距离（L2）？两者何时会等价？",
+      "answer": "余弦相似度只衡量向量夹角方向，不受文长或词频倍增造成的向量长度差异干扰；欧几里得距离则同时受方向与模长影响。不过只要所有向量在入库前都先做 L2 单位归一化（||v|| = 1），两者就会有严格单调关系 ||a - b||² = 2 - 2·cos(a, b)，此时最小 L2 距离、最大点积与最大余弦相似度三者的排序结果完全等价。"
+    },
+    {
+      "question": "为什么长上下文（例如 128K Token）的推理费用与显存需求不是小幅上升，而是可能让本地显卡直接 OOM？",
+      "answer": "一方面 Prefill 阶段的自注意力计算复杂度随序列长度呈平方增长 O(n²)；另一方面 Decode 阶段必须把每一层、每一个 Attention Head 的历史 Key 与 Value 向量常驻显存（KV Cache），且会随并发请求数倍增。工程上需依靠 GQA（分组查询注意力）、KV Cache 量化（FP8/Q8）以及 Ch.02 的 Token 预算裁剪来控制成本。"
+    },
+    {
+      "question": "如果团队要为中文客服系统挑选本地开源模型，除了跑分榜单，分词器层面应该优先检查什么？",
+      "answer": "应使用团队真实的中文客服语料实测各候选模型的分词压缩率（Tokenizer Fertility，平均每千个汉字被切成多少个 Token）。若某模型对中文压缩率差（例如每字消耗 2.5 个 Token，而另一个对中文优化的模型只需 1.1 个 Token），即使后者每秒生成 Token 速度略慢，实际每秒输出的汉字数与有效上下文容量仍可能高出两倍以上。"
+    },
+    {
+      "question": "实现 Softmax 时为什么几乎所有数值计算库都会先做 x - max(x)？",
+      "answer": "因为 IEEE 754 双精度浮点数在输入超过约 709.78 时 math.exp(x) 就会溢出为 inf，进而造成 inf / inf = NaN 污染整批张量。将所有元素同减去最大值 max(x) 后，最大指数输入为 0（exp(0) = 1），在数学结果完全不变的前提下彻底消除溢出风险。"
+    }
+  ],
+  "further_reading": [
+    {
+      "title": "Attention Is All You Need (Vaswani et al., 2017)",
+      "url": "https://arxiv.org/abs/1706.03762",
+      "note": "Transformer 与缩放点积注意力的奠基原始论文。"
+    },
+    {
+      "title": "Andrej Karpathy — Let's build the GPT Tokenizer",
+      "url": "https://www.youtube.com/watch?v=zduSFxRajkE",
+      "note": "深入浅出的手写 Byte-level BPE 实战与常见分词器怪象剖析。"
+    },
+    {
+      "title": "3Blue1Brown — Attention in Transformers, visually explained",
+      "url": "https://www.youtube.com/watch?v=eMlx5fFNoYc",
+      "note": "通过高维空间几何动画直观建立 Query / Key / Value 与词向量的直觉。"
+    }
+  ],
+  "code_replacements": [
+    ["Book 1 Ch.01 LLM 底層直覺：手刻迷你 BPE Tokenizer 與詞向量餘弦相似度", "Book 1 Ch.01 大模型底层直觉：手写迷你 BPE 分词器与词向量余弦相似度"],
+    ["零外部依賴示範 Byte Pair Encoding（BPE）子詞合併訓練、編碼、解碼，以及語意向量餘弦相似度計算。", "零外部依赖演示 Byte Pair Encoding（BPE）子词合并训练、编码、解码，以及语义向量余弦相似度计算。"],
+    ["教學用迷你 Byte Pair Encoding (BPE) 分詞器，演示子詞合併與編解碼原理。", "教学用迷你 Byte Pair Encoding (BPE) 分词器，演示子词合并与编解码原理。"],
+    ["從文字語料中迭代合併出現頻率最高的相鄰符號對，建立子詞詞表。", "从文本语料中迭代合并出现频率最高的相邻符号对，建立子词词表。"],
+    ["將輸入文字編碼為 Token ID 串列（未登錄符號退回 <unk>）。", "将输入文本编码为 Token ID 列表（未登录符号退回 <unk>）。"],
+    ["將 Token ID 串列還原為可讀文字。", "将 Token ID 列表恢复为可读文本。"],
+    ["計算兩個高維語意向量之餘弦相似度，值域 [-1.0, 1.0]。", "计算两个高维语义向量的余弦相似度，值域 [-1.0, 1.0]。"],
+    ["向量維度必須相同且不可為空", "向量维度必须相同且不能为空"],
+    ["模擬單頭 Self-Attention 的縮放點積與 Softmax 注意力權重分佈。", "模拟单头 Self-Attention 的缩放点积与 Softmax 注意力权重分布。"],
+    ["# 3 維語意示範向量：[程式概念, AI 模型, 料理]", "# 3 维语义示范向量：[编程概念, AI 模型, 料理]"],
+    ["Ch.01 BPE 詞表大小: ", "Ch.01 BPE 词表大小: "],
+    ["編碼長度: ", "编码长度: "],
+    ["還原: '", "恢复: '"],
+    ["語意相似度(RAG vs Agent): ", "语义相似度(RAG vs Agent): "],
+    ["Attention 權重: ", "Attention 权重: "]
+  ],
+  "output_replacements": [
+    ["Ch.01 BPE 詞表大小: ", "Ch.01 BPE 词表大小: "],
+    ["編碼長度: ", "编码长度: "],
+    ["還原: '", "恢复: '"],
+    ["語意相似度(RAG vs Agent): ", "语义相似度(RAG vs Agent): "],
+    ["Attention 權重: ", "Attention 权重: "]
+  ]
+}

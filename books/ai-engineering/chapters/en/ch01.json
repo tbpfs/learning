@@ -1,0 +1,225 @@
+{
+  "book_id": "ai-engineering",
+  "chapter_id": "ch01",
+  "locale": "en",
+  "status": "published",
+  "badge": "Ch.01",
+  "part_id": "part1",
+  "title": "LLM Internals: Tokenization, Embeddings & Self-Attention Mechanics",
+  "short_title": "LLM Internals & BPE",
+  "summary": "Demystify how Large Language Models actually process text: from implementing Byte Pair Encoding (BPE) subword merges and cosine similarity over semantic vectors to Scaled Dot-Product Attention weights and KV Cache memory bottlenecks.",
+  "aeo_capsule": "Large Language Models (LLMs) never read raw characters directly. They segment text into integer Token IDs via a <strong>Byte Pair Encoding (BPE) tokenizer</strong>, look up dense coordinates in an <strong>Embedding matrix</strong>, and mix contextual signals through <strong>Scaled Dot-Product Attention</strong> (scaled by <code>1 / sqrt(d_k)</code>) before predicting the next token distribution. This chapter implements all three primitives from scratch in zero-dependency Python 3.12 (<code>examples/ai_ch01_tokenizer_embedding.py</code>).",
+  "reading_minutes": 18,
+  "lastmod": "2026-11-25",
+  "example_file": "examples/ai_ch01_tokenizer_embedding.py",
+  "keywords": [
+    "LLM Internals",
+    "BPE Tokenizer Python",
+    "Byte Pair Encoding",
+    "Word Embeddings",
+    "Cosine Similarity",
+    "Scaled Dot-Product Attention",
+    "Transformer Self-Attention",
+    "KV Cache VRAM",
+    "Purple Maple Press"
+  ],
+  "learning_objectives": [
+    "Master Byte Pair Encoding (BPE) subword merges and understand why LLMs stumble on character-counting tasks and charge different token rates across languages.",
+    "Build geometric intuition for high-dimensional Embedding spaces and implement numerically safe Cosine Similarity invariant to vector length.",
+    "Derive why Scaled Dot-Product Attention divides by sqrt(d_k) to keep Softmax out of saturation and preserve healthy gradients.",
+    "Reason quantitatively about O(n^2) prefill compute, KV Cache VRAM growth, and Prompt Prefix Caching in production deployments."
+  ],
+  "sections": [
+    {
+      "id": "sec1-why-internals",
+      "heading": "1.1 Why Production AI Engineers Cannot Treat LLMs as Black Boxes",
+      "paragraphs": [
+        "Most software engineers begin building with Large Language Models by treating them as magical REST endpoints: send English or JSON in, receive smart completions out. That mental model works fine for weekend prototypes, yet it collapses the moment real customer traffic hits production. Consider three recurring production incidents: Why did translating a 10-page multilingual contract cost more than double what the English estimate predicted? Why does a frontier model capable of writing distributed Go services fail to count the letters in a single word or misalign indentation? Why did stuffing 40 retrieved documents into a 128K context window quadruple latency while causing the model to ignore a critical clause buried in the middle?",
+        "All three failures stem from the same three mechanical gears inside every modern Transformer: the Tokenizer, the Embedding Space, and the Self-Attention / KV Cache engine. Once you see that the model consumes compressed integer subword IDs rather than characters, measures semantic closeness by angular alignment in high-dimensional space, and pays real GPU memory bandwidth to cache historical Key and Value tensors on every autoregressive decoding step, prompt engineering stops feeling like superstition and becomes predictable systems engineering.",
+        "In this chapter we avoid heavyweight frameworks and write every single piece—a trainable BPE tokenizer, cosine similarity over semantic vectors, and single-head Scaled Dot-Product Attention—using nothing but the Python 3.12 standard library, backed by CI-verified runtime output."
+      ],
+      "bullets": [
+        "Billing and latency are governed by token counts, not character or word counts.",
+        "Semantic retrieval compares directional angle in vector space (Cosine Similarity), not lexical overlap.",
+        "Long-context reasoning incurs O(n^2) attention compute during prefill and linear KV Cache VRAM pressure during decoding."
+      ],
+      "callout_title": "Field Note: Frameworks Churn, Fundamentals Endure",
+      "callout_body": "Agent orchestration libraries reinvent their APIs every six months, yet the core pipeline—Text -> BPE Token IDs -> Embeddings -> Scaled Dot-Product Attention -> Next-Token Logits—has remained foundational since the 2017 Transformer paper. Mastering these mechanics lets you audit any new model's cost profile and failure modes in minutes."
+    },
+    {
+      "id": "sec2-bpe-tokenization",
+      "heading": "1.2 BPE Tokenization: The Lens Through Which Models See Text",
+      "paragraphs": [
+        "Neural networks multiply floating-point tensors; they cannot ingest raw UTF-8 strings. Early NLP systems tested two extremes. Character-level tokenization kept vocabularies tiny and virtually eliminated unknown tokens, but exploded sequence lengths—making quadratic O(n^2) attention prohibitively expensive while forcing early layers to reconstruct basic morphemes from scratch. Word-level tokenization kept sequences short, but bloated embedding tables past half a million entries and collapsed on every typo, identifier, or domain neologism into a single <unk> bucket.",
+        "Modern LLMs—including GPT, Claude, Llama, Qwen, and Gemma—solve this trade-off with Subword Tokenization, most commonly Byte Pair Encoding (BPE). BPE initializes every word as atomic base symbols (or raw UTF-8 bytes), counts every adjacent symbol pair across a training corpus, merges the most frequent pair into a brand-new subword token, and repeats tens of thousands of times until reaching a target vocabulary size (typically 100K to 256K tokens in contemporary multilingual models).",
+        "This frequency-driven compression explains several famous LLM quirks. Common English words like 'attention' become single integer IDs, while rarer compounds decompose cleanly into reusable stems and suffixes ('token' + 'ization'). Crucially, because a word like 'strawberry' enters the first neural layer packed into just two or three integer IDs, the network never inspects ten isolated letters—which is why counting characters or reversing strings is disproportionately error-prone. Likewise, if a model's pretraining corpus under-represents non-Latin scripts, a single East Asian character can split into two or three UTF-8 byte tokens, inflating both latency and API invoices by 1.5x to 3x compared to equivalent English prose."
+      ],
+      "bullets": [
+        "Leading whitespace, pretty-printed JSON indentation, and Markdown table padding all consume real tokens—minify machine-facing payloads when budget matters.",
+        "Arbitrary digit chunking (for example splitting 2026 into 20 and 26) undermines exact multi-digit arithmetic; delegate math to deterministic tools as shown in Ch.05.",
+        "Always benchmark Tokenizer Fertility (tokens per 1,000 characters) on your own domain corpus before comparing per-million-token pricing tables."
+      ],
+      "callout_title": "Production Detail: Eliminating <unk> via Byte-Level BPE",
+      "callout_body": "Our educational MiniBPETokenizer falls back to <unk> for unseen symbols to keep the algorithm transparent. Production tokenizers such as tiktoken and SentencePiece with byte-fallback seed their base vocabulary with all 256 raw UTF-8 byte values, guaranteeing lossless round-trip encoding for any emoji, rare glyph, or binary snippet."
+    },
+    {
+      "id": "sec3-embeddings-cosine",
+      "heading": "1.3 Embeddings & the Geometry of Cosine Similarity",
+      "paragraphs": [
+        "Once BPE converts text into a sequence of integer token IDs, the model performs an Embedding Lookup into a learned parameter table E of shape [V, d_model], where V is the vocabulary size and d_model is the hidden dimension (commonly 3,072 to 8,192). Keep one invariant crystal clear: token IDs are arbitrary table indices—ID 42 has zero semantic relationship to ID 43. Meaning lives exclusively in the dense floating-point coordinates retrieved from E.",
+        "During pretraining on trillions of tokens, words and concepts that share contextual roles migrate into neighboring regions of this vector space. When building semantic search and RAG pipelines (which we construct in Ch.03), engineers overwhelmingly prefer Cosine Similarity—defined as cos(a, b) = (a · b) / (||a|| · ||b||) in [-1.0, 1.0]—over raw Euclidean distance. Why? Two paragraphs expressing identical intent may differ markedly in length or word repetition, stretching their Euclidean magnitudes. Cosine Similarity normalizes away vector length and isolates purely directional alignment.",
+        "In this chapter's runnable example, we construct three interpretable 3-D demonstration vectors representing [Programming Concept, AI Model, Cuisine] for RAG, Agent, and Ramen. Executing the script confirms a near-perfect 0.9987 cosine similarity between RAG and Agent versus just 0.0968 between RAG and Ramen. Commercial embedding models such as text-embedding-3-large or bge-m3 simply scale this exact geometric principle up to 1,024–3,072 learned dimensions via contrastive training."
+      ],
+      "bullets": [
+        "If every document embedding is L2-normalized (||v|| = 1) at index time, Cosine Similarity reduces to a plain dot product, eliminating repeated square roots at query time.",
+        "Never mix embeddings from two different models or versions in the same index: matching vector dimensions (such as 1,536) does not imply aligned coordinate axes—re-embed the entire corpus on model upgrades."
+      ]
+    },
+    {
+      "id": "sec4-attention-kv-cache",
+      "heading": "1.4 Scaled Dot-Product Attention & Production KV Cache Costs",
+      "paragraphs": [
+        "Static embedding lookups have a fundamental blind spot: polysemy. The word 'apple' receives the exact same initial vector in 'Apple launched a new silicon chip' and 'She sliced a crisp red apple.' Transformers resolve context dynamically through Self-Attention, allowing every token position to inspect the rest of the sequence and pull in weighted contextual signals.",
+        "Each token vector projects through three learned matrices into a Query (what information I seek), a Key (what semantic signature I advertise), and a Value (what payload I contribute if attended to). Attention scores come from taking the dot product of Queries against Keys, dividing by sqrt(d_k), and passing the logits through Softmax to produce probability weights summing to 1. Dividing by sqrt(d_k) is mathematically indispensable: if components of Q and K have mean 0 and variance 1, their unscaled dot product has variance d_k. At typical head dimensions like 128, raw logits swing so wildly that Softmax saturates toward hard [1.0, 0.0, 0.0] one-hot vectors whose derivatives vanish, stalling backpropagation. Scaling by 1 / sqrt(d_k) restores unit variance.",
+        "In production inference, Self-Attention directly shapes your hardware bill through the KV Cache. Because LLMs decode autoregressively—generating one token at a time—predicting token #10,000 requires the Key and Value vectors of all 9,999 preceding tokens. Rather than recomputing the full prefix on every step, inference engines (vLLM, llama.cpp, LM Studio) pin historical K and V tensors in GPU VRAM. That KV Cache grows linearly with layers × context length × concurrent requests. In Ch.08 we will budget local GPU VRAM explicitly so long prompts and concurrency spikes never trigger sudden out-of-memory crashes."
+      ],
+      "bullets": [
+        "Prefill (ingesting the prompt) is compute-bound and scales quadratically O(n^2) with input sequence length.",
+        "Decoding (streaming output tokens) is memory-bandwidth-bound, limited by how fast the GPU streams weights and KV Cache per token.",
+        "Prompt Prefix Caching lets providers reuse KV Cache across requests whenever the leading tokens match identically—cutting input cost and Time-to-First-Token (TTFT) by 50% to 90%."
+      ],
+      "callout_title": "Numerical Hygiene: Safe Softmax",
+      "callout_body": "Look closely at scaled_dot_product_weights() in our reference script: we subtract max_logit from every logit before calling math.exp(). Because exp(x - c) / sum(exp(x_i - c)) is algebraically identical to standard Softmax while guaranteeing every exponent stays <= 0, it eliminates floating-point OverflowError crashes cleanly."
+    }
+  ],
+  "diagram_caption": "Figure 1-1: The five-stage LLM inference pipeline from raw string to next-token probability distribution (BPE tokenization -> embedding lookup -> scaled dot-product attention -> output logits).",
+  "diagram_svg": "<svg viewBox=\"0 0 760 260\" role=\"img\" aria-label=\"Five-stage LLM inference pipeline diagram: raw text flows through BPE tokenizer into token IDs, embedding lookup, scaled dot-product attention with Softmax weights, and next-token probability output\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"4\" y=\"4\" width=\"752\" height=\"252\" rx=\"8\" fill=\"#fdfcf9\" stroke=\"#dcd5c7\" stroke-width=\"1.5\"/><text x=\"380\" y=\"32\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"15\" font-weight=\"700\" fill=\"#1c1917\">Core LLM Inference Pipeline: Raw Text to Attention Probabilities</text><rect x=\"22\" y=\"62\" width=\"118\" height=\"92\" rx=\"6\" fill=\"#f2efe7\" stroke=\"#1c1917\" stroke-width=\"1.5\"/><text x=\"81\" y=\"90\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"700\" fill=\"#1c1917\">1. Raw Text</text><text x=\"81\" y=\"114\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"11\" fill=\"#57534e\">\"token</text><text x=\"81\" y=\"130\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"11\" fill=\"#57534e\">attention\"</text><line x1=\"140\" y1=\"108\" x2=\"168\" y2=\"108\" stroke=\"#15803d\" stroke-width=\"2\"/><polygon points=\"168,103 178,108 168,113\" fill=\"#15803d\"/><rect x=\"178\" y=\"62\" width=\"126\" height=\"92\" rx=\"6\" fill=\"#eef8f1\" stroke=\"#15803d\" stroke-width=\"1.8\"/><text x=\"241\" y=\"90\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"700\" fill=\"#166534\">2. BPE Tokenizer</text><text x=\"241\" y=\"112\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11\" fill=\"#44403c\">Subword Merges</text><text x=\"241\" y=\"132\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"11\" fill=\"#14532d\">IDs: [19, 4, ...]</text><line x1=\"304\" y1=\"108\" x2=\"332\" y2=\"108\" stroke=\"#15803d\" stroke-width=\"2\"/><polygon points=\"332,103 342,108 332,113\" fill=\"#15803d\"/><rect x=\"342\" y=\"62\" width=\"126\" height=\"92\" rx=\"6\" fill=\"#f2efe7\" stroke=\"#1c1917\" stroke-width=\"1.5\"/><text x=\"405\" y=\"90\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"700\" fill=\"#1c1917\">3. Embeddings</text><text x=\"405\" y=\"112\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11\" fill=\"#57534e\">Dense Vector Table</text><text x=\"405\" y=\"132\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"11\" fill=\"#14532d\">cos(a,b)=0.9987</text><line x1=\"468\" y1=\"108\" x2=\"496\" y2=\"108\" stroke=\"#15803d\" stroke-width=\"2\"/><polygon points=\"496,103 506,108 496,113\" fill=\"#15803d\"/><rect x=\"506\" y=\"62\" width=\"136\" height=\"92\" rx=\"6\" fill=\"#fffbeb\" stroke=\"#b45309\" stroke-width=\"1.8\"/><text x=\"574\" y=\"88\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"700\" fill=\"#92400e\">4. Self-Attention</text><text x=\"574\" y=\"110\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"11\" fill=\"#44403c\">Q*K^T / sqrt(d_k)</text><text x=\"574\" y=\"132\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"11\" fill=\"#92400e\">Softmax [0.70,0.30]</text><line x1=\"642\" y1=\"108\" x2=\"662\" y2=\"108\" stroke=\"#15803d\" stroke-width=\"2\"/><polygon points=\"662,103 672,108 662,113\" fill=\"#15803d\"/><rect x=\"672\" y=\"62\" width=\"72\" height=\"92\" rx=\"6\" fill=\"#161922\" stroke=\"#1c1917\" stroke-width=\"1.5\"/><text x=\"708\" y=\"96\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11\" font-weight=\"700\" fill=\"#ffffff\">5. Logits</text><text x=\"708\" y=\"116\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"10\" fill=\"#6ee7b7\">Next Token</text><text x=\"708\" y=\"134\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#e6edf3\">Top-p</text><rect x=\"178\" y=\"182\" width=\"464\" height=\"52\" rx=\"5\" fill=\"#f2efe7\" stroke=\"#dcd5c7\" stroke-width=\"1.2\"/><text x=\"410\" y=\"203\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"700\" fill=\"#1c1917\">KV Cache VRAM Footprint (scales linearly with context length n &amp; concurrency)</text><text x=\"410\" y=\"223\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"11\" fill=\"#57534e\">Static System Prefix -&gt; Prefix Cache Hit -&gt; Lower TTFT &amp; Input Token Cost</text></svg>",
+  "comparison_table": {
+    "caption": "Table 1-1: Trade-offs Across Text Tokenization Strategies & Vector Similarity Metrics",
+    "headers": ["Approach", "Vocabulary Size", "Sequence / Compute Cost", "Out-of-Vocabulary Handling", "Best Production Role"],
+    "rows": [
+      ["Character-level", "Tiny (~100-5,000)", "Very long sequences; expensive O(n^2) attention", "Near-zero OOV", "Legacy RNNs or specialized typo models"],
+      ["Word-level", "Huge (>500,000)", "Short sequences, bloated embedding tables", "Severe OOV collapsing to <unk>", "Classical TF-IDF and BM25 lexical search"],
+      ["Byte-level BPE (Modern Standard)", "Balanced (32K-256K)", "Optimal compression vs semantic granularity", "Zero OOV via 256 UTF-8 byte fallback", "Standard across GPT, Claude, Qwen, Llama, Gemma"],
+      ["Euclidean Distance (L2)", "N/A", "Sensitive to vector magnitude & text length", "Distorted by repeated terms", "Normalized dense clustering"],
+      ["Cosine Similarity", "N/A", "Length-invariant angular comparison", "Robust for variable-length passages", "Default for RAG retrieval & semantic caching"]
+    ]
+  },
+  "code_walkthrough": [
+    "MiniBPETokenizer.train() appends an explicit </w> end-of-word sentinel and breaks frequency ties deterministically via key=lambda kv: (kv[1], kv[0]) so CI output stays 100% reproducible.",
+    "MiniBPETokenizer._encode_word() applies learned merge pairs strictly in training order rather than greedy longest-match, matching the canonical BPE algorithm used in GPT tokenizers.",
+    "cosine_similarity() guards against mismatched dimensions and zero-norm vectors so empty inputs return 0.0 cleanly instead of raising ZeroDivisionError.",
+    "scaled_dot_product_weights() implements sqrt(dim) scaling plus max-subtraction Safe Softmax, yielding crisp [0.6961, 0.3039] attention weights for the RAG query over Agent vs Ramen keys."
+  ],
+  "pitfalls": [
+    {
+      "title": "Pitfall 1: Estimating Context Budgets by Character Count Instead of Real Tokens",
+      "symptom": "Developers budget 1 character = 1 token for multilingual or JSON-heavy payloads, triggering unexpected context_length_exceeded errors or 2x monthly API bills.",
+      "root_cause_and_fix": "Token compression varies sharply by language, whitespace, and JSON punctuation (often 1.3-2.5 tokens per CJK character). Measure real fertility with the target model's tokenizer before launch and reserve at least a 15% safety margin."
+    },
+    {
+      "title": "Pitfall 2: Placing Dynamic Timestamps at the Top of System Prompts",
+      "symptom": "Prompt caching hit rates remain stuck at 0% and Time-to-First-Token (TTFT) stays high across multi-turn chats.",
+      "root_cause_and_fix": "KV Cache prefix reuse requires an exact token-for-token match starting at position 0. Injecting a changing timestamp on line 1 invalidates the entire downstream system prompt and tool schema every second. Keep static instructions and tool specs at the very top, and move volatile metadata to the trailing user message."
+    },
+    {
+      "title": "Pitfall 3: Swapping Embedding Models Without Rebuilding the Vector Index",
+      "symptom": "No runtime exception is thrown because both models output 1,536-D vectors, yet RAG retrieval quality collapses and returns unrelated documents.",
+      "root_cause_and_fix": "Different embedding models—or even different revisions of the same family—learn incompatible coordinate systems. Store an explicit embedding_model_version tag in your index metadata and trigger a full re-index whenever that version changes."
+    }
+  ],
+  "quiz": [
+    {
+      "question": "Why does Scaled Dot-Product Attention divide Q · K^T by sqrt(d_k) before applying Softmax?",
+      "options": [
+        "To reduce attention time complexity from O(n^2) down to O(n log n)",
+        "To keep high-dimensional dot-product variance near 1 so Softmax does not saturate and vanish gradients",
+        "To convert negative similarities into positive numbers required by Softmax",
+        "To force variable-length prompts to have equal token counts"
+      ],
+      "answer_index": 1,
+      "explanation": "Unscaled dot products grow in variance proportionally to d_k, pushing Softmax into extreme saturation where gradients collapse to zero. Dividing by sqrt(d_k) normalizes variance back to 1."
+    },
+    {
+      "question": "What is the primary architectural reason a pure text LLM struggles to count how many 'r' letters appear in 'strawberry'?",
+      "options": [
+        "The model lacks an English dictionary lookup table",
+        "BPE packs the word into multi-character subword Token IDs before the network ever sees individual characters",
+        "Softmax cannot represent integers larger than 2",
+        "Floating-point precision on GPUs cannot add three ones accurately"
+      ],
+      "answer_index": 1,
+      "explanation": "Because BPE merges frequent character sequences into subword integer IDs, the Transformer receives a couple of opaque subword indices rather than an array of single letters."
+    },
+    {
+      "question": "To maximize KV Cache Prompt Prefix Caching hit rates, where should volatile fields like current timestamps or user IDs be placed?",
+      "options": [
+        "At the very first line of the System Prompt",
+        "Interleaved inside every few-shot example header",
+        "After all static System instructions and tool schemas, inside the trailing User Message",
+        "Placement does not matter because KV Cache reorders tokens automatically"
+      ],
+      "answer_index": 2,
+      "explanation": "Prefix caching matches strictly from token 0 forward. Any dynamic value placed near the beginning invalidates every token that follows it."
+    }
+  ],
+  "interview_faqs": [
+    {
+      "question": "Why do RAG pipelines typically use Cosine Similarity instead of Euclidean Distance (L2), and when do both produce the exact same ranking?",
+      "answer": "Cosine Similarity measures only the angle between vectors, making it invariant to document length or term-frequency scaling. However, once all vectors are L2-normalized to unit length (||v|| = 1) before indexing, Euclidean distance satisfies ||a - b||^2 = 2 - 2 * cos(a, b)—so minimizing L2, maximizing dot product, and maximizing Cosine Similarity yield the exact same top-K order."
+    },
+    {
+      "question": "Why can serving 128K-token contexts cause sudden out-of-memory (OOM) failures on local GPUs even when the model weights fit comfortably?",
+      "answer": "During autoregressive decoding, inference servers store the historical Key and Value tensors of every layer and attention head in VRAM (KV Cache). That footprint multiplies with both context length and concurrent batch size. Production engines mitigate this via Grouped-Query Attention (GQA), FP8/Q8 KV Cache quantization, and explicit token budget trimming (covered in Ch.02)."
+    },
+    {
+      "question": "When evaluating open-weight models for non-English workloads, what tokenizer metric should you benchmark beyond leaderboard accuracy?",
+      "answer": "Measure Tokenizer Fertility—average tokens generated per 1,000 characters on your real domain text. A model with 1.1 tokens/char versus 2.3 tokens/char effectively doubles both readable output throughput (characters per second) and usable context capacity at the same hardware speed."
+    },
+    {
+      "question": "Why do production implementations subtract max(x) from logits before computing Softmax?",
+      "answer": "In IEEE 754 float64, math.exp(x) overflows to infinity past ~709.78, turning inf / inf into NaN and corrupting downstream layers. Shifting logits by max(x) keeps every exponent <= 0 with exp(0) = 1 while preserving the exact mathematical output."
+    }
+  ],
+  "further_reading": [
+    {
+      "title": "Attention Is All You Need (Vaswani et al., 2017)",
+      "url": "https://arxiv.org/abs/1706.03762",
+      "note": "The foundational paper introducing the Transformer architecture and Scaled Dot-Product Attention."
+    },
+    {
+      "title": "Andrej Karpathy — Let's build the GPT Tokenizer",
+      "url": "https://www.youtube.com/watch?v=zduSFxRajkE",
+      "note": "Hands-on walkthrough of Byte-level BPE implementation and real-world tokenization edge cases."
+    },
+    {
+      "title": "3Blue1Brown — Attention in Transformers, visually explained",
+      "url": "https://www.youtube.com/watch?v=eMlx5fFNoYc",
+      "note": "Intuitive geometric animations of high-dimensional embeddings and Query / Key / Value projections."
+    }
+  ],
+  "code_replacements": [
+    ["Book 1 Ch.01 LLM 底層直覺：手刻迷你 BPE Tokenizer 與詞向量餘弦相似度", "Book 1 Ch.01 LLM Internals: Mini BPE Tokenizer & Cosine Similarity from Scratch"],
+    ["零外部依賴示範 Byte Pair Encoding（BPE）子詞合併訓練、編碼、解碼，以及語意向量餘弦相似度計算。", "Zero-dependency demo of Byte Pair Encoding (BPE) subword merges, encoding/decoding, and cosine similarity."],
+    ["教學用迷你 Byte Pair Encoding (BPE) 分詞器，演示子詞合併與編解碼原理。", "Educational mini Byte Pair Encoding (BPE) tokenizer demonstrating subword merges and encode/decode."],
+    ["從文字語料中迭代合併出現頻率最高的相鄰符號對，建立子詞詞表。", "Iteratively merge the most frequent adjacent symbol pair in the corpus to build a subword vocabulary."],
+    ["將輸入文字編碼為 Token ID 串列（未登錄符號退回 <unk>）。", "Encode input text into a list of Token IDs (unseen symbols fall back to <unk>)."],
+    ["將 Token ID 串列還原為可讀文字。", "Decode a sequence of Token IDs back into readable text."],
+    ["計算兩個高維語意向量之餘弦相似度，值域 [-1.0, 1.0]。", "Compute cosine similarity between two semantic vectors in [-1.0, 1.0]."],
+    ["向量維度必須相同且不可為空", "Vectors must be non-empty and have matching dimensions"],
+    ["模擬單頭 Self-Attention 的縮放點積與 Softmax 注意力權重分佈。", "Simulate single-head Scaled Dot-Product Self-Attention and Safe Softmax weights."],
+    ["# 3 維語意示範向量：[程式概念, AI 模型, 料理]", "# 3-D demo semantic vectors: [Programming, AI Model, Cuisine]"],
+    ["Ch.01 BPE 詞表大小: ", "Ch.01 BPE Vocab Size: "],
+    ["編碼長度: ", "Encoded Len: "],
+    ["還原: '", "Decoded: '"],
+    ["語意相似度(RAG vs Agent): ", "Cosine Sim (RAG vs Agent): "],
+    ["Attention 權重: ", "Attention Weights: "]
+  ],
+  "output_replacements": [
+    ["Ch.01 BPE 詞表大小: ", "Ch.01 BPE Vocab Size: "],
+    ["編碼長度: ", "Encoded Len: "],
+    ["還原: '", "Decoded: '"],
+    ["語意相似度(RAG vs Agent): ", "Cosine Sim (RAG vs Agent): "],
+    ["Attention 權重: ", "Attention Weights: "]
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "id": "ai-engineering",
+  "cover_image": "/assets/cover-ai-engineering.webp",
+  "cover_width": 640,
+  "cover_height": 857,
+  "status": "serializing",
+  "date_published": "2026-11-25",
+  "date_modified": "2026-11-25",
+  "audience": {
+    "zh-TW": "軟體工程師、資工學生與想從 API 呼叫進階到 AI 系統架構的實作者",
+    "zh-CN": "软件工程师、计算机专业学生以及希望从调接口进阶到 AI 系统架构的实践者",
+    "en": "Software engineers, CS students, and builders moving from API prompts to production AI systems"
+  },
+  "title": {
+    "zh-TW": "AI 工程師實戰聖經：從 LLM 底層、生產級 RAG、MCP 智能體到地端部署與規格驅動開發",
+    "zh-CN": "AI 工程师实战圣经：从大模型底层、生产级 RAG、MCP 智能体到本地部署与规格驱动开发",
+    "en": "The AI Engineer's Field Guide: From LLM Internals, Production RAG & MCP Agents to Local Deployment & Spec-Driven Development"
+  },
+  "subtitle": {
+    "zh-TW": "紫楓出版社（Purple Maple Press）技術專書系列 No. 1｜全書 4 大篇 × 10 章零外部依賴 Python 3.12 真代碼實作",
+    "zh-CN": "紫枫出版社（Purple Maple Press）技术专著系列 No. 1｜全书 4 大篇 × 10 章零外部依赖 Python 3.12 源码实战",
+    "en": "Purple Maple Press Technical Monograph No. 1 | 4 Parts × 10 Chapters with Zero-Dependency Python 3.12 Reference Implementations"
+  },
+  "eyebrow": {
+    "zh-TW": "紫楓出版社專書 No. 1・AI 系統工程與智能體架構",
+    "zh-CN": "紫枫出版社专著 No. 1・AI 系统工程与智能体架构",
+    "en": "PURPLE MAPLE PRESS MONOGRAPH NO. 1 · AI SYSTEMS & AGENT ARCHITECTURE"
+  },
+  "description": {
+    "zh-TW": "紫楓（AI王紫楓 / Purple Maple）撰寫之 2026 免費開源 AI 工程師技術專書，完整涵蓋 BPE 分詞與注意力機制、Context 工程、BM25+向量 RRF 混合 RAG、評測防幻覺、狀態機 Agent、MCP JSON-RPC 2.0 協定、地端 LLM 部署、從 Vibe Coding 邁向規格驅動開發與 LLMOps 成本路由。",
+    "zh-CN": "紫枫（王紫枫 / Purple Maple）编写的 2026 免费开源 AI 工程师技术专著，完整涵盖 BPE 分词与注意力机制、上下文工程、BM25+向量 RRF 混合检索 RAG、评测防幻觉、状态机智能体、MCP JSON-RPC 2.0 协议、本地大模型部署、从 Vibe Coding 迈向规格驱动开发与 LLMOps 成本路由。",
+    "en": "Free open-source 2026 AI Engineering monograph by Purple Maple (@tbpfs1) covering BPE tokenization & attention internals, Context Engineering, BM25+Vector RRF Hybrid RAG, automated RAG evals, deterministic FSM agents, MCP JSON-RPC 2.0 servers, local LLM deployment, Spec-Driven Development beyond Vibe Coding, and LLMOps routing."
+  },
+  "aeo_capsule": {
+    "zh-TW": "《AI 工程師實戰聖經》（<code>learn.ai-purplemaple.com/books/ai-engineering/</code>）是紫楓出版社推出的免費開源技術專書，規劃 4 大篇、10 個核心章節，每章皆附 Python 3.12 零依賴實機驗證程式碼、原生架構圖解、生產環境踩坑指南與互動測驗。",
+    "zh-CN": "《AI 工程师实战圣经》（<code>learn.ai-purplemaple.com/zh-cn/books/ai-engineering/</code>）是紫枫出版社推出的免费开源技术专著，规划 4 大篇、10 个核心章节，每章均附 Python 3.12 零依赖真实运行源码、原生架构图解、生产环境避坑指南与互动测验。",
+    "en": "The AI Engineer's Field Guide (<code>learn.ai-purplemaple.com/en/books/ai-engineering/</code>) is Purple Maple Press's free open-source technical monograph organized into 4 parts and 10 hands-on chapters, each backed by CI-verified zero-dependency Python 3.12 implementations, native architecture diagrams, production pitfalls, and interactive quizzes."
+  },
+  "cover_alt": {
+    "zh-TW": "紫楓出版社《AI 工程師實戰聖經》典藏書封插畫：白瀬アイリ（艾莉 / Aily）身著貓耳連帽外套閱讀 AI 系統架構筆記（左眼緋紅 #fb7185、右眼蒼藍 #38bdf8）",
+    "zh-CN": "紫枫出版社《AI 工程师实战圣经》典藏书封插画：白濑艾莉（Aily）身着猫耳连帽外套阅读 AI 系统架构笔记（左眼绯红 #fb7185、右眼苍蓝 #38bdf8）",
+    "en": "Purple Maple Press book cover illustration for The AI Engineer's Field Guide featuring scholar-engineer mascot Shirase Airi (Aily) in a black cat-ear hoodie studying AI system notes (crimson #fb7185 left eye, azure #38bdf8 right eye)"
+  },
+  "keywords": {
+    "zh-TW": "紫楓出版社, AI 工程師教學, LLM 底層原理, BPE Tokenizer, Transformer Attention, Context Engineering, 生產級 RAG, BM25 RRF, MCP Model Context Protocol, AI Agent 狀態機, 地端 LLM LM Studio, Vibe Coding 規格驅動開發, LLMOps",
+    "zh-CN": "紫枫出版社, AI 工程师教程, 大模型底层原理, BPE 分词器, Transformer 注意力机制, 上下文工程, 生产级 RAG, BM25 RRF, MCP 协议, AI 智能体状态机, 本地大模型 LM Studio, Vibe Coding 规格驱动开发, LLMOps",
+    "en": "Purple Maple Press, AI Engineering textbook, LLM internals, BPE tokenizer Python, Transformer attention, Context Engineering, production Hybrid RAG BM25 RRF, Model Context Protocol MCP JSON-RPC, AI Agent FSM, local LLM LM Studio Ollama, Spec-Driven Development, LLMOps routing"
+  },
+  "parts": [
+    {
+      "id": "part1",
+      "title": {
+        "zh-TW": "Part I｜LLM 核心原理與上下文工程",
+        "zh-CN": "Part I｜大模型核心原理与上下文工程",
+        "en": "Part I | LLM Internals & Context Engineering"
+      },
+      "chapters": ["ch01", "ch02"]
+    },
+    {
+      "id": "part2",
+      "title": {
+        "zh-TW": "Part II｜生產級 RAG 與評測防幻覺",
+        "zh-CN": "Part II｜生产级 RAG 与评测防幻觉",
+        "en": "Part II | Production RAG & Anti-Hallucination Evals"
+      },
+      "chapters": ["ch03", "ch04"]
+    },
+    {
+      "id": "part3",
+      "title": {
+        "zh-TW": "Part III｜AI Agent、MCP 協定與安全防禦",
+        "zh-CN": "Part III｜AI 智能体、MCP 协议与安全防御",
+        "en": "Part III | AI Agents, MCP Protocol & Security Guardrails"
+      },
+      "chapters": ["ch05", "ch06", "ch07"]
+    },
+    {
+      "id": "part4",
+      "title": {
+        "zh-TW": "Part IV｜地端部署、AI 工程工作流與 LLMOps",
+        "zh-CN": "Part IV｜本地部署、AI 工程工作流与 LLMOps",
+        "en": "Part IV | Local LLMs, Spec-Driven Engineering & LLMOps"
+      },
+      "chapters": ["ch08", "ch09", "ch10"]
+    }
+  ]
+}

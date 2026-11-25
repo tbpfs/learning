@@ -1,0 +1,317 @@
+{
+  "book_id": "ai-engineering",
+  "chapters": [
+    {
+      "id": "ch01",
+      "badge": "Ch.01",
+      "part": "part1",
+      "example_file": "examples/ai_ch01_tokenizer_embedding.py",
+      "title": {
+        "zh-TW": "LLM 底層直覺：Tokenization、詞向量與 Self-Attention 運作原理",
+        "zh-CN": "大模型底层直觉：分词机制、词向量与自注意力运作原理",
+        "en": "LLM Internals: Tokenization, Embeddings & Self-Attention Mechanics"
+      },
+      "short_title": {
+        "zh-TW": "LLM 底層與 BPE 分詞",
+        "zh-CN": "大模型底层与 BPE 分词",
+        "en": "LLM Internals & BPE"
+      },
+      "summary": {
+        "zh-TW": "拆解大型語言模型真正「看見」文字的方式：從手刻 Byte Pair Encoding (BPE) 子詞合併、高維語意向量餘弦相似度，到單頭縮放點積注意力（Scaled Dot-Product Attention）與長文本 KV Cache 記憶體瓶頸。",
+        "zh-CN": "拆解大语言模型真正理解文本的方式：从手写 Byte Pair Encoding (BPE) 子词合并、高维语义向量余弦相似度，到单头缩放点积注意力（Scaled Dot-Product Attention）与长文本 KV Cache 显存瓶颈。",
+        "en": "Demystify how Large Language Models actually process text: from implementing Byte Pair Encoding (BPE) subword merges and cosine similarity over semantic vectors to Scaled Dot-Product Attention weights and KV Cache memory bottlenecks."
+      },
+      "learning_objectives": [
+        "掌握 BPE 子詞分詞為何造成中英文 Token 成本差異與「數字母失敗」現象",
+        "理解高維 Embedding 空間的餘弦相似度幾何意義與維度對齊規則",
+        "推導 Scaled Dot-Product Attention 除以 sqrt(d_k) 防止 Softmax 梯度飽和的數學原因",
+        "評估 Context Window 與 KV Cache 記憶體隨序列長度膨脹的工程成本"
+      ],
+      "key_topics": ["BPE", "Tokenizer", "Embedding", "Cosine Similarity", "Scaled Dot-Product Attention", "Softmax", "KV Cache"],
+      "youtube_references": [
+        "Andrej Karpathy - Let's build the GPT Tokenizer",
+        "3Blue1Brown - Attention in Transformers, visually explained",
+        "Hung-yi Lee (李宏毅) - Generative AI & Transformer Fundamentals"
+      ]
+    },
+    {
+      "id": "ch02",
+      "badge": "Ch.02",
+      "part": "part1",
+      "example_file": "examples/ai_ch02_context_schema.py",
+      "title": {
+        "zh-TW": "從 Prompt 到 Context Engineering：結構化輸出與 Token 預算控制",
+        "zh-CN": "从提示词到上下文工程：结构化输出与 Token 预算控制",
+        "en": "From Prompting to Context Engineering: Structured Outputs & Token Budgets"
+      },
+      "short_title": {
+        "zh-TW": "Context 工程與結構化輸出",
+        "zh-CN": "上下文工程与结构化输出",
+        "en": "Context Engineering & Schemas"
+      },
+      "summary": {
+        "zh-TW": "告別憑感覺寫魔法提示詞：學習系統化優先級組裝上下文（System / RAG / History / User）、對抗 Lost-in-the-Middle 效應，並以嚴格 Schema 驗證加有限重試將 LLM 轉化為可靠程式函式。",
+        "zh-CN": "告别凭感觉写提示词：学习按优先级组装上下文（System / RAG / History / User）、对抗中间遗忘效应，并以严格 Schema 校验加有限重试将大模型转化为可靠程序函数。",
+        "en": "Move past trial-and-error prompting: assemble priority-budgeted contexts against Lost-in-the-Middle decay and wrap LLM calls in strict schema validation with bounded self-repair retries."
+      },
+      "learning_objectives": [
+        "設計固定優先級的 Context Token 預算分配器（System / RAG / User / History）",
+        "實作輸出清洗（去除思考標籤與 Markdown Fence）與 Schema 強型別驗證",
+        "建立帶錯誤回傳的有限次自修復重試迴圈，杜絕無窮 API 帳單爆炸"
+      ],
+      "key_topics": ["Context Engineering", "Token Budget", "Lost in the Middle", "Structured Output", "JSON Schema", "Bounded Retry"],
+      "youtube_references": [
+        "Anthropic Engineering - Effective Context Engineering for AI Agents",
+        "ByteByteGo - Prompt & Context Engineering in Production"
+      ]
+    },
+    {
+      "id": "ch03",
+      "badge": "Ch.03",
+      "part": "part2",
+      "example_file": "examples/ai_ch03_hybrid_rag.py",
+      "title": {
+        "zh-TW": "生產級 RAG 架構：語意切塊、BM25 ＋ 向量混合檢索與 RRF 重排",
+        "zh-CN": "生产级 RAG 架构：语义分块、BM25 与向量混合检索及 RRF 重排",
+        "en": "Production RAG Architecture: Chunking, BM25 + Vector Hybrid Search & RRF"
+      },
+      "short_title": {
+        "zh-TW": "生產級混合 RAG 與 RRF",
+        "zh-CN": "生产级混合 RAG 与 RRF",
+        "en": "Hybrid RAG & RRF"
+      },
+      "summary": {
+        "zh-TW": "為何純向量檢索在真實線上環境總是漏掉錯誤碼與專有名詞？手刻重疊滑動視窗切塊、BM25 詞頻檢索、向量檢索與 Reciprocal Rank Fusion (RRF) 融合排序引擎。",
+        "zh-CN": "为何纯向量检索在真实线上环境总是漏掉错误码与专有名词？手写重叠滑动窗口分块、BM25 词频检索、向量检索与 Reciprocal Rank Fusion (RRF) 融合排序引擎。",
+        "en": "Why pure dense retrieval misses error codes and exact IDs in production: implement overlapping chunking, BM25 lexical scoring, vector retrieval, and Reciprocal Rank Fusion (RRF)."
+      },
+      "learning_objectives": [
+        "理解固定切塊 vs 帶重疊滑動視窗切塊如何避免跨段語意斷裂",
+        "比較 BM25 精確關鍵字檢索與 Dense Vector 語意檢索的互補邊界",
+        "掌握無需尺度歸一化的 RRF（1 / (k + rank)）雙路融合演算法"
+      ],
+      "key_topics": ["Chunking", "Overlap", "BM25", "Dense Vector Search", "Hybrid Search", "Reciprocal Rank Fusion"],
+      "youtube_references": [
+        "freeCodeCamp - Production RAG Systems Full Course",
+        "ByteByteGo - How Hybrid Search Powers Production RAG"
+      ]
+    },
+    {
+      "id": "ch04",
+      "badge": "Ch.04",
+      "part": "part2",
+      "example_file": "examples/ai_ch04_rag_eval.py",
+      "title": {
+        "zh-TW": "RAG 評測與防幻覺工程：Recall@K、MRR 與忠實度自動化驗收",
+        "zh-CN": "RAG 评测与防幻觉工程：Recall@K、MRR 与忠实度自动化验收",
+        "en": "RAG Evaluation & Anti-Hallucination: Recall@K, MRR & Faithfulness Checks"
+      },
+      "short_title": {
+        "zh-TW": "RAG 評測與防幻覺",
+        "zh-CN": "RAG 评测与防幻觉",
+        "en": "RAG Evals & Faithfulness"
+      },
+      "summary": {
+        "zh-TW": "沒有量化評測就改 Prompt 等於閉眼開車。建立可納入 CI 的檢索指標（Recall@K、MRR）與生成忠實度（Groundedness）數字/實體溯源檢查器，把幻覺攔在部署之前。",
+        "zh-CN": "没有量化评测就改提示词等于盲人摸象。建立可纳入 CI 的检索指标（Recall@K、MRR）与生成忠实度数字/实体溯源检查器，把幻觉拦截在上线之前。",
+        "en": "Stop tuning RAG by vibes: build CI-friendly Retrieval metrics (Recall@K, MRR) and Groundedness / Faithfulness verifiers that catch numeric hallucinations before deployment."
+      },
+      "learning_objectives": [
+        "分離評估檢索品質（Recall@K、MRR）與生成品質（Faithfulness）以精準定位瓶頸",
+        "實作高風險事實（金額、比例、版本號）的來源片段佐證檢查器",
+        "將黃金評測集（Golden Eval Set）納入 GitHub Actions 回歸門檻"
+      ],
+      "key_topics": ["Recall@K", "MRR", "Faithfulness", "Groundedness", "Golden Eval Set", "Hallucination Guard"],
+      "youtube_references": [
+        "Hamel Husain - Your AI Product Needs Evals",
+        "Hung-yi Lee (李宏毅) - Hallucination & Evaluation of LLMs"
+      ]
+    },
+    {
+      "id": "ch05",
+      "badge": "Ch.05",
+      "part": "part3",
+      "example_file": "examples/ai_ch05_agent_fsm.py",
+      "title": {
+        "zh-TW": "AI Agent 核心設計：ReAct 迴圈、Tool Calling 與確定性狀態機",
+        "zh-CN": "AI 智能体核心设计：ReAct 循环、工具调用与确定性状态机",
+        "en": "AI Agent Architecture: ReAct Loops, Tool Calling & Deterministic FSMs"
+      },
+      "short_title": {
+        "zh-TW": "Agent 狀態機與工具呼叫",
+        "zh-CN": "智能体状态机与工具调用",
+        "en": "Agent FSM & Tool Calling"
+      },
+      "summary": {
+        "zh-TW": "解析 AI Agent 如何脫離單次聊天，透過工具註冊表、JSON 參數校驗與可追蹤的有限狀態機（FSM）執行多步推理，並以 max_steps 硬上限徹底終結無限迴圈與帳單失控。",
+        "zh-CN": "解析 AI 智能体如何脱离单次对话，通过工具注册表、JSON 参数校验与可追踪的有限状态机（FSM）执行多步推理，并以 max_steps 硬上限彻底终结死循环与账单失控。",
+        "en": "Build deterministic, debuggable AI Agents using typed tool registries, structured ReAct transitions, full execution traces, and hard max_steps circuit breakers."
+      },
+      "learning_objectives": [
+        "區分單純 Workflow 與自主 Agent 的適用邊界與可控性權衡",
+        "實作型別安全 Tool Registry 與明確狀態轉移（PLAN -> ACT -> OBSERVE -> FINAL）",
+        "設計 max_steps 熔斷與結構化 Trajectory Trace 以便線上除錯"
+      ],
+      "key_topics": ["AI Agent", "ReAct", "Tool Calling", "Finite State Machine", "Trajectory Trace", "Max Steps Circuit Breaker"],
+      "youtube_references": [
+        "Anthropic - Building Effective Agents",
+        "Hung-yi Lee (李宏毅) - AI Agents & Tool Use"
+      ]
+    },
+    {
+      "id": "ch06",
+      "badge": "Ch.06",
+      "part": "part3",
+      "example_file": "examples/ai_ch06_mini_mcp_server.py",
+      "title": {
+        "zh-TW": "MCP（Model Context Protocol）實戰：手刻 JSON-RPC 2.0 伺服器",
+        "zh-CN": "MCP（模型上下文协议）实战：手写 JSON-RPC 2.0 服务端",
+        "en": "Model Context Protocol (MCP) in Practice: Building a JSON-RPC 2.0 Server"
+      },
+      "short_title": {
+        "zh-TW": "MCP 協定與 JSON-RPC 實戰",
+        "zh-CN": "MCP 协议与 JSON-RPC 实战",
+        "en": "MCP JSON-RPC Server"
+      },
+      "summary": {
+        "zh-TW": "MCP 如同 AI 時代的 USB-C 標準介面。本篇不靠黑箱 SDK，直接以 Python 標準庫手刻完整支援 initialize、tools/list、tools/call 與錯誤碼規範的迷你 MCP Server。",
+        "zh-CN": "MCP 如同 AI 时代的 USB-C 标准接口。本章不依赖黑箱 SDK，直接用 Python 标准库手写完整支持 initialize、tools/list、tools/call 与错误码规范的迷你 MCP 服务端。",
+        "en": "MCP is the USB-C port for AI tooling. Implement a spec-compliant mini MCP Server from scratch in Python stdlib supporting initialize, tools/list, tools/call, and JSON-RPC 2.0 error codes."
+      },
+      "learning_objectives": [
+        "理解 MCP 如何將 M×N 的模型與工具整合複雜度降為 M+N",
+        "掌握 JSON-RPC 2.0 訊息信封、標準錯誤碼（-32601 / -32602）與 Capability 握手",
+        "理解 stdio 與 Streamable HTTP 兩種傳輸層的資安與部署差異"
+      ],
+      "key_topics": ["MCP", "Model Context Protocol", "JSON-RPC 2.0", "tools/list", "tools/call", "stdio Transport"],
+      "youtube_references": [
+        "NetworkChuck - Model Context Protocol (MCP) Explained",
+        "freeCodeCamp - Build MCP Servers from Scratch"
+      ]
+    },
+    {
+      "id": "ch07",
+      "badge": "Ch.07",
+      "part": "part3",
+      "example_file": "examples/ai_ch07_multi_agent_guard.py",
+      "title": {
+        "zh-TW": "Multi-Agent 協作、Prompt Injection 防禦與人機共駕（HITL）",
+        "zh-CN": "多智能体协作、提示词注入防御与人机协同审批（HITL）",
+        "en": "Multi-Agent Orchestration, Prompt Injection Defense & Human-in-the-Loop"
+      },
+      "short_title": {
+        "zh-TW": "多代理安全與 HITL 防禦",
+        "zh-CN": "多智能体安全与 HITL 防御",
+        "en": "Agent Security & HITL"
+      },
+      "summary": {
+        "zh-TW": "當 Agent 拿到讀檔、寄信與寫庫權限，一句間接注入就可能釀成資安事故。設計最小權限角色矩陣、注入特徵掃描與高風險操作人工核准閘門（Human-in-the-Loop）。",
+        "zh-CN": "当智能体拥有读文件、发邮件与写库权限，一句间接注入就可能酿成安全事故。设计最小权限角色矩阵、注入特征扫描与高风险操作人工审批闸门（Human-in-the-Loop）。",
+        "en": "When agents can read files and run mutations, indirect prompt injection becomes a critical vulnerability. Build least-privilege role gates, injection detectors, and Human-in-the-Loop approval checkpoints."
+      },
+      "learning_objectives": [
+        "辨識直接注入與間接提示詞注入（Indirect Prompt Injection）攻擊向量",
+        "套用最小權限原則（RBAC）隔離唯讀檢索員與高權限執行者",
+        "為破壞性工具（刪除、金流、外發請求）建立不可繞過的 HITL 核准閘門"
+      ],
+      "key_topics": ["Multi-Agent", "Prompt Injection", "Least Privilege", "RBAC", "Human-in-the-Loop", "Safety Gate"],
+      "youtube_references": [
+        "OWASP Top 10 for LLM Applications",
+        "Simon Willison - Prompt Injection & Dual LLM Pattern"
+      ]
+    },
+    {
+      "id": "ch08",
+      "badge": "Ch.08",
+      "part": "part4",
+      "example_file": "examples/ai_ch08_local_llm_client.py",
+      "title": {
+        "zh-TW": "地端 LLM 實戰：LM Studio、量化顯存估算與本機斷點續跑引擎",
+        "zh-CN": "本地大模型实战：LM Studio、量化显存估算与断点续跑引擎",
+        "en": "Local LLMs in Production: LM Studio, Quantized VRAM Math & Resumable Caching"
+      },
+      "short_title": {
+        "zh-TW": "地端 LLM 與顯存規劃",
+        "zh-CN": "本地大模型与显存规划",
+        "en": "Local LLMs & VRAM Math"
+      },
+      "summary": {
+        "zh-TW": "把開源權重跑在自己的顯卡上零 API 費且完全隱私！學習 GGUF 4-bit/8-bit 顯存公式、OpenAI-Compatible 本機呼叫、思考標籤清洗與 SHA-256 斷點快取批次工作流。",
+        "zh-CN": "将开源权重跑在本地显卡上零接口费且完全隐私！学习 GGUF 4-bit/8-bit 显存公式、OpenAI 兼容本地调用、思考标签清洗与 SHA-256 断点缓存批量工作流。",
+        "en": "Run open weights privately on local GPUs with zero token bills: master GGUF quantization VRAM math, OpenAI-compatible LM Studio clients, think-tag stripping, and SHA-256 resumable batch caching."
+      },
+      "learning_objectives": [
+        "精算不同參數量（9B / 26B / 35B）在 Q4 / Q8 / FP16 與長上下文下的 VRAM 需求",
+        "以標準庫實作零依賴 OpenAI-Compatible 本機推論客戶端與安全 URL 檢查",
+        "利用內容雜湊快取（SHA-256 Checkpoint）打造可中斷重跑的地端批次產文管線"
+      ],
+      "key_topics": ["Local LLM", "LM Studio", "Ollama", "GGUF Quantization", "VRAM Estimation", "SHA-256 Checkpoint Cache"],
+      "youtube_references": [
+        "NetworkChuck - Host Your Own Local AI with Ollama & LM Studio",
+        "Matthew Berman - Local LLM Quantization & Hardware Guide"
+      ]
+    },
+    {
+      "id": "ch09",
+      "badge": "Ch.09",
+      "part": "part4",
+      "example_file": "examples/ai_ch09_spec_driven_gate.py",
+      "title": {
+        "zh-TW": "從 Vibe Coding 到規格驅動開發（Spec-Driven）：AI 協作與機械化驗收",
+        "zh-CN": "从 Vibe Coding 到规格驱动开发（Spec-Driven）：AI 协作与机械化验收",
+        "en": "Beyond Vibe Coding: Spec-Driven AI Engineering & Mechanical Quality Gates"
+      },
+      "short_title": {
+        "zh-TW": "從 Vibe Coding 到規格驅動",
+        "zh-CN": "从 Vibe Coding 到规格驱动",
+        "en": "Spec-Driven Engineering"
+      },
+      "summary": {
+        "zh-TW": "為何純靠感覺抽卡的 Vibe Coding 在專案破千行後必然崩潰？實戰拆解 2026 主流規格驅動開發（Spec-Driven + Hooks + 靜態契約測試），用確定性閘門馴服非確定性 AI。",
+        "zh-CN": "为何纯靠感觉抽卡的 Vibe Coding 在项目超过千行后必然失控？实战拆解 2026 主流规格驱动开发（Spec-Driven + Hooks + 静态契约测试），用确定性闸门驯服非确定性 AI。",
+        "en": "Why pure Vibe Coding collapses past 1,000 lines: transition to 2026 Spec-Driven Engineering using design contracts, AST/security static gates, and automated test harnesses."
+      },
+      "learning_objectives": [
+        "客觀剖析 Vibe Coding 的原型價值與長期維護技術債盲區",
+        "建立「規格文件 -> 測試契約 -> AI 實作 -> 機械化 AST 閘門」四步工程閉環",
+        "實作自動化靜態守門員攔截危險函式、缺失型別與未授權行為"
+      ],
+      "key_topics": ["Vibe Coding", "Spec-Driven Development", "Contract Testing", "AST Quality Gate", "AI Code Review"],
+      "youtube_references": [
+        "Andrej Karpathy - Software 3.0 & Beyond Vibe Coding",
+        "Fireship / Theo - Why Spec-Driven AI Coding Beats Vibe Coding"
+      ]
+    },
+    {
+      "id": "ch10",
+      "badge": "Ch.10",
+      "part": "part4",
+      "example_file": "examples/ai_ch10_llmops_router.py",
+      "title": {
+        "zh-TW": "LLMOps 上線實戰：雙層模型路由、成本控管、限流與可觀測性",
+        "zh-CN": "LLMOps 上线实战：双层模型路由、成本控管、限流与可观测性",
+        "en": "Production LLMOps: Tiered Model Routing, Cost Control, Rate Limits & Observability"
+      },
+      "short_title": {
+        "zh-TW": "LLMOps 路由與成本控管",
+        "zh-CN": "LLMOps 路由与成本控管",
+        "en": "LLMOps & Cost Routing"
+      },
+      "summary": {
+        "zh-TW": "從 Demo 到高併發正式上線的最後一哩路：實作輕量／旗艦雙層模型路由器大幅省下 Token 成本、令牌桶限流（Token Bucket）防刷爆，以及結構化延遲與費用遙測。",
+        "zh-CN": "从演示原型到高并发正式上线的最后一公里：实现轻量与旗舰双层模型路由器大幅降低 Token 成本、令牌桶限流（Token Bucket）防刷爆，以及结构化延迟与费用遥测。",
+        "en": "Bridge the final mile from prototype to production: build a tiered fast/flagship model router to slash token bills, enforce Token Bucket rate limits, and capture structured latency/cost telemetry."
+      },
+      "learning_objectives": [
+        "以複雜度評分將簡單查詢導向低成本小模型，旗艦模型留給高難度推理",
+        "以 Token Bucket 演算法保護 LLM 端點免於突發流量與惡意刷爆",
+        "設計包含 Latency、Token 用量與每請求成本的結構化可觀測性指標"
+      ],
+      "key_topics": ["LLMOps", "Model Routing", "Cost Optimization", "Token Bucket", "Rate Limiting", "Observability"],
+      "youtube_references": [
+        "ByteByteGo - Designing Production LLM Systems at Scale",
+        "Chip Huyen - AI Engineering & Production LLMOps"
+      ]
+    }
+  ]
+}
