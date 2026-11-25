@@ -71,7 +71,7 @@ DEFAULT_POLISH_MODEL = os.environ.get(
     "gemma4-26b-a4b-qat-uncensored-hauhaucs-balanced-mtp",
 )
 DEFAULT_CONTEXT_LEN = int(os.environ.get("PRESS_LM_CTX", "8192"))
-DEFAULT_TIMEOUT_SEC = 240
+DEFAULT_TIMEOUT_SEC = 360
 MAX_QA_RETRIES = 3
 
 LMS_CLI = os.environ.get("LMS_CLI") or shutil.which("lms") or "lms"
@@ -139,22 +139,52 @@ def strip_model_artifacts(raw_text: str) -> str:
     return cleaned
 
 
+def _repair_unescaped_inner_quotes(text: str) -> str:
+    """Repair unescaped interior ASCII double quotes and invalid backslash escapes inside JSON strings."""
+    repaired_lines: list[str] = []
+    for line in text.splitlines():
+        m_kv = re.match(r'^(\s*"[^"\\]+"\s*:\s*)"(.*)"(\s*,?\s*)$', line)
+        if m_kv:
+            prefix, val, suffix = m_kv.groups()
+            safe_val = re.sub(r'(?<!\\)"', r'\\"', val)
+            safe_val = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', safe_val)
+            repaired_lines.append(f'{prefix}"{safe_val}"{suffix}')
+            continue
+        m_arr = re.match(r'^(\s*)"(.*)"(\s*,?\s*)$', line)
+        if m_arr and ":" not in line[: min(len(line), 28)]:
+            prefix, val, suffix = m_arr.groups()
+            safe_val = re.sub(r'(?<!\\)"', r'\\"', val)
+            safe_val = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', safe_val)
+            repaired_lines.append(f'{prefix}"{safe_val}"{suffix}')
+            continue
+        repaired_lines.append(line)
+    return "\n".join(repaired_lines)
+
+
 def extract_json_object(raw_text: str) -> dict[str, Any]:
-    """Extract and parse the outermost JSON object from a local LLM response."""
+    """Extract and parse the outermost JSON object with local-LLM tolerance."""
     cleaned = strip_model_artifacts(raw_text)
-    try:
-        parsed = json.loads(cleaned)
-        if isinstance(parsed, dict):
-            return parsed
-    except json.JSONDecodeError:
-        pass
+    candidates = [cleaned]
     match = re.search(r"\{.*\}", cleaned, re.DOTALL)
-    if not match:
-        raise ValueError(f"No JSON object found in model output: {cleaned[:260]!r}")
-    parsed = json.loads(match.group(0))
-    if not isinstance(parsed, dict):
-        raise ValueError("Expected top-level JSON object")
-    return parsed
+    if match:
+        candidates.append(match.group(0))
+    last_err: Exception | None = None
+    for cand in candidates:
+        variants = (
+            cand,
+            re.sub(r",\s*([}\]])", r"\1", cand),
+            _repair_unescaped_inner_quotes(cand),
+            re.sub(r",\s*([}\]])", r"\1", _repair_unescaped_inner_quotes(cand)),
+        )
+        for variant in variants:
+            for strict_flag in (True, False):
+                try:
+                    parsed = json.loads(variant, strict=strict_flag)
+                    if isinstance(parsed, dict):
+                        return parsed
+                except json.JSONDecodeError as exc:
+                    last_err = exc
+    raise ValueError(f"No valid JSON object found in model output ({last_err}): {cleaned[:260]!r}")
 
 
 def find_fewshot_overlap(text: str, anchor: str = CROSS_DOMAIN_TEXTBOOK_ANCHOR, min_len: int = 12) -> str | None:
@@ -356,11 +386,12 @@ def call_lm_text(
     max_tokens: int = 2400,
     reasoning_effort: str = "none",
     use_dry: bool = True,
+    json_mode: bool = False,
     timeout: int = DEFAULT_TIMEOUT_SEC,
     http_fn: Callable[..., dict[str, Any]] = default_http_json,
     lms: LmsController | None = None,
 ) -> str:
-    """Call LM Studio chat completions with DRY 400 fallback, unloaded recovery, and tok/s telemetry."""
+    """Call LM Studio chat completions with JSON grammar mode, DRY 400 fallback & tok/s telemetry."""
     clean_base = validate_endpoint_url(base_url)
     body: dict[str, Any] = {
         "model": model,
@@ -376,6 +407,8 @@ def call_lm_text(
     }
     if use_dry:
         body["dry_multiplier"] = 0.8
+    if json_mode:
+        body["response_format"] = {"type": "json_object"}
 
     last_err: Exception | None = None
     for attempt in range(1, 5):
@@ -404,6 +437,10 @@ def call_lm_text(
                     err_body = exc.read().decode("utf-8", errors="ignore")[:300]  # type: ignore[attr-defined]
                 except Exception:
                     pass
+            if "response_format" in body and ("400" in str(exc) or "response_format" in err_body):
+                body.pop("response_format", None)
+                print("    [INFO] 端點不支援 response_format=json_object，自動降級重試。", flush=True)
+                continue
             if "dry_multiplier" in body and ("400" in str(exc) or "dry_multiplier" in err_body):
                 body.pop("dry_multiplier", None)
                 print("    [INFO] 端點不支援 dry_multiplier，自動降級重試。", flush=True)
@@ -445,6 +482,7 @@ def call_lm_json(
             max_tokens=max_tokens,
             reasoning_effort=reasoning_effort,
             use_dry=use_dry,
+            json_mode=False,
             timeout=timeout,
             http_fn=http_fn,
             lms=lms,
@@ -664,19 +702,18 @@ def forge_draft(
     if len(sec_plans) < 3:
         raise ValueError(f"Stage 0 plan returned too few sections: {len(sec_plans)}")
 
-    # Stage 1: Section-by-section drafting with draft_model (Golden 4K-6K context window)
-    if lms is not None:
-        lms.switch_model(draft_model)
-    print(f">>> [Stage 1/3] 以 {draft_model} 逐節撰寫初稿（共 {len(sec_plans)} 節＋結構化模組）...", flush=True)
+    # Stage 1: Section-by-section drafting with draft_model (lazy model load on first cache miss!)
+    print(f">>> [Stage 1/3] 檢查／撰寫初稿（共 {len(sec_plans)} 節＋結構化模組，模型：{draft_model}）...", flush=True)
 
     sys_draft_sec = (
         "你是紫楓出版社資深 AI 系統架構師，正在撰寫歐萊禮等級技術專書單一小節。\n\n"
         f"{CROSS_DOMAIN_TEXTBOOK_ANCHOR}\n\n"
         "【硬性寫作規範】\n"
         "1. 僅回傳合法 JSON：{\"id\":\"...\",\"heading\":\"...\",\"paragraphs\":[\"...\",\"...\",\"...\"],\"bullets\":[\"...\",\"...\"],\"callout_title\":\"...\",\"callout_body\":\"...\"}\n"
-        "2. 本節正文須寫 3 段紮實、流暢的工程解析（全節合計 700～950 中文字），切忌碎裂短句與空泛套話。\n"
-        "3. 緊密扣合本章真實 Python 3.12 範例與實機輸出，講清楚『為什麼這樣設計、線上會踩什麼坑』。\n"
-        "4. 嚴禁『在當今快速發展的時代』『總而言之』『綜上所述』『雙面刃』等 AI 罐頭詞。"
+        "2. JSON 字串值內部引用文字或程式碼一律使用中文引號「」或單引號 '，嚴禁在字串內寫未跳脫的英文雙引號 \"。\n"
+        "3. 本節正文須寫 3 段紮實、流暢的工程解析（全節合計 700～950 中文字），切忌碎裂短句與空泛套話。\n"
+        "4. 緊密扣合本章真實 Python 3.12 範例與實機輸出，講清楚「為什麼這樣設計、線上會踩什麼坑」。\n"
+        "5. 嚴禁「在當今快速發展的時代」「總而言之」「綜上所述」「雙面刃」等 AI 罐頭詞。"
     )
 
     drafted_sections: list[dict[str, Any]] = []
@@ -689,6 +726,8 @@ def forge_draft(
             print(f"  [CACHE HIT] Stage 1 第 {idx} 節：{sp['heading']}", flush=True)
             sec_obj = cached_sec
         else:
+            if lms is not None:
+                lms.switch_model(draft_model)
             print(f"  * Stage 1 撰寫第 {idx}/{len(sec_plans)} 節：{sp['heading']}", flush=True)
             active_gloss = extract_active_glossary(glossary, json.dumps(sp, ensure_ascii=False))
             usr_sec = (
@@ -703,10 +742,10 @@ def forge_draft(
                 model=draft_model,
                 system_prompt=sys_draft_sec,
                 user_prompt=usr_sec,
-                temperature=0.55,
+                temperature=0.45,
                 max_tokens=2200,
                 reasoning_effort="none",
-                use_dry=True,
+                use_dry=False,
                 http_fn=http_fn,
                 lms=lms,
             )
@@ -720,6 +759,8 @@ def forge_draft(
     mod_a_hash = compute_cache_hash({"plan": plan, "src": src_code, "out": live_out, "model": draft_model})
     mod_a = load_cached_json(mod_a_cache, mod_a_hash)
     if mod_a is None:
+        if lms is not None:
+            lms.switch_model(draft_model)
         print("  * Stage 1 產出原生 SVG 架構圖、對照表與程式碼拆解...", flush=True)
         sys_mod_a = (
             "你是技術專書視覺與架構設計編輯，請嚴格只回傳單一合法 JSON。\n"
@@ -766,6 +807,8 @@ def forge_draft(
     mod_b_hash = compute_cache_hash({"plan": plan, "outline": outline, "model": draft_model})
     mod_b = load_cached_json(mod_b_cache, mod_b_hash)
     if mod_b is None:
+        if lms is not None:
+            lms.switch_model(draft_model)
         print("  * Stage 1 產出 3 個生產踩坑、3 題互動測驗與 4 題面試 FAQ...", flush=True)
         sys_mod_b = "你是資深 AI 工程面試官與 SRE，請只輸出單一合法 JSON，內容具體且具實戰含金量。"
         usr_mod_b = (
@@ -831,7 +874,7 @@ def forge_draft(
                 temperature=0.35,
                 max_tokens=2300,
                 reasoning_effort="none",
-                use_dry=True,
+                use_dry=False,
                 http_fn=http_fn,
                 lms=lms,
             )
@@ -844,32 +887,51 @@ def forge_draft(
         save_cached_json(sec_p_cache, sp_hash, cur_sec)
         polished_sections.append(cur_sec)
 
-    # Polish structured modules through Gemma4 to eliminate any Qwen Simplified drift
-    mod_p_cache = cache_dir / f"{chapter_id}_stage2_mods.json"
-    mp_hash = compute_cache_hash({"a": mod_a, "b": mod_b, "model": polish_model})
-    polished_mods = load_cached_json(mod_p_cache, mp_hash)
-    if polished_mods is None:
-        print("  * Stage 2 精修架構圖文字、對照表、踩坑、測驗與面試 FAQ（清除簡體與陸語）...", flush=True)
-        sys_polish_mods = (
-            "你是台灣繁體中文技術專書校對總編。將輸入 JSON 中所有文字（包含 diagram_svg 內標籤、對照表、踩坑、測驗與 FAQ）"
-            "統一修正為 100% 純台灣繁體中文（改用記憶體／程式碼／呼叫／預設／演算法／陣列／鏈結串列／快取／資訊／建立／回應），"
-            "完整保留 SVG 結構與 JSON Schema，僅回傳單一合法 JSON。"
-        )
-        combined_mods = {**mod_a, **mod_b}
-        polished_mods = call_lm_json(
+    # Polish structured modules in 2 compact calls (mod_a and mod_b) so each stays fast & within ctx/timeout
+    sys_polish_mods = (
+        "你是台灣繁體中文技術專書校對總編。將輸入 JSON 中所有文字統一修正為 100% 純台灣繁體中文"
+        "（改用記憶體／程式碼／呼叫／預設／演算法／陣列／鏈結串列／快取／資訊／建立／回應），"
+        "完整保留所有鍵名、SVG 標籤與 JSON Schema，僅回傳單一合法 JSON。"
+    )
+    mod_pa_cache = cache_dir / f"{chapter_id}_stage2_mod_a.json"
+    mpa_hash = compute_cache_hash({"a": mod_a, "model": polish_model})
+    polished_mod_a = load_cached_json(mod_pa_cache, mpa_hash)
+    if polished_mod_a is None:
+        print("  * Stage 2a 精修架構圖文字、對照表與程式碼拆解（清除簡體與陸語）...", flush=True)
+        polished_mod_a = call_lm_json(
             base_url=base_url,
             model=polish_model,
             system_prompt=sys_polish_mods,
-            user_prompt=json.dumps(combined_mods, ensure_ascii=False),
+            user_prompt=json.dumps(mod_a, ensure_ascii=False),
             temperature=0.2,
-            max_tokens=3600,
+            max_tokens=2600,
             reasoning_effort="none",
             http_fn=http_fn,
             lms=lms,
         )
-        if validate_svg_safe(str(polished_mods.get("diagram_svg") or "")):
-            polished_mods["diagram_svg"] = mod_a["diagram_svg"]
-        save_cached_json(mod_p_cache, mp_hash, polished_mods)
+        if validate_svg_safe(str(polished_mod_a.get("diagram_svg") or "")):
+            polished_mod_a["diagram_svg"] = mod_a["diagram_svg"]
+        save_cached_json(mod_pa_cache, mpa_hash, polished_mod_a)
+
+    mod_pb_cache = cache_dir / f"{chapter_id}_stage2_mod_b.json"
+    mpb_hash = compute_cache_hash({"b": mod_b, "model": polish_model})
+    polished_mod_b = load_cached_json(mod_pb_cache, mpb_hash)
+    if polished_mod_b is None:
+        print("  * Stage 2b 精修生產踩坑、互動測驗與面試 FAQ（清除簡體與陸語）...", flush=True)
+        polished_mod_b = call_lm_json(
+            base_url=base_url,
+            model=polish_model,
+            system_prompt=sys_polish_mods,
+            user_prompt=json.dumps(mod_b, ensure_ascii=False),
+            temperature=0.2,
+            max_tokens=2800,
+            reasoning_effort="none",
+            http_fn=http_fn,
+            lms=lms,
+        )
+        save_cached_json(mod_pb_cache, mpb_hash, polished_mod_b)
+
+    polished_mods = {**polished_mod_a, **polished_mod_b}
 
     chapter_payload: dict[str, Any] = {
         "book_id": book_id,
@@ -945,7 +1007,8 @@ def forge_translate(
 
     lang_directive = (
         "Target language: Natural O'Reilly-grade Technical English (en). "
-        "ZERO Chinese/CJK characters permitted anywhere in values."
+        "ZERO Chinese/CJK characters permitted anywhere in values. "
+        "CRITICAL JSON RULE: Inside English prose strings, ALWAYS use single quotes ('...') or backticks (`...`) instead of ASCII double quotes (\") so JSON stays 100% valid!"
         if target_locale == "en"
         else "目標語言：中國大陸簡體中文（zh-Hans）技術專書用語。"
         "嚴禁任何繁體字與台灣慣用語（禁詞：詞元、推論、檢索、微調、幻覺、權重、視窗、切塊、程式碼、講義、紫楓、社團、陣列、鏈結串列、演算法、預設、記憶體、呼叫、快取）。"
@@ -1015,20 +1078,26 @@ def forge_translate(
         sec_tr["id"] = sec["id"]
         tr_sections.append(sec_tr)
 
-    # Chunk N+1: Diagram SVG + Pitfalls + Quiz + FAQs + Further Reading
-    tail_src = {
+    # Chunk N+1a: Diagram SVG + Pitfalls (compact chunk so local GPU finishes fast without timeout)
+    tail_a_src = {
         "diagram_caption": src_data["diagram_caption"],
         "diagram_svg": src_data["diagram_svg"],
         "pitfalls": src_data["pitfalls"],
+    }
+    tail_a_tr = _translate_chunk(
+        "tail_a",
+        tail_a_src,
+        extra_check=lambda obj: validate_svg_safe(str(obj.get("diagram_svg") or "")),
+    )
+
+    # Chunk N+1b: Quiz + Interview FAQs + Further Reading
+    tail_b_src = {
         "quiz": src_data["quiz"],
         "interview_faqs": src_data["interview_faqs"],
         "further_reading": src_data.get("further_reading", []),
     }
-    tail_tr = _translate_chunk(
-        "tail",
-        tail_src,
-        extra_check=lambda obj: validate_svg_safe(str(obj.get("diagram_svg") or "")),
-    )
+    tail_b_tr = _translate_chunk("tail_b", tail_b_src)
+    tail_tr = {**tail_a_tr, **tail_b_tr}
 
     # Chunk N+2: Deterministic code_replacements & output_replacements verified by compile()
     code_keys, out_keys = extract_cjk_literals_from_code(raw_code, raw_out)

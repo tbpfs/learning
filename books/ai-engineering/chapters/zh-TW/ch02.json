@@ -1,0 +1,226 @@
+{
+  "book_id": "ai-engineering",
+  "chapter_id": "ch02",
+  "locale": "zh-TW",
+  "status": "published",
+  "badge": "Ch.02",
+  "part_id": "part1",
+  "title": "從 Prompt 到 Context Engineering：結構化輸出與 Token 預算控制",
+  "short_title": "Context 工程與結構化輸出",
+  "summary": "告別憑感覺寫魔法提示詞：學習系統化優先級組裝上下文（System / RAG / History / User）、對抗 Lost-in-the-Middle 效應，並以嚴格 Schema 驗證加有限重試將 LLM 轉化為可靠程式函式。",
+  "aeo_capsule": "<strong>Context Engineering（上下文工程）</strong>透過優先級預算裁切器（<code>pack_context_window</code>）在嚴格 Token 上限內保留高信噪比區塊，再搭配輸出清洗、<code>validate_record_schema</code> 強型別檢查與有限次錯誤回授重試（<code>generate_structured_with_retry</code>），將機率式 LLM 轉化為可預測的確定性程式元件。",
+  "reading_minutes": 18,
+  "lastmod": "2026-11-25",
+  "example_file": "examples/ai_ch02_context_schema.py",
+  "keywords": [
+    "Context Engineering",
+    "上下文工程",
+    "Token Budget",
+    "Lost in the Middle",
+    "Structured Output",
+    "JSON Schema 驗證",
+    "Bounded Retry",
+    "紫楓出版社"
+  ],
+  "learning_objectives": [
+    "設計固定優先級的 Context Token 預算分配器（System / User / RAG / History），在有限視窗中最大化有效資訊濃度。",
+    "實作輸出清洗（去除思考標籤與 Markdown 圍欄）與 Schema 強型別驗證，根除 JSONDecodeError 與欄位型別漂移。",
+    "建立帶錯誤訊息回授的有限次自修復重試迴圈（Bounded Retry），兼顧高收斂率並杜絕無窮 API 帳單爆炸。"
+  ],
+  "sections": [
+    {
+      "id": "sec1-context-budgeting",
+      "heading": "2.1 上下文工程：Token 預算分配與 Lost-in-the-Middle 效應",
+      "paragraphs": [
+        "許多後端工程師剛接觸企業級 LLM 開發時，常誤以為只要把所有 RAG 檢索結果與完整對話紀錄不加思索地塞進上下文視窗（Context Window），就能換取更高的回答準確率，卻忽略了長序列中的注意力衰減與成本膨脹。觀察本章實作的 pack_context_window() 函式，我們並非粗暴地從尾端截斷文字，而是為每個區塊標註明確優先權並進行貪婪選取（Greedy Selection）：System (100) > User (95) > RAG (80) > History (10)。這套策略確保最高權重的系統規則與使用者當前指令絕對不會被冗長的舊對話雜訊擠掉；一旦預算不足導致 System Prompt 被截斷，模型便會立刻失去格式約束力，就算檢索到的資料再正確，回傳的結果仍可能徹底偏離 JSON Schema 規範。",
+        "在實作 estimate_tokens() 時，我們刻意採用中英文混排啟發式估算（1 個中文字約 1.5 token、1 個英文詞約 1.3 token），而不是偷懶用 len(text) 充數，這正是為了承接 Ch.01 的 BPE 分詞特性、讓預算控管更貼近真實帳單。更重要的是對抗史丹佛研究（Liu et al., 2023）揭露的「中間迷失」（Lost-in-the-Middle）效應：當上下文塞滿數萬 Token 的雜訊時，模型對首尾位置的注意力最強，夾在正中央的關鍵 RAG 段落反而最容易被忽略。因此，pack_context_window() 先依優先權剔除低信噪比歷史雜訊，再於回傳時還原各區塊的原始對話順序，讓高價值事實始終留在精簡、高密度的上下文窗口中。",
+        "從 Prompt Engineering 邁向 Context Engineering 的關鍵分水嶺，在於把「送進模型的整份輸入」當成可量測、可單元測試的資料結構（ContextBlock），而不是靠人工反覆微調幾句咒語。當系統每天承載上萬筆使用者查詢，靠固定優先級預算器搭配精準 Token 估算，就能把失控的長對話與膨脹的檢索片段轉化為受控的工程輸入。"
+      ],
+      "bullets": [
+        "明確角色優先權：System Prompt (100) > User Query (95) > RAG Results (80) > History (10–30)，確保核心規則與當前問題永不被雜訊擠掉。",
+        "保留原始順序：pack_context_window() 先依 (-priority, idx) 排序挑選符合預算的區塊，最後依原始索引組回對話順序，避免角色先後錯亂。",
+        "中英混排估算：針對漢字（1.5）與英數詞（1.3）分別加權，比單純字元數更貼近實際 BPE Token 消耗。"
+      ],
+      "callout_title": "工程筆記：為什麼預算器採「整塊取捨」而非硬切半句？",
+      "callout_body": "直接按字元把一段 RAG 參考資料從正中央切斷，常會把關鍵數字或否定詞（例如「不可超過 60 req/min」的「不可」）裁掉而誘發幻覺。以完整語意區塊（ContextBlock）為單位做優先級取捨，並預留 10%～15% 安全緩衝，能同時兼顧語意完整與預算安全。"
+    },
+    {
+      "id": "sec2-structured-output",
+      "heading": "2.2 結構化輸出：從魔法提示詞邁向 JSON Schema 強型別驗證",
+      "paragraphs": [
+        "若要把大型語言模型（LLM）當成後端系統裡可靠的程式函式來呼叫，第一道前提就是建立嚴格的輸入與輸出資料契約。由於生成式模型本質上是在預測下一個 Token 的機率分佈，而非在執行程式碼，即使你在 Prompt 裡再三叮嚀「只回傳純 JSON」，模型實務上仍經常在前後包一層 Markdown 圍欄（```json ... ```），或在開頭夾帶一段思考標籤與寒暄說明，導致 json.loads() 直接拋出 JSONDecodeError。因此，任何生產級呼叫層都必須內建輸出清洗步驟，先以正規表示式剝離圍欄與思考區塊，再交給 JSON 解析器。",
+        "通過語法解析只是第一步，真正決定線上穩定度的是欄位層級的型別契約檢查。舉例來說，下游限流器需要整數型的 limit: 60，但模型首次回應卻給出 {\"limit\": \"sixty\"} 並漏掉必填欄位 unit。此時 validate_record_schema() 不會只回傳冰冷的 False，而是精準產出結構化錯誤清單（例如「缺少必填欄位 'unit'；欄位 'limit' 型別錯誤：預期 int，實得 str」）。這份明確的診斷訊息正是下一輪自我修復的燃料，讓模型確切知道哪個欄位違規、應該改成什麼型別。",
+        "實務上強烈建議一律以標準 JSON 作為模型與程式之間的交換格式，絕不要讓模型直接輸出 Python 字典字面值或自訂類別實例（再拿去 eval()）。JSON 具備跨語言標準化、解析安全無程式碼注入風險等壓倒性優勢；搭配 validate_record_schema() 或正式專案的 Pydantic v2 驗證，就能把非結構化推論結果安全轉譯為強型別物件。"
+      ],
+      "bullets": [
+        "前置輸出清洗：以正規表示式移除 Markdown 程式碼圍欄（```json）與 <think> 思考標籤，消除常見解析雜訊。",
+        "欄位與型別雙重檢查：validate_record_schema() 同時確認根節點為 JSON Object、必填鍵齊全且型別完全符合預期。",
+        "高可讀性錯誤訊息：將每個違規欄位整理成明確文字清單，作為回饋提示詞讓模型精準修正。"
+      ],
+      "callout_title": "資安與工程最佳實踐：永遠別對 LLM 輸出使用 eval()",
+      "callout_body": "讓模型輸出 Python 物件語法再以 eval() 解析是嚴重的遠端程式碼執行（RCE）漏洞。堅持使用 json.loads() 解析純資料，搭配嚴格 Schema 驗證，既杜絕注入風險，也能在欄位型別漂移的第一時間精準攔截。"
+    },
+    {
+      "id": "sec3-bounded-retry",
+      "heading": "2.3 有界重試（Bounded Retry）：有限次數的自修復迴圈設計",
+      "paragraphs": [
+        "許多團隊在串接結構化輸出時，只要解析失敗就寫一個 while True 無限重試迴圈，這在線上流量環境是極度危險的炸彈：一旦遇到模型持續誤解規則或輸入本身有矛盾，單一壞請求就會不斷燒毀 Token、塞爆連線池，甚至觸發上游 API 限流雪崩。本章的 generate_structured_with_retry() 明確設定 max_attempts=3 作為硬上限（Bounded Retry），一旦超過最大嘗試次數就主動拋出帶有 last_errors 紀錄的 ValueError，將例外清楚交回上游協調器進行降級或告警。",
+        "讓有限重試能快速收斂的核心技巧，在於「帶錯誤回饋的提示詞建構（Retry-with-Feedback）」。每次驗證失敗後，我們保留原始 base_prompt 與所有契約要求，並在尾端附加具體的驗證錯誤清單（例如「[前次輸出驗證失敗，請修正以下錯誤後僅回傳純 JSON]: 缺少必填欄位 'unit'; 欄位 'limit' 型別錯誤：預期 int，實得 str」）。實測經驗顯示，超過 90% 的偶發型別與缺欄錯誤都能在第 2 次呼叫立刻修正完成；在我們的實機範例中，第 1 次刻意回傳包在 Markdown 圍欄內的錯誤型別，第 2 次收到回饋後就乾淨產出 {'limit': 60, 'unit': 'req/min'}。",
+        "從成本與資安雙重維度來看，生產環境部署重試管線還有兩個必守紀律：第一，第 3 次重試後的收斂邊際效益急遽遞減，若某類請求反覆在 3 次內失敗，應記錄至評測集回頭改善 System Prompt 或範例，而非把 max_attempts 拉高到 10；第二，務必嚴格防範「錯誤訊息洩漏」，只把欄位名稱與型別規則寫進回饋訊息，絕對不要把資料庫堆疊追蹤、API 金鑰或伺服器內部路徑塞進回授 Prompt，避免敏感資訊外洩或遭間接提示詞注入利用。"
+      ],
+      "bullets": [
+        "硬性重試上限：預設 max_attempts=3 防止連線池耗盡與帳單爆炸，失敗時拋出結構化 ValueError 交由上游降級處理。",
+        "保留原始任務契約：重試時在 base_prompt 後方追加精簡錯誤清單，避免覆寫原要求導致模型忘記原始目標。",
+        "安全過濾回授內容：last_errors 僅包含純規格錯誤（欄位名、預期型別），絕不夾帶系統堆疊或機密設定。"
+      ],
+      "callout_title": "避坑指南：別把整個錯誤堆疊原封不動塞回 Prompt",
+      "callout_body": "把 Python Traceback 或內部檔案路徑直接貼回給 LLM，不僅浪費大量輸入 Token，還可能讓模型在後續回應中洩漏伺服器目錄結構。只傳遞 validate_record_schema() 產生的白名單規格錯誤，才是兼顧安全與收斂速度的做法。"
+    },
+    {
+      "id": "sec4-integration",
+      "heading": "2.4 整合實戰：從零依賴原始碼到生產級 AI 管線",
+      "paragraphs": [
+        "將預算器、清洗器、驗證器與有界重試串接成完整的生產元件時，最關鍵的軟體工程設計是「依賴注入（Dependency Injection）」。觀察 generate_structured_with_retry() 的第一個參數 llm_call: Callable[[str], str]：核心重試與驗證邏輯完全不綁定任何特定模型 SDK，無論底層接的是 OpenAI、Gemini、Anthropic 還是本機 LM Studio，外層管線都能原封不動複用，更重要的是在單元測試與 CI 階段，我們只需注入一個兩行程式碼的模擬迭代器（Mock Iterator），就能在毫秒內確定性驗證「第 1 次失敗 ➔ 第 2 次修正通過」與「超限拋錯」的完整路徑，完全不需要花一毛 API 費。",
+        "回到本章實機執行結果：當 max_tokens=40 時，輸入的四個區塊分別是 system (priority=100)、history (priority=10，重複 30 次雜訊)、rag (priority=80) 與 user (priority=95)。pack_context_window() 依優先級精準挑出 system、user、rag 並果斷捨棄超標且低優先權的 history，最終維持原始對話順序輸出 ['system', 'rag', 'user']；接著 generate_structured_with_retry() 在第 2 次呼叫成功收斂出 {'limit': 60, 'unit': 'req/min'}。這兩道閘門合起來，正是現代 AI 工程從「聊得出來」跨進「敢上線承接流量」的分水嶺。",
+        "往後閱讀 Part II 與 Part III 時，你會發現本章模式幾乎無所不在：Ch.03 混合檢索取回的大量文件塊，必須透過本章的 Token 預算器控管送入量；Ch.05 的 AI Agent 狀態機與 Ch.06 的 MCP JSON-RPC 工具呼叫，更是全面依賴強型別 Schema 驗證與有界重試來確保工具參數永不崩潰。此外，若未來雲端或地端模型原生支援 Structured Outputs（如 JSON Schema Grammar 限制取樣），應將「原生語法鎖」與「應用層 Schema 驗證＋有界重試」雙層並用，形成縱深防禦。"
+      ],
+      "bullets": [
+        "依賴注入可測性：透過 Callable[[str], str] 抽象化模型呼叫，讓重試與驗證邏輯在 CI 中達成零費用、100% 確定性測試。",
+        "實機驗證閉環：單一腳本完整驗證 Context 預算裁切（保留 ['system', 'rag', 'user']）與第 2 次收斂出合法強型別 JSON。",
+        "縱深防禦思維：優先開啟模型端原生 Structured Outputs / JSON Schema 語法約束，應用層依然保留 validate_record_schema() 守門。"
+      ],
+      "callout_title": "架構取捨：何時做 Context Engineering，何時該考慮微調？",
+      "callout_body": "遇到模型表現不如預期時，先診斷是「缺即時事實」還是「缺固定風格／複雜格式紀律」。缺外部知識或最新規則，一律優先走 Context Engineering ＋ RAG；唯有在數萬次重複任務上需要壓低超長 System Prompt 成本或固定特定格式分佈時，才值得評估微調（Fine-tuning）。"
+    }
+  ],
+  "diagram_caption": "圖 2-1：Context Engineering 優先級預算裁切與 Schema 驗證有界重試（Retry-with-Feedback）完整管線。",
+  "diagram_svg": "<svg viewBox=\"0 0 760 260\" role=\"img\" aria-label=\"Context Engineering 與結構化輸出管線圖：多角色輸入區塊經優先級排序與 Token 預算裁切後送入 LLM，再由清洗器與 Schema 驗證器檢查，失敗則附加錯誤回饋進入有限次重試迴圈\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"4\" y=\"4\" width=\"752\" height=\"252\" rx=\"8\" fill=\"#fdfcf9\" stroke=\"#dcd5c7\" stroke-width=\"1.5\"/><text x=\"380\" y=\"30\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"15\" font-weight=\"700\" fill=\"#1c1917\">Context Engineering 預算裁切與 Schema 有界重試管線</text><rect x=\"20\" y=\"52\" width=\"112\" height=\"118\" rx=\"6\" fill=\"#f2efe7\" stroke=\"#1c1917\" stroke-width=\"1.4\"/><text x=\"76\" y=\"72\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"700\" fill=\"#1c1917\">1. 輸入區塊</text><text x=\"76\" y=\"94\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#166534\">System (100)</text><text x=\"76\" y=\"112\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#166534\">User   (95)</text><text x=\"76\" y=\"130\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#15803d\">RAG    (80)</text><text x=\"76\" y=\"148\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#b45309\">History (10) x</text><line x1=\"132\" y1=\"110\" x2=\"158\" y2=\"110\" stroke=\"#15803d\" stroke-width=\"2\"/><polygon points=\"158,105 168,110 158,115\" fill=\"#15803d\"/><rect x=\"168\" y=\"64\" width=\"130\" height=\"92\" rx=\"6\" fill=\"#eef8f1\" stroke=\"#15803d\" stroke-width=\"1.8\"/><text x=\"233\" y=\"92\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"700\" fill=\"#166534\">2. 預算裁切器</text><text x=\"233\" y=\"112\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11\" fill=\"#44403c\">優先級貪婪保留</text><text x=\"233\" y=\"132\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#14532d\">max_tokens &lt;= 40</text><line x1=\"298\" y1=\"110\" x2=\"324\" y2=\"110\" stroke=\"#15803d\" stroke-width=\"2\"/><polygon points=\"324,105 334,110 324,115\" fill=\"#15803d\"/><rect x=\"334\" y=\"64\" width=\"94\" height=\"92\" rx=\"6\" fill=\"#161922\" stroke=\"#1c1917\" stroke-width=\"1.5\"/><text x=\"381\" y=\"104\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"13\" font-weight=\"700\" fill=\"#ffffff\">3. LLM</text><text x=\"381\" y=\"124\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#6ee7b7\">llm_call(p)</text><line x1=\"428\" y1=\"110\" x2=\"454\" y2=\"110\" stroke=\"#15803d\" stroke-width=\"2\"/><polygon points=\"454,105 464,110 454,115\" fill=\"#15803d\"/><rect x=\"464\" y=\"64\" width=\"118\" height=\"92\" rx=\"6\" fill=\"#f2efe7\" stroke=\"#1c1917\" stroke-width=\"1.5\"/><text x=\"523\" y=\"92\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"700\" fill=\"#1c1917\">4. 清洗與解析</text><text x=\"523\" y=\"112\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11\" fill=\"#57534e\">剝離圍欄與標籤</text><text x=\"523\" y=\"132\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#14532d\">json.loads()</text><line x1=\"582\" y1=\"110\" x2=\"606\" y2=\"110\" stroke=\"#15803d\" stroke-width=\"2\"/><polygon points=\"606,105 616,110 606,115\" fill=\"#15803d\"/><rect x=\"616\" y=\"64\" width=\"124\" height=\"92\" rx=\"6\" fill=\"#fffbeb\" stroke=\"#b45309\" stroke-width=\"1.8\"/><text x=\"678\" y=\"92\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"700\" fill=\"#92400e\">5. Schema 驗證</text><text x=\"678\" y=\"112\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11\" fill=\"#44403c\">必填與強型別檢查</text><text x=\"678\" y=\"132\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#166534\">PASS -&gt; Return</text><path d=\"M 678 156 L 678 214 L 381 214 L 381 164\" fill=\"none\" stroke=\"#b45309\" stroke-width=\"2\" stroke-dasharray=\"5,4\"/><polygon points=\"376,166 381,156 386,166\" fill=\"#b45309\"/><rect x=\"420\" y=\"196\" width=\"220\" height=\"34\" rx=\"4\" fill=\"#fffbeb\" stroke=\"#b45309\" stroke-width=\"1.2\"/><text x=\"530\" y=\"217\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11\" font-weight=\"700\" fill=\"#92400e\">驗證失敗：附加錯誤回饋重試 (max=3)</text></svg>",
+  "comparison_table": {
+    "caption": "表 2-1：四種上下文管理與結構化輸出策略之工程特性對照",
+    "headers": [
+      "技術策略",
+      "核心優點",
+      "主要缺點與風險",
+      "最佳生產適用場景"
+    ],
+    "rows": [
+      [
+        "固定長度尾端截斷",
+        "實作最簡單、零額外運算開銷",
+        "易誤切 System Prompt 或關鍵 RAG 事實",
+        "極短單輪聊天或純摘要玩具原型"
+      ],
+      [
+        "優先級權重預算裁切",
+        "確保高權重指令與事實完整留存、維持原序",
+        "需事前設計各角色 priority 與安全緩衝",
+        "企業 RAG 問答、多輪客服與程式碼審查"
+      ],
+      [
+        "純 Prompt 約束 JSON",
+        "無需額外解析器程式碼、快速驗證想法",
+        "常夾帶 Markdown 圍欄與型別漂移，線上易崩潰",
+        "僅限探索階段原型，不建議直上生產"
+      ],
+      [
+        "原生語法鎖 ＋ Schema 有界重試",
+        "結合語法保證與業務欄位強型別檢查、具可觀測性",
+        "重試會略增尾端延遲，需設 max_attempts 熔斷",
+        "金流／報表解析、MCP 工具參數與 Agent 決策"
+      ]
+    ]
+  },
+  "code_walkthrough": [
+    "ContextBlock 採用 @dataclass(frozen=True) 不可變結構封裝 role、content 與 priority，確保排序與預算計算過程不會意外修改原始訊息。",
+    "pack_context_window() 先依 (-priority, idx) 排序進行貪婪挑選，再依原始索引還原對話順序，在嚴格 max_tokens=40 限制下準確保留 ['system', 'rag', 'user'] 並剔除冗長 history。",
+    "validate_record_schema() 一次回傳所有缺漏欄位與型別不符錯誤清單，讓模型在單次重試內就能一口氣補齊全部問題，不必逐個欄位分批重試。",
+    "generate_structured_with_retry() 以依賴注入接收 llm_call，自動剝離 ```json 圍欄並於第 2 次呼叫透過錯誤回饋收斂出 {'limit': 60, 'unit': 'req/min'}。"
+  ],
+  "pitfalls": [
+    {
+      "title": "陷阱 1：把字元數直接當成 Token 數，導致上下文意外超限或關鍵 RAG 被提早裁掉",
+      "symptom": "中文或 JSON 比例一高，估算值與實際 API 消耗落差近兩倍，引發 context_length_exceeded 報錯或關鍵事實遭到捨棄。",
+      "root_cause_and_fix": "原因：len(text) 無法反映 BPE 子詞切分效率（特別是繁中與符號密集的 JSON）。對策：線上對接目標模型的官方 Tokenizer 實算，或在輕量估算器（如 estimate_tokens）之外於 pack_context_window() 預留 15% 安全緩衝，確保 System 與 User 區塊絕不遭裁切。"
+    },
+    {
+      "title": "陷阱 2：重試時未設硬上限或把整段錯誤格式原樣疊加，導致模型越改越亂且帳單失控",
+      "symptom": "模型首次輸出壞掉的 JSON 與雜訊標籤，進入無限重試迴圈或連續五次重複同一種格式錯誤。",
+      "root_cause_and_fix": "原因：無界迴圈缺乏熔斷機制，且直接把前次髒輸出整包塞進歷史會讓模型模仿錯誤格式。對策：強制設定 max_attempts=3 熔斷並拋出 ValueError，重試時保留乾淨的 base_prompt，僅附加精簡的結構化欄位錯誤清單。"
+    },
+    {
+      "title": "陷阱 3：把不適合嚴格正則的自由格式直接鎖死在 Schema 驗證層",
+      "symptom": "使用者原文寫「下週三」或「去年一月」，但 Schema 強迫模型輸出嚴格 ISO 8601 日期導致反覆驗證失敗。",
+      "root_cause_and_fix": "原因：把業務標準化責任全部壓在單次 LLM 推論上，卻未提供基準日期或後處理轉換。對策：在上下文中明確提供當前參考日期，允許明確的 nullable／枚舉欄位，並將複雜日期或單位正規化交給確定性 Python 後處理函式。"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "在本章範例 pack_context_window(blocks, max_tokens=40) 中，輸入順序為 system(100)、history(10, 超長)、rag(80)、user(95)，函式最終回傳的區塊角色順序是什麼？",
+      "options": [
+        "A. ['system', 'user', 'rag']（依優先級高到低直接輸出）",
+        "B. ['system', 'rag', 'user']（依優先級挑選，但維持原本對話出現順序）",
+        "C. ['system', 'history']（只保留最前面兩個區塊）",
+        "D. 直接拋出 ContextWindowExceeded 例外"
+      ],
+      "answer_index": 1,
+      "explanation": "pack_context_window() 先依 (-priority, idx) 決定哪些區塊放得進預算（剔除過長且低優先的 history），但最後一行透過 [blk for idx, blk in indexed if idx in selected_indices] 還原原始出現順序，因此回傳 ['system', 'rag', 'user']。"
+    },
+    {
+      "question": "為什麼在 generate_structured_with_retry() 的重試迴圈中，要將錯誤清單附加在原 base_prompt 後方，而不是只傳送錯誤訊息？",
+      "options": [
+        "A. 為了讓每次重試都能多消耗一些輸入 Token",
+        "B. 因為 JSON 解析器硬性規定輸入必須包含原始題目",
+        "C. 保留原始任務需求與 Schema 契約，讓模型對照具體錯誤清單精準修正而不失焦",
+        "D. 為了避免觸發 API 伺服器快取"
+      ],
+      "answer_index": 2,
+      "explanation": "若只把錯誤訊息送給模型，模型會失去原本要擷取的來源資料與任務目標；保留 base_prompt 並在尾端追加結構化錯誤清單（例如缺少 'unit'、'limit' 應為 int），才能引導模型在下一輪精準收斂。"
+    },
+    {
+      "question": "在本章的 estimate_tokens(text) 啟發式公式中，為何對中文字（1.5）與英文詞（1.3）設定不同加權係數，而不直接用 len(text)？",
+      "options": [
+        "A. 因為 Python 的 len() 無法計算中文字串長度",
+        "B. 承接 Ch.01 的 BPE 分詞特性：中文字在多數通用分詞器常拆成 1.5 個以上 Token，英文單字亦可能拆成子詞，分開加權比字元數更接近真實用量",
+        "C. 因為 GPU 處理英文比處理中文多消耗一倍顯存",
+        "D. 這是為了強制把估算值壓到比實際 Token 數更低"
+      ],
+      "answer_index": 1,
+      "explanation": "UTF-8 Byte-level BPE 對非拉丁語系常需 1.5～2.5 個 Token 表示一個漢字，而較長英文單字也可能拆成多個子詞；分別統計漢字與英數詞並加權估算，能顯著縮小離線預算與真實帳單之間的誤差。"
+    }
+  ],
+  "interview_faqs": [
+    {
+      "question": "當推論模型（如 Qwen3、DeepSeek-R1 或 Gemini Thinking）回應夾帶 <think>...</think> 思考標籤時，清洗管線該怎麼設計？",
+      "answer": "第一步先在 API 層依任務性質決定是否關閉思考模式（例如純 JSON 抽取與翻譯可設 reasoning_effort='none' 避免思考耗盡 max_tokens）；第二步在應用層清洗管線中，先以非貪婪正規表示式 re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL) 移除思考區塊（或單獨抽存到除錯日誌），再剝離 Markdown 圍欄與執行 json.loads()，同時針對未閉合的截斷 <think> 標籤加入防呆處理。"
+    },
+    {
+      "question": "當 Schema 驗證連續失敗達到 max_attempts 上限時，生產系統應該直接拋錯還是回傳部分欄位？",
+      "answer": "取決於下游對資料正確性的容忍度。對金流、權限控管或資料庫寫入等高嚴謹度路徑，必須採 Fail-Fast 拋出明確例外、觸發告警並記錄原始輸出供後續微調或調整 Prompt；對搜尋篩選建議或內容摘要等低風險場景，則可降級回傳帶 validation_status='partial' 的安全預設結構，同時在監控面板上報 Schema 失敗率指標。"
+    },
+    {
+      "question": "Token Budget 設太大跟設太小，分別會引發什麼不同的工程問題？",
+      "answer": "這是 Context Engineering 最經典的雙向取捨：Token Budget 設得過大且未過濾雜訊，會同時推高推論成本、拉長首字延遲（TTFT），並加劇長序列的 Lost-in-the-Middle 注意力稀釋問題；反之若 Token Budget 設得過小，則會造成硬性截斷，導致關鍵 RAG 參考片段或必要約束被捨棄而引發答非所問。最佳實踐是先排序過濾出高信噪比區塊，再設定貼合任務複雜度的精準預算上限。"
+    },
+    {
+      "question": "如果要把本章的 validate_record_schema() 升級成支援巢狀 Object、陣列與值域約束的正式版，業界實務怎麼做？",
+      "answer": "正式 Python 專案通常以 Pydantic v2（BaseModel 搭配 Field(ge=0, le=1000) 與 strict=True）作為單一真相來源：一方面能透過 model_json_schema() 直接產出標準 JSON Schema 交給模型端原生 Structured Outputs 鎖定取樣語法；另一方面在模型回傳後透過 model_validate_json() 一次完成深層巢狀驗證，並把精確的 ValidationError 欄位路徑轉成精簡回饋字串送入有界重試迴圈。"
+    }
+  ],
+  "further_reading": [
+    {
+      "title": "Anthropic Engineering — Effective Context Engineering for AI Agents",
+      "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents",
+      "note": "系統化闡述如何從單次 Prompt 調校進化為全域 Context Engineering 與高信噪比上下文管理。"
+    },
+    {
+      "title": "Lost in the Middle: How Language Models Use Long Contexts (Liu et al., 2023)",
+      "url": "https://arxiv.org/abs/2307.03172",
+      "note": "揭露長上下文 U 型注意力曲線與中間段落遺失現象的經典實證論文。"
+    },
+    {
+      "title": "OpenAI API Guide — Structured Outputs",
+      "url": "https://platform.openai.com/docs/guides/structured-outputs",
+      "note": "介紹模型端 JSON Schema 語法約束如何與應用層型別契約互補。"
+    }
+  ]
+}

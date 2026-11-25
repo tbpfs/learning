@@ -1,0 +1,252 @@
+{
+  "book_id": "ai-engineering",
+  "chapter_id": "ch02",
+  "locale": "en",
+  "status": "published",
+  "badge": "Ch.02",
+  "part_id": "part1",
+  "title": "From Prompting to Context Engineering: Structured Outputs & Token Budgets",
+  "short_title": "Context Engineering & Schemas",
+  "summary": "Move past trial-and-error prompting: assemble priority-budgeted contexts against Lost-in-the-Middle decay and wrap LLM calls in strict schema validation with bounded self-repair retries.",
+  "aeo_capsule": "<strong>Context Engineering</strong> combines a priority-based token budgeter (<code>pack_context_window</code>) to maximize signal-to-noise ratio inside strict context limits with output sanitization, typed schema checks (<code>validate_record_schema</code>), and bounded Retry-with-Feedback loops (<code>generate_structured_with_retry</code>), turning stochastic LLMs into reliable software components.",
+  "reading_minutes": 18,
+  "lastmod": "2026-11-25",
+  "example_file": "examples/ai_ch02_context_schema.py",
+  "keywords": [
+    "Context Engineering",
+    "Token Budget",
+    "Lost in the Middle",
+    "Structured Output",
+    "JSON Schema Validation",
+    "Bounded Retry",
+    "Purple Maple Press"
+  ],
+  "learning_objectives": [
+    "Design a priority-driven Context Token budget allocator (System / User / RAG / History) that maximizes information density within hard token limits.",
+    "Implement output sanitization (stripping thinking tags and Markdown code fences) and typed Schema validation to eliminate JSONDecodeError and field drift.",
+    "Build a bounded Retry-with-Feedback self-healing loop that converges reliably while capping latency and preventing runaway API bills."
+  ],
+  "sections": [
+    {
+      "id": "sec1-context-budgeting",
+      "heading": "2.1 Context Engineering: Token Budgeting & the Lost-in-the-Middle Effect",
+      "paragraphs": [
+        "Many backend engineers entering production AI assume that blindly stuffing every RAG chunk and full chat transcript into a large Context Window will automatically raise answer accuracy. In reality, overflowing prompts drive up latency and bills while diluting model attention. Look at pack_context_window() in this chapter's reference script: rather than blindly slicing off the tail of a string, we assign explicit numeric priorities to every block and run greedy selection—System (100) > User (95) > RAG (80) > History (10). If a tight budget ever trims away the System Prompt, the model immediately loses its formatting constraints; even perfectly retrieved RAG facts will fail to land inside your target JSON Schema.",
+        "Inside estimate_tokens(), we apply a mixed CJK/Latin heuristic (roughly 1.5 tokens per CJK character and 1.3 tokens per English word) instead of naively calling len(text), carrying forward the BPE tokenization mechanics from Ch.01. Equally important is mitigating the 'Lost-in-the-Middle' phenomenon documented by Liu et al. (2023): when prompts bloat with tens of thousands of noisy tokens, Transformers attend most strongly to the beginning and end of the sequence while overlooking facts buried in the middle. By pruning low-priority chatter first and restoring original chronological order afterward, pack_context_window() keeps high-signal instructions and retrieved facts compact and prominent.",
+        "Moving from ad-hoc Prompt Engineering to disciplined Context Engineering means treating the entire model input as a measurable, unit-testable data structure (ContextBlock) rather than magic phrasing. Under real production traffic, deterministic priority budgeting turns unruly multi-turn logs into clean, bounded inputs."
+      ],
+      "bullets": [
+        "Explicit Role Priorities: System Prompt (100) > User Query (95) > RAG Results (80) > History (10-30) guarantees instructions and current queries outrank stale chatter.",
+        "Order Preservation: pack_context_window() ranks by (-priority, idx) to pick blocks within budget, then restores original conversation order so multi-turn roles stay coherent.",
+        "Mixed-Script Estimation: Weighting CJK (1.5) and alphanumeric words (1.3) tracks real BPE token consumption far closer than raw character counts."
+      ],
+      "callout_title": "Engineering Note: Whole-Block Pruning Beats Mid-Sentence Slicing",
+      "callout_body": "Slicing raw characters out of the middle of a RAG passage can accidentally sever a negation word (turning 'must not exceed 60 req/min' into 'exceed 60 req/min') and trigger dangerous hallucinations. Dropping low-priority ContextBlocks as atomic units while keeping a 10-15% token safety margin protects semantic integrity."
+    },
+    {
+      "id": "sec2-structured-output",
+      "heading": "2.2 Structured Output: From Magic Prompts to Typed JSON Schema Validation",
+      "paragraphs": [
+        "Treating an LLM as a dependable backend function starts with an explicit data contract. Because generative models sample next-token probabilities rather than executing deterministic code, even forceful prompts like 'Return raw JSON only' routinely yield Markdown fences (```json ... ```), thinking tags, or polite preambles that crash json.loads() with JSONDecodeError. Every production call wrapper must sanitize raw completions with a deterministic stripping pipeline before parsing.",
+        "Syntactic JSON validity is only half the battle—field-level type contracts protect downstream consumers. Suppose a rate-limiter service expects an integer limit: 60, yet the model returns {\"limit\": \"sixty\"} while omitting the required unit field. Instead of returning an opaque boolean False, validate_record_schema() produces an itemized error list ('Missing required field unit; Field limit type error: expected int, got str'). That diagnostic payload becomes high-leverage feedback for the next attempt, showing the model exactly which keys failed and what types are required.",
+        "In production systems, always standardize on JSON rather than asking LLMs to emit Python literal objects or custom class constructors. JSON is language-agnostic, safe to parse without code-injection hazards, and pairs seamlessly with validate_record_schema() or Pydantic v2 models to turn stochastic text into strongly typed records."
+      ],
+      "bullets": [
+        "Pre-Parse Sanitization: Strip Markdown ```json wrappers and <think> tags with regex before calling json.loads().",
+        "Presence & Type Contracts: validate_record_schema() verifies root object shape, required keys, and exact Python runtime types.",
+        "Actionable Diagnostics: Return every schema violation in one pass so the model can fix all errors in a single retry."
+      ],
+      "callout_title": "Security Best Practice: Never Call eval() on LLM Output",
+      "callout_body": "Asking an LLM to output Python expressions and parsing them with eval() opens a critical Remote Code Execution (RCE) vulnerability. Stick strictly to json.loads() paired with explicit schema validation."
+    },
+    {
+      "id": "sec3-bounded-retry",
+      "heading": "2.3 Bounded Retry: Designing Finite Self-Healing Loops",
+      "paragraphs": [
+        "Writing an unbounded while True loop around JSON parsing is a ticking production time bomb: when an input is genuinely ambiguous or contradicts the schema, a single bad request can burn thousands of tokens, pin worker threads, and trigger upstream rate-limit cascades. Our generate_structured_with_retry() enforces a hard circuit breaker at max_attempts=3; once exhausted, it raises an explicit ValueError carrying last_errors so the upstream orchestrator can degrade gracefully or page an engineer.",
+        "The mechanism that makes bounded retries converge rapidly is Retry-with-Feedback. On each failed attempt, we preserve base_prompt intact and append the concrete list of schema violations at the bottom ('Previous output failed validation... Missing required field unit; Field limit type error: expected int, got str'). In practice, over 90% of transient formatting and typing mistakes resolve on attempt #2—exactly as demonstrated in our runnable script, where attempt #1 deliberately returns a fenced string type and attempt #2 cleanly converges to {'limit': 60, 'unit': 'req/min'}.",
+        "Two operational guardrails matter at scale. First, marginal convergence drops sharply after attempt #3—persist repeated failures into an eval dataset and improve your system prompt rather than raising max_attempts to 10. Second, guard strictly against Error Message Leakage: feed back only whitelisted schema violation strings (field names and expected types), never raw stack traces, API keys, or internal file paths that could leak secrets or fuel indirect prompt injection."
+      ],
+      "bullets": [
+        "Hard Circuit Breaker: Cap retries at max_attempts=3 and raise a structured ValueError on exhaustion for clean upstream fallback.",
+        "Preserve Original Contract: Append concise validation errors to base_prompt rather than replacing it, keeping task context intact.",
+        "Sanitized Feedback Only: Never expose internal stack traces, secrets, or filesystem paths inside retry feedback messages."
+      ],
+      "callout_title": "Production Pitfall: Never Feed Raw Stack Traces Back to an LLM",
+      "callout_body": "Pasting raw Python tracebacks into retry prompts wastes tokens and risks leaking internal file paths or environment metadata into model completions. Pass only clean, whitelisted schema error messages from validate_record_schema()."
+    },
+    {
+      "id": "sec4-integration",
+      "heading": "2.4 Integration in Practice: From Zero-Dependency Code to Production Pipelines",
+      "paragraphs": [
+        "The cleanest architectural choice in generate_structured_with_retry() is dependency injection via llm_call: Callable[[str], str]. Decoupling validation and retry orchestration from any vendor SDK lets the exact same wrapper drive OpenAI, Gemini, Anthropic, or a local LM Studio server. Just as importantly, CI unit tests can inject a two-line mock iterator to deterministically verify first-attempt failure, second-attempt self-repair, and max-attempt exhaustion in milliseconds at zero API cost.",
+        "Walking through the verified live execution of examples/ai_ch02_context_schema.py under max_tokens=40: given four blocks—system (100), noisy history (10, repeated 30 times), rag (80), and user (95)—pack_context_window() selects system, user, and rag, drops the bloated history block, and returns them in original dialogue order: ['system', 'rag', 'user']. Next, generate_structured_with_retry() recovers from attempt #1's Markdown-wrapped type error and returns {'limit': 60, 'unit': 'req/min'} on attempt #2. Together, these two primitives separate fragile chat demos from production-grade AI pipelines.",
+        "You will reuse this pattern throughout the rest of the book: Ch.03's Hybrid RAG retriever relies on token budgeting to pack retrieved chunks cleanly, while Ch.05's FSM Agent and Ch.06's MCP JSON-RPC server depend on strict schema validation and bounded retries to guarantee safe tool arguments. Where providers offer native Structured Outputs (grammar-constrained decoding), combine model-level grammar enforcement with application-level schema validation for defense in depth."
+      ],
+      "bullets": [
+        "Zero-Cost CI Testability: Injecting Callable[[str], str] enables fast, deterministic unit tests for retries and failure modes without live API calls.",
+        "End-to-End Verified Output: One stdlib script proves both priority context pruning (['system', 'rag', 'user']) and 2nd-attempt typed JSON convergence.",
+        "Defense in Depth: Pair native provider Structured Outputs (JSON Schema grammar) with application-side validate_record_schema() checks."
+      ],
+      "callout_title": "Architecture Trade-Off: Context Engineering vs. Fine-Tuning",
+      "callout_body": "Diagnose failure modes before reaching for fine-tuning. If the model lacks up-to-date facts or internal policies, invest in Context Engineering and RAG. Reserve fine-tuning for high-volume workloads where compressing long static instructions or locking in specialized output distributions justifies training and hosting overhead."
+    }
+  ],
+  "diagram_caption": "Figure 2-1: End-to-end Context Engineering priority budgeting and bounded Retry-with-Feedback structured output pipeline.",
+  "diagram_svg": "<svg viewBox=\"0 0 760 260\" role=\"img\" aria-label=\"Context Engineering and Structured Output pipeline diagram: multi-role input blocks pass through priority sorting and token budgeting into an LLM, then through a cleaner and schema validator with a bounded error-feedback retry loop\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"4\" y=\"4\" width=\"752\" height=\"252\" rx=\"8\" fill=\"#fdfcf9\" stroke=\"#dcd5c7\" stroke-width=\"1.5\"/><text x=\"380\" y=\"30\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"15\" font-weight=\"700\" fill=\"#1c1917\">Context Budgeting &amp; Bounded Schema-Retry Pipeline</text><rect x=\"20\" y=\"52\" width=\"112\" height=\"118\" rx=\"6\" fill=\"#f2efe7\" stroke=\"#1c1917\" stroke-width=\"1.4\"/><text x=\"76\" y=\"72\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"700\" fill=\"#1c1917\">1. Context Blocks</text><text x=\"76\" y=\"94\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#166534\">System (100)</text><text x=\"76\" y=\"112\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#166534\">User   (95)</text><text x=\"76\" y=\"130\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#15803d\">RAG    (80)</text><text x=\"76\" y=\"148\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#b45309\">History (10) x</text><line x1=\"132\" y1=\"110\" x2=\"158\" y2=\"110\" stroke=\"#15803d\" stroke-width=\"2\"/><polygon points=\"158,105 168,110 158,115\" fill=\"#15803d\"/><rect x=\"168\" y=\"64\" width=\"130\" height=\"92\" rx=\"6\" fill=\"#eef8f1\" stroke=\"#15803d\" stroke-width=\"1.8\"/><text x=\"233\" y=\"92\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"700\" fill=\"#166534\">2. Token Budgeter</text><text x=\"233\" y=\"112\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11\" fill=\"#44403c\">Greedy Priority Pack</text><text x=\"233\" y=\"132\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#14532d\">max_tokens &lt;= 40</text><line x1=\"298\" y1=\"110\" x2=\"324\" y2=\"110\" stroke=\"#15803d\" stroke-width=\"2\"/><polygon points=\"324,105 334,110 324,115\" fill=\"#15803d\"/><rect x=\"334\" y=\"64\" width=\"94\" height=\"92\" rx=\"6\" fill=\"#161922\" stroke=\"#1c1917\" stroke-width=\"1.5\"/><text x=\"381\" y=\"104\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"13\" font-weight=\"700\" fill=\"#ffffff\">3. LLM</text><text x=\"381\" y=\"124\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#6ee7b7\">llm_call(p)</text><line x1=\"428\" y1=\"110\" x2=\"454\" y2=\"110\" stroke=\"#15803d\" stroke-width=\"2\"/><polygon points=\"454,105 464,110 454,115\" fill=\"#15803d\"/><rect x=\"464\" y=\"64\" width=\"118\" height=\"92\" rx=\"6\" fill=\"#f2efe7\" stroke=\"#1c1917\" stroke-width=\"1.5\"/><text x=\"523\" y=\"92\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"700\" fill=\"#1c1917\">4. Strip &amp; Parse</text><text x=\"523\" y=\"112\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11\" fill=\"#57534e\">Remove Fences/Tags</text><text x=\"523\" y=\"132\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#14532d\">json.loads()</text><line x1=\"582\" y1=\"110\" x2=\"606\" y2=\"110\" stroke=\"#15803d\" stroke-width=\"2\"/><polygon points=\"606,105 616,110 606,115\" fill=\"#15803d\"/><rect x=\"616\" y=\"64\" width=\"124\" height=\"92\" rx=\"6\" fill=\"#fffbeb\" stroke=\"#b45309\" stroke-width=\"1.8\"/><text x=\"678\" y=\"92\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"700\" fill=\"#92400e\">5. Schema Gate</text><text x=\"678\" y=\"112\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11\" fill=\"#44403c\">Keys &amp; Strict Types</text><text x=\"678\" y=\"132\" text-anchor=\"middle\" font-family=\"monospace\" font-size=\"10\" fill=\"#166534\">PASS -&gt; Return</text><path d=\"M 678 156 L 678 214 L 381 214 L 381 164\" fill=\"none\" stroke=\"#b45309\" stroke-width=\"2\" stroke-dasharray=\"5,4\"/><polygon points=\"376,166 381,156 386,166\" fill=\"#b45309\"/><rect x=\"410\" y=\"196\" width=\"240\" height=\"34\" rx=\"4\" fill=\"#fffbeb\" stroke=\"#b45309\" stroke-width=\"1.2\"/><text x=\"530\" y=\"217\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"11\" font-weight=\"700\" fill=\"#92400e\">Fail: Append Error Feedback (max=3)</text></svg>",
+  "comparison_table": {
+    "caption": "Table 2-1: Engineering Trade-Offs Across Context Budgeting & Structured Output Strategies",
+    "headers": [
+      "Strategy",
+      "Strengths",
+      "Trade-Offs & Risks",
+      "Best Production Fit"
+    ],
+    "rows": [
+      [
+        "Fixed-Length Tail Truncation",
+        "Trivial to implement with zero extra overhead",
+        "Risk of slicing System Prompt or critical RAG facts",
+        "Short single-turn prototypes only"
+      ],
+      [
+        "Priority-Weighted Budgeting",
+        "Guarantees high-priority rules/facts survive in original order",
+        "Requires explicit priority tiers and a safety margin",
+        "Enterprise RAG, multi-turn assistants, code review"
+      ],
+      [
+        "Prompt-Only JSON Instructions",
+        "Zero wrapper code; fast for exploratory tests",
+        "Frequent Markdown fences and type drift in production",
+        "Early experiments only; never ship unguarded"
+      ],
+      [
+        "Native Grammar + Bounded Schema Retry",
+        "Combines decoding guarantees with business type checks",
+        "Retries add tail latency; requires max_attempts cap",
+        "Billing/report parsing, MCP tool arguments, Agents"
+      ]
+    ]
+  },
+  "code_walkthrough": [
+    "ContextBlock uses @dataclass(frozen=True) to store role, content, and priority immutably so sorting and budget checks cannot mutate source messages.",
+    "pack_context_window() ranks blocks by (-priority, idx) for greedy selection, then rebuilds the output in original chronological order—preserving ['system', 'rag', 'user'] under max_tokens=40 while dropping bloated history.",
+    "validate_record_schema() collects all missing-field and type-mismatch errors in a single pass so the model can repair every violation in one retry.",
+    "generate_structured_with_retry() accepts an injected llm_call, strips ```json wrappers, and converges cleanly to {'limit': 60, 'unit': 'req/min'} on attempt #2."
+  ],
+  "pitfalls": [
+    {
+      "title": "Pitfall 1: Treating Character Counts as Token Counts and Prematurely Pruning Critical RAG Context",
+      "symptom": "Multilingual or JSON-heavy payloads consume nearly 2x more tokens than expected, causing context_length_exceeded errors or dropped facts.",
+      "root_cause_and_fix": "Cause: len(text) ignores BPE subword expansion across CJK text and JSON punctuation. Fix: Count tokens with the target model's tokenizer when available, or reserve a 15% safety buffer inside pack_context_window() while keeping System and User blocks highest priority."
+    },
+    {
+      "title": "Pitfall 2: Unbounded Retry Loops or Echoing Raw Malformed Outputs Into Retry History",
+      "symptom": "A malformed completion triggers runaway retries or causes the model to repeatedly mimic the same broken Markdown/HTML wrapper.",
+      "root_cause_and_fix": "Cause: Missing max_attempts circuit breakers and echoing dirty completions reinforces formatting mistakes. Fix: Enforce max_attempts=3 with ValueError escalation, keep base_prompt clean, and append only concise structured field errors."
+    },
+    {
+      "title": "Pitfall 3: Enforcing Rigid Normalized Formats in Schema Validation Without Reference Context",
+      "symptom": "Source text says 'next Wednesday' or 'last January', yet strict ISO-8601 schema regexes reject every attempt.",
+      "root_cause_and_fix": "Cause: Expecting a single LLM pass to normalize relative dates without an anchor date or post-processor. Fix: Inject the current reference date into context, allow explicit nullable/enum fields, and perform deterministic date/unit normalization in Python after parsing."
+    }
+  ],
+  "quiz": [
+    {
+      "question": "In pack_context_window(blocks, max_tokens=40) with inputs ordered as system(100), history(10, oversized), rag(80), user(95), what role order does the function return?",
+      "options": [
+        "A. ['system', 'user', 'rag'] (sorted strictly by descending priority)",
+        "B. ['system', 'rag', 'user'] (selected by priority, restored to original dialogue order)",
+        "C. ['system', 'history'] (keeps only the first two blocks)",
+        "D. Raises a ContextWindowExceeded exception immediately"
+      ],
+      "answer_index": 1,
+      "explanation": "pack_context_window() selects which blocks fit using (-priority, idx)—dropping the oversized low-priority history—and then restores original appearance order via [blk for idx, blk in indexed if idx in selected_indices], returning ['system', 'rag', 'user']."
+    },
+    {
+      "question": "Why does generate_structured_with_retry() append validation errors to base_prompt rather than sending only the error message on retry?",
+      "options": [
+        "A. To intentionally consume more input tokens per call",
+        "B. Because json.loads() requires the original prompt text",
+        "C. To preserve the original source data and schema contract while telling the model exactly what failed",
+        "D. To bypass server-side prompt caching"
+      ],
+      "answer_index": 2,
+      "explanation": "Sending only an error string strips away the original extraction context and rules. Keeping base_prompt intact and appending concrete field errors lets the model self-correct accurately in a single retry."
+    },
+    {
+      "question": "Why does estimate_tokens(text) apply distinct weights to CJK characters (1.5) and Latin words (1.3) instead of calling len(text)?",
+      "options": [
+        "A. Because Python's len() cannot count CJK strings",
+        "B. Following Ch.01's BPE mechanics: CJK characters often expand into 1.5+ tokens and longer English words split into subwords, making weighted heuristics far closer to real billing",
+        "C. Because GPUs use double VRAM for English compared to CJK",
+        "D. To intentionally underestimate token usage below actual API counts"
+      ],
+      "answer_index": 1,
+      "explanation": "UTF-8 Byte-level BPE tokenizers commonly spend 1.5-2.5 tokens per CJK character and ~1.3 tokens per English word on average; weighting scripts separately narrows the gap between offline budgets and real token counts."
+    }
+  ],
+  "interview_faqs": [
+    {
+      "question": "How should output cleaning handle reasoning models (such as Qwen3, DeepSeek-R1, or Gemini Thinking) that emit <think>...</think> blocks?",
+      "answer": "First, disable extended thinking at the API layer when unnecessary (for instance setting reasoning_effort='none' on pure JSON extraction or translation so thinking tokens do not exhaust max_tokens). Second, strip <think>...</think> with a non-greedy regex before removing Markdown fences and running json.loads(), optionally logging the stripped reasoning block for debugging and guarding against unclosed truncated tags."
+    },
+    {
+      "question": "When schema validation exhausts max_attempts, should a production service raise an exception or return partial fields?",
+      "answer": "Match failure policy to blast radius. For financial transactions, access control, or database mutations, fail fast with an explicit error, alert, and raw payload log for prompt/eval improvement. For low-risk search filters or summaries, degrade gracefully by returning a safe partial object tagged with validation_status='partial' while tracking schema failure rates in telemetry."
+    },
+    {
+      "question": "What contrasting failure modes occur when a Token Budget is set too large versus too small?",
+      "answer": "Setting the budget too large without filtering noise drives up token costs, increases Time-to-First-Token (TTFT), and amplifies Lost-in-the-Middle attention decay across long prompts. Setting it too small causes hard truncation that drops critical RAG evidence or constraints. Rank and filter for high signal density first, then size the budget to task complexity."
+    },
+    {
+      "question": "How would you upgrade validate_record_schema() to handle nested objects, typed arrays, and numeric range checks in production?",
+      "answer": "Standard Python services adopt Pydantic v2 (BaseModel with Field(ge=0, le=1000) and strict=True) as a single source of truth: call model_json_schema() to pass an exact schema into provider-native Structured Outputs, then run model_validate_json() on responses and serialize concise ValidationError field paths into your bounded retry loop."
+    }
+  ],
+  "further_reading": [
+    {
+      "title": "Anthropic Engineering — Effective Context Engineering for AI Agents",
+      "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents",
+      "note": "Comprehensive guide to evolving from single-turn prompt tweaks to disciplined high-signal context management."
+    },
+    {
+      "title": "Lost in the Middle: How Language Models Use Long Contexts (Liu et al., 2023)",
+      "url": "https://arxiv.org/abs/2307.03172",
+      "note": "Empirical paper demonstrating the U-shaped attention curve and middle-context degradation in LLMs."
+    },
+    {
+      "title": "OpenAI API Guide — Structured Outputs",
+      "url": "https://platform.openai.com/docs/guides/structured-outputs",
+      "note": "Explains how grammar-constrained JSON Schema decoding complements application-layer type validation."
+    }
+  ],
+  "code_replacements": [
+    ["Book 1 Ch.02 Context Engineering 與結構化輸出", "Book 1 Ch.02 Context Engineering & Structured Outputs"],
+    ["示範 Token 預算裁切器（Context Window Budgeter）與嚴格 JSON Schema 校驗＋自動錯誤回授重試管線。", "Demonstrates a priority Context Window Budgeter and strict JSON Schema validation with Retry-with-Feedback."],
+    ["# 數值越大越優先保留（如 System Prompt = 100）", "# Higher priority stays first (e.g., System Prompt = 100)"],
+    ["以輕量啟發式估算中英混排文字之 Token 數（1 漢字約 1.5 token，1 英文詞約 1.3 token）。", "Estimate token count for mixed CJK/Latin text (~1.5 tokens/CJK char, ~1.3 tokens/Latin word)."],
+    ["在嚴格 Token 上限內，優先保留高優先級區塊並維持原始對話順序。", "Keep highest-priority blocks within max_tokens while preserving original dialogue order."],
+    ["驗證模型回傳物件是否符合預期欄位與型別契約，回傳錯誤清單。", "Validate that parsed JSON matches required fields and types, returning a list of error strings."],
+    ["根節點必須為 JSON Object", "Root node must be a JSON Object"],
+    ["缺少必填欄位 '", "Missing required field '"],
+    ["欄位 '", "Field '"],
+    ["' 型別錯誤：預期 ", "' type error: expected "],
+    ["}，\"", "}, \""],
+    ["實得 ", "got "],
+    ["以錯誤訊息回授（Retry-with-Feedback）迫使模型產出 100% 合法 JSON。", "Use bounded Retry-with-Feedback to converge model output onto 100% valid typed JSON."],
+    ["JSON 解析失敗: ", "JSON parse error: "],
+    ["\\n[前次輸出驗證失敗，請修正以下錯誤後僅回傳純 JSON]: ", "\\n[Previous output failed validation; fix these errors and return raw JSON only]: "],
+    ["超過最大重試次數 (", "Exceeded max retry attempts ("],
+    ["# 第 1 次刻意給錯型別", "# Attempt 1 deliberately returns wrong type"],
+    ["# 第 2 次收到錯誤回饋後修正", "# Attempt 2 fixes output after feedback"],
+    ["Ch.02 Context 保留區塊: ", "Ch.02 Retained Context Blocks: "],
+    ["結構化驗證通過(第 ", "Structured validation passed (attempt "],
+    [" 次): ", "): "]
+  ],
+  "output_replacements": [
+    ["Ch.02 Context 保留區塊: ", "Ch.02 Retained Context Blocks: "],
+    ["結構化驗證通過(第 2 次): ", "Structured validation passed (attempt 2): "]
+  ]
+}
