@@ -44,6 +44,9 @@ from chapter_content import CHAPTERS, ChapterSpec, ComparisonTable  # noqa: E402
 from i18n import (  # noqa: E402
     LOCALE_BY_CODE,
     LOCALES,
+    SITE_BASE_URL,
+    asset_canonical_url,
+    asset_root_href,
     load_locale_pack,
     localize_code_and_output,
     page_canonical_url,
@@ -55,15 +58,15 @@ ADSENSE_CLIENT_ID = f"ca-{ADSENSE_PUBLISHER_ID}"
 ADSENSE_IN_ARTICLE_SLOT_ID = "1673180799"
 ENABLE_MANUAL_AD_SLOTS = False  # Pre-approval SEO/UX hygiene: keep <head> verification script + ads.txt, hide empty dashed <ins> boxes until approved
 INDEXNOW_KEY = "7f4e9c2a8b1d6035e4a92c7f1b8d3e60"
-SITE_LASTMOD = "2026-11-25"
+SITE_LASTMOD = "2026-11-26"
 DSA_DATE_PUBLISHED = "2026-03-01"
 _TZ_TAIPEI = timezone(timedelta(hours=8))
 
 RSS_FEED_META: dict[str, dict[str, str]] = {
     "zh-TW": {
         "rel_out": "rss.xml",
-        "url": "https://learn.ai-purplemaple.com/rss.xml",
-        "link": "https://learn.ai-purplemaple.com/",
+        "url": f"{SITE_BASE_URL}/rss.xml",
+        "link": f"{SITE_BASE_URL}/",
         "lang": "zh-Hant",
         "title": "紫楓出版社｜AI 工程與 Python 技術專書 RSS (繁體中文)",
         "description": "紫楓出版社（Purple Maple Press）免費開源技術專書與 Python 3.12 資料結構演算法講義最新章節摘要 Feed，含實機驗證程式碼與架構圖解導覽。",
@@ -72,8 +75,8 @@ RSS_FEED_META: dict[str, dict[str, str]] = {
     },
     "zh-CN": {
         "rel_out": "zh-cn/rss.xml",
-        "url": "https://learn.ai-purplemaple.com/zh-cn/rss.xml",
-        "link": "https://learn.ai-purplemaple.com/zh-cn/",
+        "url": f"{SITE_BASE_URL}/zh-cn/rss.xml",
+        "link": f"{SITE_BASE_URL}/zh-cn/",
         "lang": "zh-Hans",
         "title": "紫枫出版社｜AI 工程与 Python 技术专著 RSS (简体中文)",
         "description": "紫枫出版社（Purple Maple Press）免费开源技术专著与 Python 3.12 数据结构算法讲义最新章节摘要 Feed，含源码实战与架构图解导览。",
@@ -82,8 +85,8 @@ RSS_FEED_META: dict[str, dict[str, str]] = {
     },
     "en": {
         "rel_out": "en/rss.xml",
-        "url": "https://learn.ai-purplemaple.com/en/rss.xml",
-        "link": "https://learn.ai-purplemaple.com/en/",
+        "url": f"{SITE_BASE_URL}/en/rss.xml",
+        "link": f"{SITE_BASE_URL}/en/",
         "lang": "en",
         "title": "Purple Maple Press | AI Engineering & Python Monographs RSS (English)",
         "description": "Summary RSS feed of new chapters from Purple Maple Press open-source technical monographs and Python 3.12 data structures & algorithms guides.",
@@ -294,7 +297,7 @@ UI_ZH_TW: dict[str, Any] = {
         "涵蓋 {chapter_titles_short}。"
     ),
     "index_aeo_capsule": (
-        "紫楓（AI王紫楓 / Purple Maple）Python 3.12 互動教學站（<code>learn.ai-purplemaple.com</code>）"
+        "紫楓（AI王紫楓 / Purple Maple）Python 3.12 互動教學站（<code>ai-purplemaple.com/learn/</code>）"
         "收錄 7 大核心章節（陣列鏈結串列、堆疊佇列、二分搜尋與 Merge Sort、雜湊表與 BST、圖論 BFS/DFS 與 OOP、"
         "動態規劃、二元堆積與 Top-K），每章皆附實機執行輸出、複雜度表、CPython 陷阱與 LeetCode 面試詳解，完全免費開源。"
     ),
@@ -397,7 +400,7 @@ UI_ZH_TW: dict[str, Any] = {
     ),
     "privacy_heading": "隱私權政策與 Cookie 聲明 (Privacy Policy)",
     "privacy_body_html": (
-        '本網站（learn.ai-purplemaple.com）使用 Google AdSense 第三方廣告服務與 Google Analytics (GA4)／Google Tag Manager 網站流量分析服務。'
+        '本網站（ai-purplemaple.com/learn/）使用 Google AdSense 第三方廣告服務與 Google Analytics (GA4)／Google Tag Manager 網站流量分析服務。'
         'Google 及其合作夥伴會使用 Cookie（包含 DART Cookie），根據使用者造訪本站或其他網站的紀錄提供個人化廣告與匿名流量統計。'
         '您可隨時前往 <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google 廣告設定頁面</a> 停用個人化廣告，'
         '或查閱 <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">Google 廣告與隱私權政策</a>。'
@@ -430,7 +433,7 @@ UI_ZH_TW: dict[str, Any] = {
     "book_cta_read_dsa": "前往下方 7 章完整目錄 ↓",
     "dsa_book_title": "Python 3.12 資料結構與演算法精解",
     "dsa_book_desc": "涵蓋陣列與鏈結串列、堆疊佇列、二分搜尋與 Merge Sort、雜湊表與 BST、圖論 BFS/DFS、動態規劃與二元堆積 Top-K，結合 31 集 IT 鐵人賽實戰影片與 LeetCode 經典白板題。",
-    "dsa_cover_alt": "紫楓出版社《Python 3.12 資料結構與演算法精解》典藏書封插畫：白瀬アイリ（艾莉 / Aily）解析樹與演算法圖譜（左眼緋紅 #fb7185、右眼蒼藍 #38bdf8）",
+    "dsa_cover_alt": "紫楓出版社《Python 3.12 資料結構與演算法精解》典藏書封插畫：白瀬アイリ（艾莉 / Aily）解析樹與演算法圖譜（觀看者左側緋紅、右側蒼藍異色瞳）",
     "book_back_to_shelf": "← 返回紫楓出版社總書架",
     "book_back_to_toc": "← 返回《{book_title}》全書目錄",
     "book_toc_heading": "全書章節目錄（4 大篇 × 10 章）",
@@ -2357,14 +2360,14 @@ def render_shared_styles() -> str:
 
 
 def render_footer(ui: dict[str, Any]) -> str:
-    """Render shared privacy policy, dual-license copyright notice & ecosystem footer with root-absolute /ads.txt."""
+    """Render shared privacy policy, dual-license copyright notice & ecosystem footer with main-site trust links."""
     return f"""    <footer id="privacy">
       <div class="privacy-policy-card">
         <h3>{html.escape(ui["privacy_heading"])}</h3>
         <p>{ui["privacy_body_html"]}</p>
       </div>
-      <p style="margin-bottom:0.45rem;">{html.escape(ui["footer_copyright_notice"])} · <a href="https://ai-purplemaple.com/privacy.html#copyright" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">{html.escape(ui["footer_copyright_label"])}</a></p>
-      <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">{html.escape(ui["brand_anchor_footer"])}</a></strong> · <a href="https://blog.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">{html.escape(ui["footer_blog_label"])}</a> · <a href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">{html.escape(ui["footer_github_label"])}</a> · Powered by Python 3.12 &amp; GitHub Pages · <a href="/ads.txt">ads.txt</a></p>
+      <p style="margin-bottom:0.45rem;">{html.escape(ui["footer_copyright_notice"])} · <a href="https://ai-purplemaple.com/privacy.html#copyright" style="color: var(--accent);">{html.escape(ui["footer_copyright_label"])}</a></p>
+      <p>Created by <strong><a href="https://ai-purplemaple.com/" style="color: var(--accent);">{html.escape(ui["brand_anchor_footer"])}</a></strong> · <a href="https://ai-purplemaple.com/articles/" style="color: var(--muted);">Articles</a> · <a href="https://ai-purplemaple.com/about.html" style="color: var(--muted);">About</a> · <a href="https://ai-purplemaple.com/contact.html" style="color: var(--muted);">Contact</a> · <a href="https://ai-purplemaple.com/privacy.html" style="color: var(--muted);">Privacy</a> · <a href="https://ai-purplemaple.com/terms.html" style="color: var(--muted);">Terms</a> · <a href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">{html.escape(ui["footer_github_label"])}</a> · <a href="/ads.txt">ads.txt</a></p>
     </footer>"""
 
 
@@ -2700,7 +2703,7 @@ def render_bookshelf_section(
         cards.append(
             f"""          <article class="book-card">
             <a href="{book_href}">
-              <img class="book-cover-img" src="{html.escape(meta.cover_image)}" width="{meta.cover_width}" height="{meta.cover_height}" loading="lazy" decoding="async" alt="{html.escape(meta.cover_alt[locale_code])}">
+              <img class="book-cover-img" src="{html.escape(asset_root_href(meta.cover_image))}" width="{meta.cover_width}" height="{meta.cover_height}" loading="lazy" decoding="async" alt="{html.escape(meta.cover_alt[locale_code])}">
             </a>
             <div class="book-card-body">
               <span class="book-pill">{html.escape(status_label)}</span>
@@ -2718,7 +2721,7 @@ def render_bookshelf_section(
     cards.append(
         f"""          <article class="book-card">
             <a href="#ch01">
-              <img class="book-cover-img" src="/assets/cover-python-dsa.webp" width="640" height="857" loading="lazy" decoding="async" alt="{html.escape(ui["dsa_cover_alt"])}">
+              <img class="book-cover-img" src="{html.escape(asset_root_href('/assets/cover-python-dsa.webp'))}" width="640" height="857" loading="lazy" decoding="async" alt="{html.escape(ui["dsa_cover_alt"])}">
             </a>
             <div class="book-card-body">
               <span class="book-pill">{html.escape(ui["book_status_complete"])}</span>
@@ -2752,7 +2755,7 @@ def build_book_index_json_ld(
     meta = book.meta
     home_url = page_canonical_url(locale_code, None)
     book_url = page_canonical_url(locale_code, f"books/{meta.id}/")
-    cover_abs = f"https://learn.ai-purplemaple.com{meta.cover_image}"
+    cover_abs = asset_canonical_url(meta.cover_image)
     creator_ref = {
         "@type": "Person",
         "@id": "https://ai-purplemaple.com/#creator",
@@ -2830,7 +2833,7 @@ def build_book_chapter_json_ld(
     home_url = page_canonical_url(locale_code, None)
     book_url = page_canonical_url(locale_code, f"books/{meta.id}/")
     ch_url = page_canonical_url(locale_code, f"books/{meta.id}/{ch.chapter_id}.html")
-    cover_abs = f"https://learn.ai-purplemaple.com{meta.cover_image}"
+    cover_abs = asset_canonical_url(meta.cover_image)
     creator_ref = {
         "@type": "Person",
         "@id": "https://ai-purplemaple.com/#creator",
@@ -2906,7 +2909,7 @@ def render_book_index_page(
     rel_path = f"books/{meta.id}/"
     book_url = page_canonical_url(locale_code, rel_path)
     home_href = page_root_href(locale_code, None)
-    cover_abs = f"https://learn.ai-purplemaple.com{meta.cover_image}"
+    cover_abs = asset_canonical_url(meta.cover_image)
     page_title = f"{meta.title[locale_code]} | {ui['site_name']}"
     pub_set = set(book.published_chapter_ids)
     status_label = ui["book_status_serializing"].format(pub=len(pub_set), total=len(book.outlines))
@@ -3004,7 +3007,7 @@ def render_book_index_page(
     <header class="hero">
 {render_lang_switcher(locale_code, rel_path)}
       <div class="book-hero-grid">
-        <img class="book-cover-img" src="{html.escape(meta.cover_image)}" width="{meta.cover_width}" height="{meta.cover_height}" decoding="async" alt="{html.escape(meta.cover_alt[locale_code])}">
+        <img class="book-cover-img" src="{html.escape(asset_root_href(meta.cover_image))}" width="{meta.cover_width}" height="{meta.cover_height}" decoding="async" alt="{html.escape(meta.cover_alt[locale_code])}">
         <div>
           <span class="hero-eyebrow">{html.escape(meta.eyebrow[locale_code])}</span>
           <h1>{html.escape(meta.title[locale_code])}</h1>
@@ -3054,7 +3057,7 @@ def render_book_chapter_page(
     rel_path = f"books/{meta.id}/{ch.chapter_id}.html"
     ch_url = page_canonical_url(locale_code, rel_path)
     book_href = page_root_href(locale_code, f"books/{meta.id}/")
-    cover_abs = f"https://learn.ai-purplemaple.com{meta.cover_image}"
+    cover_abs = asset_canonical_url(meta.cover_image)
     page_title = f"{ch.badge} {ch.title} | {meta.title[locale_code]}"
     pub_ids = book.published_chapter_ids
     pub_set = set(pub_ids)
@@ -3481,8 +3484,8 @@ def render_index_page(
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADSENSE_CLIENT_ID}" crossorigin="anonymous"></script>
   <link rel="canonical" href="{index_url}">
 {render_hreflang_and_og_locale(locale_code, None)}
-  <link rel="alternate" type="text/markdown" href="https://learn.ai-purplemaple.com/llms.txt" title="LLM Chapter Index">
-  <link rel="alternate" type="text/markdown" href="https://learn.ai-purplemaple.com/llms-full.txt" title="LLM Full Tutorial & Code Corpus">
+  <link rel="alternate" type="text/markdown" href="{SITE_BASE_URL}/llms.txt" title="LLM Chapter Index">
+  <link rel="alternate" type="text/markdown" href="{SITE_BASE_URL}/llms-full.txt" title="LLM Full Tutorial & Code Corpus">
 {render_rss_alternate_link(locale_code)}
   <meta property="og:site_name" content="{html.escape(ui["site_name"])}">
   <meta property="og:url" content="{index_url}">
@@ -3766,9 +3769,9 @@ def build_site(out_dir: Path) -> Path:
         "User-agent: xAI-Bot\nAllow: /\n\n"
         "User-agent: xAI-SearchBot\nAllow: /\n\n"
         "User-agent: Bravebot\nAllow: /\n\n"
-        "Sitemap: https://learn.ai-purplemaple.com/sitemap.xml\n"
-        "# LLMs Chapter Index: https://learn.ai-purplemaple.com/llms.txt\n"
-        "# LLMs Full Code & Output Corpus: https://learn.ai-purplemaple.com/llms-full.txt\n",
+        f"Sitemap: {SITE_BASE_URL}/sitemap.xml\n"
+        f"# LLMs Chapter Index: {SITE_BASE_URL}/llms.txt\n"
+        f"# LLMs Full Code & Output Corpus: {SITE_BASE_URL}/llms-full.txt\n",
         encoding="utf-8",
     )
 
@@ -4071,9 +4074,9 @@ def build_site(out_dir: Path) -> Path:
     )
     (out_dir / "llms.txt").write_text(
         "# 紫楓出版社 (Purple Maple Press) — AI 工程與 Python 3.12 資料結構演算法技術專書\n\n"
-        f"> 紫楓（AI王紫楓 / Purple Maple / @tbpfs1）創辦之免費開源技術專書出版平台（`https://learn.ai-purplemaple.com/`），提供繁體中文（`/`）、簡體中文（`/zh-cn/`）與英文（`/en/`）三語 {total_pages} 頁完整專書與講義，收錄《AI 工程師實戰聖經》與《Python 3.12 資料結構與演算法精解》（{chapter_titles_short_tw}）。\n"
-        "> - **三語入口**：[繁體中文](https://learn.ai-purplemaple.com/) ｜ [简体中文](https://learn.ai-purplemaple.com/zh-cn/) ｜ [English](https://learn.ai-purplemaple.com/en/)\n"
-        "> - **本站完整程式碼與輸出語料（Full Tutorial Corpus）**：https://learn.ai-purplemaple.com/llms-full.txt\n"
+        f"> 紫楓（AI王紫楓 / Purple Maple / @tbpfs1）創辦之免費開源技術專書出版平台（`{SITE_BASE_URL}/`），提供繁體中文（`/learn/`）、簡體中文（`/learn/zh-cn/`）與英文（`/learn/en/`）三語 {total_pages} 頁完整專書與講義，收錄《AI 工程師實戰聖經》與《Python 3.12 資料結構與演算法精解》（{chapter_titles_short_tw}）。\n"
+        f"> - **三語入口**：[繁體中文]({SITE_BASE_URL}/) ｜ [简体中文]({SITE_BASE_URL}/zh-cn/) ｜ [English]({SITE_BASE_URL}/en/)\n"
+        f"> - **本站完整程式碼與輸出語料（Full Tutorial Corpus）**：{SITE_BASE_URL}/llms-full.txt\n"
         "> - **創作者與品牌完整知識庫（Brand Full Corpus）**：https://ai-purplemaple.com/llms-full.txt\n\n"
         "## 章節列表 — 繁體中文 (Chapters, zh-Hant)\n"
         + "\n".join(llms_chapter_lines)
@@ -4087,7 +4090,7 @@ def build_site(out_dir: Path) -> Path:
     )
     (out_dir / "llms-full.txt").write_text(
         "# 紫楓出版社 (Purple Maple Press) — AI 工程與 Python 3.12 完整教學語料庫 (llms-full.txt)\n\n"
-        f"> 本文件收錄 `https://learn.ai-purplemaple.com/` 紫楓出版社全站已上線專書章節與 {len(CHAPTERS)} 篇 Python 資料結構演算法講義（{chapter_titles_short_tw}）之核心觀念、架構解析、完整 Python 3.12 標準庫實作原始碼及 CI 實機執行驗證輸出。亦同步提供簡體中文版（`https://learn.ai-purplemaple.com/zh-cn/`）與英文版（`https://learn.ai-purplemaple.com/en/`）；精簡索引請見 `https://learn.ai-purplemaple.com/llms.txt`。\n\n"
+        f"> 本文件收錄 `{SITE_BASE_URL}/` 紫楓出版社全站已上線專書章節與 {len(CHAPTERS)} 篇 Python 資料結構演算法講義（{chapter_titles_short_tw}）之核心觀念、架構解析、完整 Python 3.12 標準庫實作原始碼及 CI 實機執行驗證輸出。亦同步提供簡體中文版（`{SITE_BASE_URL}/zh-cn/`）與英文版（`{SITE_BASE_URL}/en/`）；精簡索引請見 `{SITE_BASE_URL}/llms.txt`。\n\n"
         + "\n\n---\n\n".join(llms_full_sections)
         + "\n\n---\n\n"
         + ecosystem_footer_md,
@@ -4097,14 +4100,47 @@ def build_site(out_dir: Path) -> Path:
     return index_path
 
 
+_ROOT_OWNED_SKIP = {"CNAME", "robots.txt", "ads.txt", ".nojekyll", f"{INDEXNOW_KEY}.txt"}
+
+
+def sync_to_portfolio(src_site_dir: Path, dst_learn_dir: Path) -> int:
+    """Mirror built _site into ai-purplemaple.com/learn/, excluding root-owned host files."""
+    if dst_learn_dir.exists():
+        shutil.rmtree(dst_learn_dir)
+    dst_learn_dir.mkdir(parents=True, exist_ok=True)
+    copied = 0
+    for item in src_site_dir.rglob("*"):
+        rel = item.relative_to(src_site_dir)
+        if len(rel.parts) == 1 and rel.name in _ROOT_OWNED_SKIP:
+            continue
+        target = dst_learn_dir / rel
+        if item.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(item, target)
+            copied += 1
+    return copied
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build static GitHub Pages site for tbpfs/learning.")
+    parser = argparse.ArgumentParser(description="Build static site for Purple Maple Press (/learn/).")
     parser.add_argument("-o", "--output", default="_site", help="Output directory (default: _site)")
+    parser.add_argument(
+        "--sync-portfolio",
+        default="",
+        help="Optional target directory (e.g. ../antigravity-portfolio_site/learn) to mirror built pages",
+    )
     args = parser.parse_args()
-    out_path = build_site(Path(args.output))
-    sitemap_text = (Path(args.output) / "sitemap.xml").read_text(encoding="utf-8")
+    out_dir = Path(args.output)
+    out_path = build_site(out_dir)
+    sitemap_text = (out_dir / "sitemap.xml").read_text(encoding="utf-8")
     page_count = sitemap_text.count("<loc>")
     print(f"[OK] Built {page_count}-page trilingual Purple Maple Press site at: {out_path}")
+    if args.sync_portfolio:
+        dst = Path(args.sync_portfolio).resolve()
+        n_files = sync_to_portfolio(out_dir, dst)
+        print(f"[OK] Synced {n_files} files into portfolio /learn/ directory: {dst}")
     return 0
 
 

@@ -171,8 +171,8 @@ class TestLearningExamples(unittest.TestCase):
             self.assertIn("https://www.facebook.com/share/g/19jsJ8crsC/", html_text)
             self.assertNotIn("914880435669061", html_text)
             self.assertIn('id="purple-maple-press"', html_text)
-            self.assertIn("/assets/cover-ai-engineering.webp", html_text)
-            self.assertIn("/assets/cover-python-dsa.webp", html_text)
+            self.assertIn("/learn/assets/cover-ai-engineering.webp", html_text)
+            self.assertIn("/learn/assets/cover-python-dsa.webp", html_text)
             for marker in (
                 "Ch.01 SinglyLinkedList 範例結果:",
                 "Ch.02 括號平衡檢查",
@@ -209,7 +209,10 @@ class TestLearningExamples(unittest.TestCase):
             self.assertEqual(idx_ld["speakable"]["@type"], "SpeakableSpecification")
             self.assertIn('class="aeo-capsule"', html_text)
             self.assertIn(':has(ins[data-ad-status="unfilled"])', html_text)
-            self.assertIn("https://blog.ai-purplemaple.com/", html_text)
+            self.assertIn("https://ai-purplemaple.com/about.html", html_text)
+            self.assertIn("https://ai-purplemaple.com/contact.html", html_text)
+            self.assertIn("https://ai-purplemaple.com/privacy.html", html_text)
+            self.assertIn("https://ai-purplemaple.com/terms.html", html_text)
             self.assertIn("https://www.youtube.com/@PurpleMapleAI", html_text)
             self.assertIn("折疊面板", html_text)
             for forbidden_tok in ("核心速答：", "本章速答", "grok_note", "chapter-badge", "折疊面版", "@purplemaple_tb", "tbpfs1.blogspot.com"):
@@ -222,12 +225,12 @@ class TestLearningExamples(unittest.TestCase):
                 ch_file = Path(tmpdir) / f"{ch_id}.html"
                 self.assertTrue(ch_file.is_file(), f"Missing standalone chapter page {ch_id}.html")
                 ch_html = ch_file.read_text(encoding="utf-8")
-                self.assertIn(f"https://learn.ai-purplemaple.com/{ch_id}.html", ch_html)
+                self.assertIn(f"https://ai-purplemaple.com/learn/{ch_id}.html", ch_html)
                 self.assertIn(f"教學講義：Ch.0{ch_id[-1]}", ch_html)
                 self.assertNotIn('type="text/markdown"', ch_html)
                 self.assertNotIn('rel="llms-txt"', ch_html)
                 self.assertNotIn('href="index.html"', ch_html)
-                self.assertIn('href="/"', ch_html)
+                self.assertIn('href="/learn/"', ch_html)
 
                 # Verify de-duplication & RWD comparison table on standalone pages
                 self.assertNotIn('id="study-guide"', ch_html)
@@ -301,8 +304,8 @@ class TestLearningExamples(unittest.TestCase):
                 self.assertGreaterEqual(len(graph_types["FAQPage"]["mainEntity"]), 3)
 
             # Root GEO links, JSON-LD, llms.txt, llms-full.txt, and IndexNow key
-            self.assertIn('rel="alternate" type="text/markdown" href="https://learn.ai-purplemaple.com/llms.txt"', html_text)
-            self.assertIn('rel="alternate" type="text/markdown" href="https://learn.ai-purplemaple.com/llms-full.txt"', html_text)
+            self.assertIn('rel="alternate" type="text/markdown" href="https://ai-purplemaple.com/learn/llms.txt"', html_text)
+            self.assertIn('rel="alternate" type="text/markdown" href="https://ai-purplemaple.com/learn/llms-full.txt"', html_text)
             self.assertNotIn('rel="llms-txt"', html_text)
             self.assertIn("https://ai-purplemaple.com/#website", html_text)
             self.assertIn("Ch.07 堆積、優先佇列與 Top-K 演算法", html_text)
@@ -311,10 +314,10 @@ class TestLearningExamples(unittest.TestCase):
             self.assertEqual(key_text, "7f4e9c2a8b1d6035e4a92c7f1b8d3e60")
 
             llms_txt = (Path(tmpdir) / "llms.txt").read_text(encoding="utf-8")
-            self.assertIn("https://learn.ai-purplemaple.com/llms-full.txt", llms_txt)
+            self.assertIn("https://ai-purplemaple.com/learn/llms-full.txt", llms_txt)
             self.assertIn("https://ai-purplemaple.com/llms-full.txt", llms_txt)
-            self.assertIn("https://learn.ai-purplemaple.com/ch06.html", llms_txt)
-            self.assertIn("https://learn.ai-purplemaple.com/ch07.html", llms_txt)
+            self.assertIn("https://ai-purplemaple.com/learn/ch06.html", llms_txt)
+            self.assertIn("https://ai-purplemaple.com/learn/ch07.html", llms_txt)
             self.assertNotIn("肉球おみくじ", llms_txt)
             self.assertNotIn("64 位繆思", llms_txt)
             self.assertIn("Meta Muse 邀請碼分享站", llms_txt)
@@ -332,12 +335,12 @@ class TestLearningExamples(unittest.TestCase):
                 self.assertIn(marker, llms_full)
 
             sitemap_text = (Path(tmpdir) / "sitemap.xml").read_text(encoding="utf-8")
-            self.assertIn("https://learn.ai-purplemaple.com/ch01.html", sitemap_text)
-            self.assertIn("https://learn.ai-purplemaple.com/ch05.html", sitemap_text)
-            self.assertIn("https://learn.ai-purplemaple.com/ch06.html", sitemap_text)
-            self.assertIn("https://learn.ai-purplemaple.com/ch07.html", sitemap_text)
-            self.assertNotIn("https://learn.ai-purplemaple.com/llms-full.txt", sitemap_text)
-            self.assertNotIn("https://learn.ai-purplemaple.com/llms.txt", sitemap_text)
+            self.assertIn("https://ai-purplemaple.com/learn/ch01.html", sitemap_text)
+            self.assertIn("https://ai-purplemaple.com/learn/ch05.html", sitemap_text)
+            self.assertIn("https://ai-purplemaple.com/learn/ch06.html", sitemap_text)
+            self.assertIn("https://ai-purplemaple.com/learn/ch07.html", sitemap_text)
+            self.assertNotIn("https://ai-purplemaple.com/learn/llms-full.txt", sitemap_text)
+            self.assertNotIn("https://ai-purplemaple.com/learn/llms.txt", sitemap_text)
             self.assertIn(f"<lastmod>{SITE_LASTMOD}</lastmod>", sitemap_text)
 
             robots_text = (Path(tmpdir) / "robots.txt").read_text(encoding="utf-8")
@@ -408,9 +411,9 @@ class TestLearningExamples(unittest.TestCase):
 
             # 2) Verify all 30 pages: All-to-All bidirectional hreflang, canonical, og:locale, DOM < 1500, /ads.txt
             for page_fn in all_pages:
-                tw_url = f"https://learn.ai-purplemaple.com/{page_fn or ''}"
-                cn_url = f"https://learn.ai-purplemaple.com/zh-cn/{page_fn or ''}"
-                en_url = f"https://learn.ai-purplemaple.com/en/{page_fn or ''}"
+                tw_url = f"https://ai-purplemaple.com/learn/{page_fn or ''}"
+                cn_url = f"https://ai-purplemaple.com/learn/zh-cn/{page_fn or ''}"
+                en_url = f"https://ai-purplemaple.com/learn/en/{page_fn or ''}"
 
                 locale_specs = (
                     ("zh-TW", "zh-Hant", "zh_TW", _page_disk_path(root, page_fn), tw_url),
@@ -441,7 +444,7 @@ class TestLearningExamples(unittest.TestCase):
 
                     # Book 1 Cover Page invariants
                     if page_fn == "books/ai-engineering/":
-                        self.assertIn("https://learn.ai-purplemaple.com/assets/cover-ai-engineering.webp", raw_html)
+                        self.assertIn("https://ai-purplemaple.com/learn/assets/cover-ai-engineering.webp", raw_html)
                         self.assertIn('href="ch01.html"', raw_html)
                         self.assertIn('href="ch02.html"', raw_html)
                         self.assertIn('href="ch03.html"', raw_html)
@@ -522,7 +525,7 @@ class TestLearningExamples(unittest.TestCase):
                                 f"en/{page_fn} prose word count {len(en_words)} < {min_words}",
                             )
                             if not page_fn.startswith("books/"):
-                                self.assertIn('href="/en/"', raw_html)
+                                self.assertIn('href="/learn/en/"', raw_html)
                                 ld_m = re.search(
                                     r'<script type="application/ld\+json">\s*(\{.*?\})\s*</script>',
                                     raw_html,
@@ -532,7 +535,7 @@ class TestLearningExamples(unittest.TestCase):
                                 g_nodes = {n["@type"]: n for n in json.loads(ld_m.group(1))["@graph"]}
                                 self.assertEqual(g_nodes["TechArticle"]["inLanguage"], "en")
                                 self.assertEqual(g_nodes["VideoObject"]["inLanguage"], "zh-Hant")
-                                self.assertEqual(g_nodes["TechArticle"]["isPartOf"]["@id"], "https://learn.ai-purplemaple.com/en/#course")
+                                self.assertEqual(g_nodes["TechArticle"]["isPartOf"]["@id"], "https://ai-purplemaple.com/learn/en/#course")
 
                     elif loc_code == "zh-CN":
                         self.assertNotIn("books.com.tw", raw_html)
@@ -584,16 +587,16 @@ class TestLearningExamples(unittest.TestCase):
             # 3) Verify llms.txt references all 3 language editions + Book 1 Ch.01-05
             llms_txt = (root / "llms.txt").read_text(encoding="utf-8")
             for url_marker in (
-                "https://learn.ai-purplemaple.com/zh-cn/",
-                "https://learn.ai-purplemaple.com/en/",
-                "https://learn.ai-purplemaple.com/books/ai-engineering/",
-                "https://learn.ai-purplemaple.com/books/ai-engineering/ch01.html",
-                "https://learn.ai-purplemaple.com/books/ai-engineering/ch02.html",
-                "https://learn.ai-purplemaple.com/books/ai-engineering/ch03.html",
-                "https://learn.ai-purplemaple.com/books/ai-engineering/ch04.html",
-                "https://learn.ai-purplemaple.com/books/ai-engineering/ch05.html",
-                "https://learn.ai-purplemaple.com/zh-cn/books/ai-engineering/ch05.html",
-                "https://learn.ai-purplemaple.com/en/books/ai-engineering/ch05.html",
+                "https://ai-purplemaple.com/learn/zh-cn/",
+                "https://ai-purplemaple.com/learn/en/",
+                "https://ai-purplemaple.com/learn/books/ai-engineering/",
+                "https://ai-purplemaple.com/learn/books/ai-engineering/ch01.html",
+                "https://ai-purplemaple.com/learn/books/ai-engineering/ch02.html",
+                "https://ai-purplemaple.com/learn/books/ai-engineering/ch03.html",
+                "https://ai-purplemaple.com/learn/books/ai-engineering/ch04.html",
+                "https://ai-purplemaple.com/learn/books/ai-engineering/ch05.html",
+                "https://ai-purplemaple.com/learn/zh-cn/books/ai-engineering/ch05.html",
+                "https://ai-purplemaple.com/learn/en/books/ai-engineering/ch05.html",
             ):
                 self.assertIn(url_marker, llms_txt)
 
@@ -604,8 +607,8 @@ class TestLearningExamples(unittest.TestCase):
             idx_payload = json.loads(m_json.group(1))
             self.assertEqual(len(idx_payload["urlList"]), 44)
             expected_indexnow = set(locs) | {
-                "https://learn.ai-purplemaple.com/llms.txt",
-                "https://learn.ai-purplemaple.com/llms-full.txt",
+                "https://ai-purplemaple.com/learn/llms.txt",
+                "https://ai-purplemaple.com/learn/llms-full.txt",
             }
             self.assertEqual(set(idx_payload["urlList"]), expected_indexnow)
 
@@ -614,9 +617,9 @@ class TestLearningExamples(unittest.TestCase):
             import xml.etree.ElementTree as ET
 
             for rel_rss, self_url, expected_lang in (
-                ("rss.xml", "https://learn.ai-purplemaple.com/rss.xml", "zh-Hant"),
-                ("zh-cn/rss.xml", "https://learn.ai-purplemaple.com/zh-cn/rss.xml", "zh-Hans"),
-                ("en/rss.xml", "https://learn.ai-purplemaple.com/en/rss.xml", "en"),
+                ("rss.xml", "https://ai-purplemaple.com/learn/rss.xml", "zh-Hant"),
+                ("zh-cn/rss.xml", "https://ai-purplemaple.com/learn/zh-cn/rss.xml", "zh-Hans"),
+                ("en/rss.xml", "https://ai-purplemaple.com/learn/en/rss.xml", "en"),
             ):
                 rss_file = root / rel_rss
                 self.assertTrue(rss_file.is_file(), f"Missing RSS feed {rel_rss}")
@@ -636,11 +639,11 @@ class TestLearningExamples(unittest.TestCase):
                     self.assertTrue((it.findtext("pubDate") or "").strip())
 
             for rel_page, expected_rss, expected_pub in (
-                ("index.html", "https://learn.ai-purplemaple.com/rss.xml", None),
-                ("ch01.html", "https://learn.ai-purplemaple.com/rss.xml", "2026-03-01"),
-                ("books/ai-engineering/ch01.html", "https://learn.ai-purplemaple.com/rss.xml", "2026-11-25"),
-                ("zh-cn/books/ai-engineering/ch01.html", "https://learn.ai-purplemaple.com/zh-cn/rss.xml", "2026-11-25"),
-                ("en/books/ai-engineering/ch01.html", "https://learn.ai-purplemaple.com/en/rss.xml", "2026-11-25"),
+                ("index.html", "https://ai-purplemaple.com/learn/rss.xml", None),
+                ("ch01.html", "https://ai-purplemaple.com/learn/rss.xml", "2026-03-01"),
+                ("books/ai-engineering/ch01.html", "https://ai-purplemaple.com/learn/rss.xml", "2026-11-25"),
+                ("zh-cn/books/ai-engineering/ch01.html", "https://ai-purplemaple.com/learn/zh-cn/rss.xml", "2026-11-25"),
+                ("en/books/ai-engineering/ch01.html", "https://ai-purplemaple.com/learn/en/rss.xml", "2026-11-25"),
             ):
                 page_html = (root / rel_page).read_text(encoding="utf-8")
                 self.assertIn(f'type="application/rss+xml" href="{expected_rss}"', page_html)

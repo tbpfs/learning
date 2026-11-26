@@ -50,7 +50,7 @@ UI_ZH_CN: dict[str, Any] = {
         "涵盖 {chapter_titles_short}。"
     ),
     "index_aeo_capsule": (
-        "紫枫（王紫枫 / Purple Maple）Python 3.12 互动教学站（<code>learn.ai-purplemaple.com/zh-cn/</code>）"
+        "紫枫（王紫枫 / Purple Maple）Python 3.12 互动教学站（<code>ai-purplemaple.com/learn/zh-cn/</code>）"
         "收录 7 大核心章节（数组与链表、栈和队列、二分查找与归并排序、哈希表与 BST、图论 BFS/DFS 与 OOP、"
         "动态规划、二叉堆与 Top-K），每章均附真实运行输出、复杂度对比表、CPython 底层陷阱与力扣 LeetCode 面试详解，完全免费开源。"
     ),
@@ -153,7 +153,7 @@ UI_ZH_CN: dict[str, Any] = {
     ),
     "privacy_heading": "隐私政策与 Cookie 声明 (Privacy Policy)",
     "privacy_body_html": (
-        '本网站（learn.ai-purplemaple.com）使用 Google AdSense 第三方广告服务与 Google Analytics (GA4)／Google Tag Manager 网站流量分析服务。'
+        '本网站（ai-purplemaple.com/learn/）使用 Google AdSense 第三方广告服务与 Google Analytics (GA4)／Google Tag Manager 网站流量分析服务。'
         'Google 及其合作伙伴可能使用 Cookie（包含 DART Cookie），根据用户访问本站或其他网站的记录提供个性化广告与匿名流量统计。'
         '您可随时前往 <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google 广告设置页面</a> 停用个性化广告，'
         '或查阅 <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">Google 广告与隐私政策</a>。'

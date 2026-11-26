@@ -51,7 +51,7 @@ UI_EN: dict[str, Any] = {
         "covering {chapter_titles_short}."
     ),
     "index_aeo_capsule": (
-        "Purple Maple's free open-source Python 3.12 DSA tutorial portal (<code>learn.ai-purplemaple.com/en/</code>) "
+        "Purple Maple's free open-source Python 3.12 DSA tutorial portal (<code>ai-purplemaple.com/learn/en/</code>) "
         "covers 7 core engineering chapters (Arrays & Linked Lists, Stacks & Queues, Binary Search & Merge Sort, "
         "Hash Tables & BST, Graph BFS/DFS & OOP, Dynamic Programming, and Binary Heaps & Top-K) with verified runtime "
         "outputs, Big-O comparison tables, CPython 3.12 internals, and LeetCode interview walkthroughs."
@@ -156,7 +156,7 @@ UI_EN: dict[str, Any] = {
     ),
     "privacy_heading": "Privacy Policy & Cookie Disclosure",
     "privacy_body_html": (
-        'This website (learn.ai-purplemaple.com) uses Google AdSense advertising services and Google Analytics (GA4) / Google Tag Manager '
+        'This website (ai-purplemaple.com/learn/) uses Google AdSense advertising services and Google Analytics (GA4) / Google Tag Manager '
         'for anonymous traffic analytics. Google and its partners may use cookies (including the DART cookie) to serve personalized ads '
         'and measure aggregate readership. You may opt out of personalized advertising at any time via '
         '<a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google Ads Settings</a> or review the '

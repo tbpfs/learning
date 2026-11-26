@@ -61,10 +61,14 @@ _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 _FULLWIDTH_RE = re.compile(r"[\u3000-\u303f\uff01-\uff5e]")
 
 
+SITE_BASE_URL = "https://ai-purplemaple.com/learn"
+SITE_ROOT_PREFIX = "/learn"
+
+
 def page_canonical_url(locale_code: str, page_filename: str | None = None) -> str:
     """Return canonical absolute URL for index (page_filename=None) or chapter page."""
     loc = LOCALE_BY_CODE[locale_code]
-    base = f"https://learn.ai-purplemaple.com{loc.url_prefix}"
+    base = f"{SITE_BASE_URL}{loc.url_prefix}"
     if not page_filename:
         return f"{base}/"
     return f"{base}/{page_filename}"
@@ -73,9 +77,26 @@ def page_canonical_url(locale_code: str, page_filename: str | None = None) -> st
 def page_root_href(locale_code: str, page_filename: str | None = None) -> str:
     """Return root-absolute href (never index.html) for internal links and language switcher."""
     loc = LOCALE_BY_CODE[locale_code]
+    prefix = f"{SITE_ROOT_PREFIX}{loc.url_prefix}"
     if not page_filename:
-        return f"{loc.url_prefix}/" if loc.url_prefix else "/"
-    return f"{loc.url_prefix}/{page_filename}"
+        return f"{prefix}/"
+    return f"{prefix}/{page_filename}"
+
+
+def asset_root_href(rel_asset: str) -> str:
+    """Return root-absolute asset href under /learn (e.g. /learn/assets/cover-python-dsa.webp)."""
+    cleaned = rel_asset if rel_asset.startswith("/") else f"/{rel_asset}"
+    if cleaned.startswith(f"{SITE_ROOT_PREFIX}/"):
+        return cleaned
+    return f"{SITE_ROOT_PREFIX}{cleaned}"
+
+
+def asset_canonical_url(rel_asset: str) -> str:
+    """Return absolute canonical URL for an asset under https://ai-purplemaple.com/learn."""
+    cleaned = rel_asset if rel_asset.startswith("/") else f"/{rel_asset}"
+    if cleaned.startswith(f"{SITE_ROOT_PREFIX}/"):
+        cleaned = cleaned[len(SITE_ROOT_PREFIX):]
+    return f"{SITE_BASE_URL}{cleaned}"
 
 
 def localize_code_and_output(
