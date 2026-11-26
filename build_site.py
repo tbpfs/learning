@@ -2761,59 +2761,59 @@ def render_ai_coding_showcase(locale_code: str) -> str:
     )
     packs = {
         "zh-TW": {
-            "badge": "AI CODING LIVE DEMO · PURE WEBGL2",
+            "badge": "AI CODING LIVE DEMO · PURE WEBGL2 v2",
             "title": "《山海汴京圖》：走進清明上河圖 × 山海經 3D 即時水墨世界",
             "summary": (
-                "第一秒以為是靜止的北宋青綠水墨古卷，滑鼠一拖或點「踏入畫卷」，整個世界直接化為可自由航行的 3D 水墨空間——"
-                "泛舟穿過《清明上河圖》木拱虹橋、仰望《山海經》北冥巨鯤游過蓬萊浮空仙島與千尺飛瀑。"
-                "本作品由紫楓策劃、Gemini 4 Neon 以純原生 WebGL2 零外部框架全自動寫成，零貼圖、零 3D 模型檔、零音檔，並支援即時拉開「3D 線框幕簾」透視 49,000+ 三角形原形。"
+                "第一秒以為是靜止的北宋青綠水墨古卷，滑鼠一拖或點「踏入畫卷」，整個世界直接化為可 360° 第一人稱自由飛行的 3D 山河——"
+                "泛舟穿過《清明上河圖》汴水虹橋倒影、仰望《山海經》流金墨靈巨鯤游過千里青綠山嵐與飛檐樓閣。"
+                "本作品由紫楓策劃、Gemini 4 Neon 以純原生 WebGL2 零外部框架全自動寫成（零貼圖、零模型檔、零音檔），支援即時拉開「3D 線框幕簾」透視 65,000 個程序化三角形。"
             ),
-            "heading": "零依賴純 WebGL2 雙 Pass 水墨著色器亮點",
+            "heading": "零依賴純 WebGL2 五段式次世代水墨管線亮點",
             "points": [
-                "零 Three.js、零外部模型與圖片：整座汴京城、20 節木拱虹橋、青綠山巒與 32 節游動巨鯤全由純數學程序化建模生成（geometry.js 36 KB）。",
-                "雙 Pass MRT 水墨 NPR 管線：一次輸出色彩、法線深度與重心線框緩衝，後處理即時執行雙通道 Sobel 毛筆描邊、山壁斧劈皴筆觸、宣紙纖維與朱砂掃描幕簾。",
-                "3 種水墨意境 × 4 種運鏡 × 零音檔古琴合成：一鍵切換北宋青綠／焦墨寫意／山海夜燈，搭配原生 Web Audio 五聲音階古琴泛音與江風聲景。",
+                "真實即時鏡面水面倒影＋1024px PCF 軟陰影：以鏡像攝影機即時繪製汴河倒影，搭配太陽方向軟陰影與飛檐翹角宋式樓閣、雲頂寶塔。",
+                "GPU 水墨點葉筆刷＋方向性 Kuwahara 繪畫濾鏡：捨棄傳統圓球低模樹，全以 Shader 即時手繪松針、垂柳、丹楓與蘆葦筆觸，並以四象限 Kuwahara 濾鏡重現《千里江山圖》青綠渲染質感。",
+                "360° 第一人稱自由漫遊 × 體積耶穌光與暖燈 Bloom：滑鼠拖曳零遮擋環顧、WASD／滾輪飛行穿橋，一鍵切換北宋青綠／煙雨焦墨／上元夜燈與原生 Web Audio 古琴泛音。",
             ],
-            "alt": "山海汴京圖 WebGL2 即時 3D 水墨世界：左側宋代青綠水墨古畫與右側 3D 幾何拓撲線框幕簾對照實機畫面",
+            "alt": "山海汴京圖 v2 WebGL2 即時 3D 水墨世界：左側宋代青綠水墨與水面倒影、右側 65,000 三角形 3D 拓撲線框對照實機畫面",
             "cta_demo": "踏入 3D 水墨畫卷 (Live Demo)",
             "cta_repo": "GitHub 開源原始碼 (MIT)",
             "cta_svg": "另看：Formosa SVG X-Ray 8 層 3D 台灣圖鑑",
         },
         "zh-CN": {
-            "badge": "AI CODING LIVE DEMO · PURE WEBGL2",
+            "badge": "AI CODING LIVE DEMO · PURE WEBGL2 v2",
             "title": "《山海汴京图》：走进清明上河图 × 山海经 3D 实时水墨世界",
             "summary": (
-                "第一秒以为是静止的北宋青绿水墨古卷，鼠标一拖或点击「踏入画卷」，整个世界直接化为可自由航行的 3D 水墨空间——"
-                "泛舟穿过《清明上河图》木拱虹桥、仰望《山海经》北冥巨鲲游过蓬莱浮空仙岛与千尺飞瀑。"
-                "本作品由紫枫策划、Gemini 4 Neon 以纯原生 WebGL2 零外部框架全自动写成，零贴图、零 3D 模型文件、零音频文件，并支持实时拉开「3D 线框幕帘」透视 49,000+ 三角形原形。"
+                "第一秒以为是静止的北宋青绿水墨古卷，鼠标一拖或点击「踏入画卷」，整个世界直接化为可 360° 第一人称自由飞行的 3D 山河——"
+                "泛舟穿过《清明上河图》汴水虹桥倒影、仰望《山海经》流金墨灵巨鲲游过千里青绿山岚与飞檐楼阁。"
+                "本作品由紫枫策划、Gemini 4 Neon 以纯原生 WebGL2 零外部框架全自动写成（零贴图、零模型文件、零音频），支持实时拉开「3D 线框幕帘」透视 65,000 个程序化三角形。"
             ),
-            "heading": "零依赖纯 WebGL2 双 Pass 水墨着色器亮点",
+            "heading": "零依赖纯 WebGL2 五段式次世代水墨管线亮点",
             "points": [
-                "零 Three.js、零外部模型与图片：整座汴京城、20 节木拱虹桥、青绿山峦与 32 节游动巨鲲全由纯数学程序化建模生成。",
-                "双 Pass MRT 水墨 NPR 管线：同时输出色彩、法线深度与重心线框缓冲，后处理实时执行双通道 Sobel 毛笔描边、山壁斧劈皴笔触与宣纸纤维。",
-                "3 种水墨意境 × 4 种运镜 × 零音频古琴合成：一键切换北宋青绿／焦墨写意／山海夜灯，搭配原生 Web Audio 五声音阶古琴泛音。",
+                "真实实时镜面水面倒影＋1024px PCF 软阴影：以镜像摄像机实时渲染汴河倒影，搭配太阳软阴影与飞檐翘角宋式楼阁、云顶宝塔。",
+                "GPU 水墨点叶笔刷＋方向性 Kuwahara 绘画滤镜：告别球体低模树，全由 Shader 实时绘制松针、垂柳、丹枫与芦苇笔触，重现《千里江山图》青绿渲染。",
+                "360° 第一人称自由漫游 × 体积耶稣光与暖灯 Bloom：鼠标拖拽无遮挡环顾、WASD／滚轮飞行穿桥，一键切换北宋青绿／烟雨焦墨／上元夜灯与古琴合成音。",
             ],
-            "alt": "山海汴京图 WebGL2 实时 3D 水墨世界：左侧宋代青绿古画与右侧 3D 几何线框幕帘对照实机截图",
+            "alt": "山海汴京图 v2 WebGL2 实时 3D 水墨世界：左侧宋代青绿古画与倒影、右侧 3D 几何线框幕帘对照实机截图",
             "cta_demo": "踏入 3D 水墨画卷 (Live Demo)",
             "cta_repo": "GitHub 开源源码 (MIT)",
             "cta_svg": "另看：Formosa SVG X-Ray 台湾 3D 图鉴",
         },
         "en": {
-            "badge": "AI CODING LIVE DEMO · PURE WEBGL2",
+            "badge": "AI CODING LIVE DEMO · PURE WEBGL2 v2",
             "title": "Shan Hai Bianjing 3D: Step Inside a Living Qingming × Shan Hai Jing Ink Scroll",
             "summary": (
-                "At first glance it looks like a quiet Northern-Song blue-green ink scroll — until you drag the camera "
-                "and sail straight through the 3D wooden arch of the Rainbow Bridge beneath a flying Shan Hai Jing Giant Kun "
-                "and Penglai waterfalls. Autonomously written by Gemini 4 Neon in pure zero-dependency WebGL2 "
-                "(no Three.js, no external meshes, textures, or audio files) with a live Ink-to-3D-Wireframe reveal curtain."
+                "At first glance it looks like a museum Northern-Song ink scroll — until you drag the mouse and fly 360° in "
+                "first person under the mirrored arch of the Rainbow Bridge beneath a celestial Shan Hai Jing Spirit Kun. "
+                "Autonomously written by Gemini 4 Neon in pure zero-dependency WebGL2 (no Three.js, no external meshes, textures, "
+                "or audio files) with a live Song-Painting-to-3D-Wireframe reveal curtain across 65,000 procedural triangles."
             ),
-            "heading": "Pure WebGL2 Two-Pass Ink NPR Highlights",
+            "heading": "Pure WebGL2 5-Pass Painterly Ink Pipeline Highlights",
             "points": [
-                "Zero Three.js, zero external assets: ~49,500 procedural triangles generate the mountains, Rainbow Bridge, Song pavilions, boats, cranes, and animated 32-ring Giant Kun.",
-                "Two-Pass MRT NPR pipeline: simultaneous Color, Normal+Depth, and barycentric Wireframe outputs driving Sobel brush outlines, anisotropic cliff brushwork, and Xuan-paper grain.",
-                "3 ink moods × 4 camera modes × procedural Guqin Web Audio: switch seamlessly between Song Blue-Green, Sumi-e Monochrome, and Lantern Night.",
+                "True planar mirror water reflections + 1024px PCF soft shadows: real-time mirrored camera FBO reflecting the curved Song pavilions, hanging lanterns, karst peaks, and soaring Spirit Kun.",
+                "GPU calligraphic brush foliage + adaptive 4-sector Kuwahara brushwork filter: procedurally painted pine needles, weeping willow cascades, autumn maples, and reeds with Xuan-paper grain.",
+                "Unobstructed 360° first-person flight × volumetric sun god-rays & lantern bloom: switch seamlessly between Song Jade, Sumi-e Monochrome, and Lantern Night with synthesized Guqin audio.",
             ],
-            "alt": "Shan Hai Bianjing 3D real-time WebGL2 split view showing Song ink painting on the left and 3D wireframe mesh on the right",
+            "alt": "Shan Hai Bianjing 3D v2 real-time WebGL2 split view showing Song ink painting with reflections on the left and 3D wireframe mesh on the right",
             "cta_demo": "Enter the 3D Ink Scroll (Live Demo)",
             "cta_repo": "View GitHub Source (MIT)",
             "cta_svg": "Also see: Formosa SVG X-Ray Lab",
