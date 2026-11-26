@@ -2747,7 +2747,7 @@ def render_bookshelf_section(
 
 def render_ai_coding_showcase(locale_code: str) -> str:
     """Render the live AI Coding showcase section featuring Shan Hai Bianjing 3D."""
-    img_href = html.escape(asset_root_href("/assets/shan-hai-scroll-3d-demo.webp"))
+    img_href = html.escape(asset_root_href("/assets/shan-hai-scroll-3d-demo.webp") + "?v=20261126-v4")
     demo_url = (
         "https://tbpfs.github.io/shan-hai-scroll-3d/?lang=en"
         if locale_code == "en"
@@ -2761,59 +2761,60 @@ def render_ai_coding_showcase(locale_code: str) -> str:
     )
     packs = {
         "zh-TW": {
-            "badge": "AI CODING LIVE DEMO · PURE WEBGL2 v3",
-            "title": "《山海汴京圖》：走進潑彩水墨 × 山海經 3D 活古卷",
+            "badge": "AI CODING LIVE DEMO · PURE WEBGL2 v4",
+            "title": "《山海汴京圖》v4：千里山海四境 × 山海七靈 3D 活古卷",
             "summary": (
-                "第一秒以為是張大千潑彩與宋元水墨古卷，滑鼠一拖或點「踏入畫卷」，整幅畫直接破紙化為可 360° 第一人稱漫遊的 3D 山河——"
-                "七層喀斯特奇峰從無邊鏡面墨海拔地而起，孤舟簑笠翁盪開墨暈漣漪，穿過《清明上河圖》長虹橋與滿天落紅花瓣，仰望《山海經》流金巨鯤游過雲海。"
-                "由紫楓策劃美術方向、Gemini 4 Neon 以純原生 WebGL2 零外部框架全自動寫成（零貼圖、零模型檔、零音檔），支援即時拉開「3D 線框幕簾」透視 65,700+ 三角形。"
+                "第一秒以為是張大千潑彩與宋元水墨古卷，滑鼠一拖或點「踏入畫卷」，整幅畫直接破紙化為 380m × 400m 可 360° 第一人稱自由飛行的四大神話仙境——"
+                "從汴水虹橋孤舟與躍水錦鯉、蓬萊雲海雙鯤，直飛不周山 75 公尺天然巨型石拱天門仰望 70 公尺翼展應龍穿門而過，再巡遊青丘九尾靈狐與丹山朱鳳。"
+                "由紫楓策劃美術方向、Gemini 4 Neon 以純原生 WebGL2 零外部框架全自動寫成（零貼圖、零模型檔、零音檔），支援即時拉開「3D 線框幕簾」透視 104,700+ 三角形。"
             ),
-            "heading": "用純粹東方美術藏掉網頁渲染極限：v3 潑墨宣紙引擎亮點",
+            "heading": "用純粹東方美術藏掉網頁渲染極限：v4 四境七靈潑墨引擎亮點",
             "points": [
-                "山腳留白・水天一色：徹底拋棄傳統 3D 泥地斜坡，七層奇峰直接自鏡面墨水與宣紙雲霧拔起，搭配領域扭曲潑彩水暈（Domain-Warped Splash-Ink）與金碧泥金勾勒。",
-                "宣紙毛細滲墨＋水痕邊＋灑金紙纖：後處理讓 3D 多邊形邊緣順著宣紙纖維極細滲墨暈開，結合四象限 Kuwahara 筆觸與水彩水痕邊，畫面徹底去 CG 塑膠感。",
-                "360° 第一人稱零遮擋漫遊 × 三大博物館級畫風：一鍵切換「潑彩青綠／墨韻丹砂／幽冥青燈」，伴隨孤舟漣漪倒影、漫天 3D 落紅花瓣與原生 Web Audio 古琴泛音。",
+                "千里山海四大仙境（380m × 400m）：47 座喀斯特疊峰自無邊鏡面墨海拔起，涵蓋汴水虹橋、蓬萊雲海、75m 不周天門天然石拱與七層寶塔、青丘丹楓嶼與丹山朝陽峰，支援 Shift 馭風 2.4× 加速與六鍵一鍵巡遊。",
+                "山海七靈活體生態（104,700+ 三角形）：70m 雙翼流金應龍、北冥雙鯤、三隻丹山朱鳳、兩隻青丘九尾靈狐、兩隻九色發光靈鹿、28 尾躍水錦鯉與 18 隻熱氣流仙鶴，全數在 GPU 頂點著色器即時游動展翅。",
+                "潑彩宣紙去 CG 畫風 × 三大博物館級調色：山腳留白溶入鏡海、宣紙毛細滲墨、水彩水痕邊與灑金紙纖徹底抹去塑膠感，可即時切換「潑彩青綠／墨韻丹砂／幽冥青燈」並配以原生古琴泛音。",
             ],
-            "alt": "山海汴京圖 v3 WebGL2 即時 3D 潑彩水墨世界：左側灑金宣紙古畫與孤舟倒影、右側 65,700 三角形 3D 拓撲線框對照實機畫面",
+            "alt": "山海汴京圖 v4 WebGL2 即時 3D 潑彩水墨開放世界：左側灑金宣紙古畫與孤舟倒影、右側 104,700 三角形 3D 拓撲線框對照實機畫面",
             "cta_demo": "踏入 3D 水墨畫卷 (Live Demo)",
             "cta_repo": "GitHub 開源原始碼 (MIT)",
             "cta_svg": "另看：Formosa SVG X-Ray 8 層 3D 台灣圖鑑",
         },
         "zh-CN": {
-            "badge": "AI CODING LIVE DEMO · PURE WEBGL2 v3",
-            "title": "《山海汴京图》：走进泼彩水墨 × 山海经 3D 活古卷",
+            "badge": "AI CODING LIVE DEMO · PURE WEBGL2 v4",
+            "title": "《山海汴京图》v4：千里山海四境 × 山海七灵 3D 活古卷",
             "summary": (
-                "第一秒以为是张大千泼彩与宋元水墨古卷，鼠标一拖或点击「踏入画卷」，整幅画直接破纸化为可 360° 第一人称漫游的 3D 山河——"
-                "七层喀斯特奇峰从无边镜面墨海拔地而起，孤舟蓑笠翁荡开墨晕涟漪，穿过长虹桥与满天落红花瓣，仰望《山海经》流金巨鲲游过云海。"
-                "由紫枫策划美术方向、Gemini 4 Neon 以纯原生 WebGL2 零外部框架全自动写成，支持实时拉开「3D 线框幕帘」透视 65,700+ 三角形。"
+                "第一秒以为是张大千泼彩与宋元水墨古卷，鼠标一拖或点击「踏入画卷」，整幅画直接破纸化为 380m × 400m 可 360° 第一人称自由飞行的四大神话仙境——"
+                "从汴水虹桥孤舟与跃水锦鲤、蓬莱云海双鲲，直飞不周山 75 米天然巨型石拱天门仰望 70 米翼展应龙穿门而过，再巡游青丘九尾灵狐与丹山朱凤。"
+                "由紫枫策划美术方向、Gemini 4 Neon 以纯原生 WebGL2 零外部框架全自动写成，支持实时拉开「3D 线框幕帘」透视 104,700+ 三角形。"
             ),
-            "heading": "用纯粹东方美术藏掉网页渲染极限：v3 泼墨宣纸引擎亮点",
+            "heading": "用纯粹东方美术藏掉网页渲染极限：v4 四境七灵泼墨引擎亮点",
             "points": [
-                "山脚留白・水天一色：抛弃传统 3D 泥地斜坡，七层奇峰直接自镜面墨水与宣纸云雾拔起，搭配领域扭曲泼彩水晕与金碧泥金勾勒。",
-                "宣纸毛细渗墨＋水痕边＋洒金纸纤：后处理让 3D 多边形边缘顺着宣纸纤维细微渗墨晕开，结合 Kuwahara 笔触与水彩水痕边，彻底消除 CG 塑料感。",
-                "360° 第一人称无遮挡漫游 × 三大博物馆级画风：一键切换「泼彩青绿／墨韵丹砂／幽冥青灯」，伴随孤舟涟漪倒影、3D 落红花瓣与古琴泛音。",
+                "千里山海四大仙境（380m × 400m）：47 座喀斯特叠峰自无边镜面墨海拔起，涵盖汴水虹桥、蓬莱云海、75m 不周天门天然石拱与七层宝塔、青丘丹枫屿与丹山朝阳峰，支持 Shift 驭风 2.4× 加速与六键一键巡游。",
+                "山海七灵活体生态（104,700+ 三角形）：70m 双翼流金应龙、北冥双鲲、三只丹山朱凤、两只青丘九尾灵狐、两只九色发光灵鹿、28 尾跃水锦鲤与 18 只热气流仙鹤，全数在 GPU 顶点着色器实时游动展翅。",
+                "泼彩宣纸去 CG 画风 × 三大博物馆级调色：山脚留白溶入镜海、宣纸毛细渗墨、水彩水痕边与洒金纸纤彻底抹去塑料感，可实时切换「泼彩青绿／墨韵丹砂／幽冥青灯」并配以原生古琴泛音。",
             ],
-            "alt": "山海汴京图 v3 WebGL2 实时 3D 泼彩水墨世界：左侧洒金宣纸古画与孤舟倒影、右侧 3D 几何线框幕帘对照实机截图",
+            "alt": "山海汴京图 v4 WebGL2 实时 3D 泼彩水墨开放世界：左侧洒金宣纸古画与孤舟倒影、右侧 104,700 三角形 3D 几何线框幕帘对照实机截图",
             "cta_demo": "踏入 3D 水墨画卷 (Live Demo)",
             "cta_repo": "GitHub 开源源码 (MIT)",
             "cta_svg": "另看：Formosa SVG X-Ray 台湾 3D 图鉴",
         },
         "en": {
-            "badge": "AI CODING LIVE DEMO · PURE WEBGL2 v3",
-            "title": "Shan Hai Bianjing 3D: A Living Splash-Ink Song Scroll in Pure WebGL2",
+            "badge": "AI CODING LIVE DEMO · PURE WEBGL2 v4",
+            "title": "Shan Hai Bianjing 3D v4: 4 Mythic Ink Realms & 7 Living Beasts in Pure WebGL2",
             "summary": (
                 "At first glance it looks like an antique Zhang Daqian splash-ink hanging scroll — until you drag the mouse "
-                "and glide 360° in first person past a lone bamboo-hatted boatman, through crimson falling petals under the "
-                "Rainbow Bridge, beneath a celestial Shan Hai Jing Giant Kun. Autonomously coded by Gemini 4 Neon in zero-dependency "
-                "WebGL2 with a live Painting-to-3D-Wireframe reveal curtain across 65,700+ procedural triangles."
+                "and glide 360° across a 380m × 400m open Song world spanning 4 mythic realms: past the Rainbow Bridge boatman "
+                "and Twin Kuns, straight through the 75m Mount Buzhou Celestial Stone Arch as a 70m Winged Yinglong Dragon swoops overhead, "
+                "to Qingqiu Nine-Tailed Spirit Foxes and Danshan Vermilion Phoenixes. Autonomously coded by Gemini 4 Neon in zero-dependency "
+                "WebGL2 with a live Painting-to-3D-Wireframe reveal curtain across 104,700+ procedural triangles."
             ),
-            "heading": "Fine-Art Direction Over Brute-Force 3D: v3 Xuan-Paper Ink Highlights",
+            "heading": "Fine-Art Direction Over Brute-Force 3D: v4 Four-Realm Splash-Ink Highlights",
             "points": [
-                "Zero muddy ground terrain: 7 receding multi-shouldered karst layers rise directly out of an infinite mirror ink sea with mountain bases dissolving into luminous gold-flecked Xuan paper.",
-                "Capillary Xuan-paper ink-bleed UV warp + watercolor wet-edge pooling: straight polygon edges soften along organic rice-paper fibers paired with domain-warped splash-ink pigment blooms and 4-sector Kuwahara brushwork.",
-                "Unobstructed 360° first-person flight × 3 museum palettes: switch between Splash Jade, Ink & Cinnabar, and Moonlit Gold with concentric boatman ripples, 3D falling petals, and synthesized Guqin audio.",
+                "4 Mythic Song Realms (380m × 400m): 47 multi-shouldered karst peaks rising directly from an infinite mirror ink sea across Bianjing Bridge, Penglai Cloud Sea, the 75m Buzhou Celestial Arch & 7-tier Imperial Pagoda, Qingqiu Maple Isle, and Danshan Sun Peak — with Shift 2.4× Wind-Glide flight.",
+                "7 Living Animated Shan Hai Jing Creatures (104,700+ tris): a 70m Winged Ink-Gold Yinglong Dragon, Twin Celestial Kuns, 3 Vermilion Phoenixes with 15m silk plumes, 2 Nine-Tailed Spirit Foxes, 2 Luminous Spirit Stags, 28 Leaping Koi, and 18 Ink Cranes — all articulated in GPU vertex shaders.",
+                "Capillary Xuan-paper ink-bleed & 3 museum palettes: zero muddy dirt banks, watercolor wet-edge pigment pooling, gold-flecked paper fibers, and instant switching across Splash Jade, Ink & Cinnabar, and Moonlit Gold with synthesized Guqin harmonics.",
             ],
-            "alt": "Shan Hai Bianjing 3D v3 real-time WebGL2 split view showing splash-ink Xuan-paper painting with boatman reflection on the left and 3D wireframe mesh on the right",
+            "alt": "Shan Hai Bianjing 3D v4 real-time WebGL2 split view showing splash-ink Xuan-paper painting with boatman reflection on the left and 104,700-triangle 3D wireframe mesh on the right",
             "cta_demo": "Enter the 3D Ink Scroll (Live Demo)",
             "cta_repo": "View GitHub Source (MIT)",
             "cta_svg": "Also see: Formosa SVG X-Ray Lab",
@@ -4177,7 +4178,7 @@ def build_site(out_dir: Path) -> Path:
         "- [Meta Muse 邀請碼分享站](https://muse.ai-purplemaple.com/): 支援 6 語系的 Meta Muse AI 邀請碼看板、48 小時 10 億 Token 兌換教學與失效回報系統\n"
         "- [WaifuScan（二次元角色六維性格數據百科）](https://waifu.ai-purplemaple.com/): 四語系 612 頁角色評測百科、5 題靈魂波長診斷與 16 位原創角色互動\n"
         "- [AI王紫楓官方部落格](https://blog.ai-purplemaple.com/)\n"
-        "- [山海汴京圖 3D（清明上河圖 × 山海經純 WebGL2 即時水墨世界）](https://tbpfs.github.io/shan-hai-scroll-3d/): 由 Gemini 4 Neon 全自動零外部框架實作之宋代青綠水墨 3D 世界與即時線框幕簾（開源 MIT：https://github.com/tbpfs/shan-hai-scroll-3d）\n"
+        "- [山海汴京圖 3D v4（清明上河圖 × 山海經純 WebGL2 四境七靈開放水墨世界）](https://tbpfs.github.io/shan-hai-scroll-3d/): 由 Gemini 4 Neon 全自動零外部框架實作之 380m×400m 四大宋代仙境、7 種《山海經》活體神獸（應龍、雙鯤、朱鳳、九尾靈狐、九色靈鹿、錦鯉、仙鶴）與 104,700+ 三角形即時線框幕簾（開源 MIT：https://github.com/tbpfs/shan-hai-scroll-3d）\n"
         "- [Formosa SVG X-Ray（AI Coding 零依賴 8 層 3D 活體台灣 SVG 展示庫）](https://tbpfs.github.io/formosa-svg-xray/): 由 Gemini 4 Neon 全自動打造之九份雨夜、台南神農街與台北 101 單檔互動場景與 3D 圖層炸裂解剖器（開源 MIT：https://github.com/tbpfs/formosa-svg-xray）\n"
         "- [YouTube 完整教學播放清單](https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd)\n"
         f"- [紫楓程式與 AI 學習發問社團（Facebook）]({FB_GROUP_URL})\n"
