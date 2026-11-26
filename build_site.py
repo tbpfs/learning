@@ -325,8 +325,8 @@ UI_ZH_TW: dict[str, Any] = {
     "deep_dive_table_label": "完整結構化對照表：",
     "deep_dive_faq_label": "本章軟體工程師面試必考問答預告：",
     "deep_dive_cta_tpl": "閱讀 {badge} 完整深度講義（複雜度表 ＋ 逐步圖解 ＋ 面試詳解） →",
-    "chapter_title_tpl": "{badge} {title} | 紫楓 (AI王紫楓 / Purple Maple) Python 教學",
-    "chapter_desc_tpl": "紫楓（AI王紫楓 / Purple Maple）Python 3.12 教學講義：{badge} {title}。{summary}",
+    "chapter_title_tpl": "{short_title}｜Python 3.12 互動圖解教學（{badge}）",
+    "chapter_desc_tpl": "{summary} 附免費互動視覺化與面試問答。",
     "chapter_keywords_prefix": "紫楓, AI王紫楓, Purple Maple, Python 3.12 教學, ",
     "chapter_eyebrow_tpl": "{badge} 獨立深度講義・Python 3.12 資料結構與演算法實戰",
     "back_to_index_label": "← 返回《從零開始寫程式，輕鬆搞懂資料結構，演算法》全章節總目錄",
@@ -3668,8 +3668,14 @@ def render_chapter_page(
     ch_url = page_canonical_url(locale_code, page_filename)
     home_href = page_root_href(locale_code, None)
 
-    ch_title_esc = html.escape(ui["chapter_title_tpl"].format(badge=ch.badge, title=ch.title))
-    ch_desc_esc = html.escape(ui["chapter_desc_tpl"].format(badge=ch.badge, title=ch.title, summary=ch.summary))
+    short_t = chapter_short_title(ch)
+    raw_ch_title = ui["chapter_title_tpl"].format(badge=ch.badge, title=ch.title, short_title=short_t)
+    raw_ch_desc = ui["chapter_desc_tpl"].format(badge=ch.badge, title=ch.title, short_title=short_t, summary=ch.summary)
+    if locale_code == "en" and len(raw_ch_desc) > 155:
+        cut = raw_ch_desc[:154].rsplit(" ", 1)[0].rstrip(",;:- ")
+        raw_ch_desc = f"{cut}…"
+    ch_title_esc = html.escape(raw_ch_title)
+    ch_desc_esc = html.escape(raw_ch_desc)
     ch_keywords_esc = html.escape(ui["chapter_keywords_prefix"] + ", ".join(ch.keywords))
     json_ld_block = render_json_ld_script(build_chapter_json_ld(locale_code, ui, ch, yt_videos))
 
