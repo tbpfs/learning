@@ -2745,6 +2745,99 @@ def render_bookshelf_section(
       </section>"""
 
 
+def render_ai_coding_showcase(locale_code: str) -> str:
+    """Render the live AI Coding showcase section featuring Formosa SVG X-Ray."""
+    img_href = html.escape(asset_root_href("/assets/formosa-svg-xray-demo.webp"))
+    demo_url = (
+        "https://tbpfs.github.io/formosa-svg-xray/en/"
+        if locale_code == "en"
+        else "https://tbpfs.github.io/formosa-svg-xray/"
+    )
+    repo_url = "https://github.com/tbpfs/formosa-svg-xray"
+    packs = {
+        "zh-TW": {
+            "badge": "AI CODING LIVE DEMO",
+            "title": "Formosa SVG X-Ray：零依賴台灣微縮活體 SVG 與 3D 圖層炸裂引擎",
+            "summary": (
+                "想直觀感受現代 AI Coding 與工程規格約束能做到什麼極限？這套開源實戰作品由紫楓策劃、"
+                "Gemini 4 Neon 全自動零外部框架實作：收錄九份山城雨夜、台南神農街暮色與台北 101 象山跨年三座單檔 HTML 場景（65–85 KB），"
+                "點擊即可在 60fps 下即時炸裂為 8 層懸浮 3D 光學切片，並內建零音檔 Web Audio 台灣在地原創配樂。"
+            ),
+            "heading": "架構亮點與可驗收工程指標",
+            "points": [
+                "零外部框架、零圖片、零 MP3 音檔：每座場景皆為 100% 可離線開啟的單一自包含 HTML 檔。",
+                "零複製 8 層 3D X-Ray 引擎：8 個對齊 1600×600 的透明 SVG 平面原生組合成 3D 舞台，展開旋轉與 Solo 獨奏時雨絲、煙火與避讓行人仍持續 60fps 運作。",
+                "程式化 Web Audio 和聲合成：雙軌分流＋壓縮器防爆音，強拍嚴守和弦組成音並支援大秀再按一次殘影凍結優雅停止。",
+            ],
+            "alt": "Formosa SVG X-Ray 台灣測繪所介面展示九份山城雨夜 8 層 3D 圖層炸裂透視實機畫面",
+            "cta_demo": "開啟 3D X-Ray 互動展廳",
+            "cta_repo": "檢視 GitHub 開源原始碼 (MIT)",
+        },
+        "zh-CN": {
+            "badge": "AI CODING LIVE DEMO",
+            "title": "Formosa SVG X-Ray：零依赖台湾微缩活体 SVG 与 3D 图层炸裂引擎",
+            "summary": (
+                "想直观感受现代 AI Coding 结合严格工程约束能达到什么上限？这套开源实战作品由紫枫策划、"
+                "Gemini 4 Neon 全自动零外部框架实现：收录九份山城雨夜、台南神农街暮色与台北 101 象山跨年三座单文件 HTML 场景（65–85 KB），"
+                "点击即可在 60fps 下实时炸裂为 8 层悬浮 3D 光学切片，并内置零音频文件 Web Audio 实时合成配乐。"
+            ),
+            "heading": "架构亮点与可验收工程指标",
+            "points": [
+                "零外部框架、零图片、零 MP3 音频：每座场景均为 100% 可离线打开的单一自包含 HTML 文件。",
+                "零克隆 8 层 3D X-Ray 引擎：8 个对齐 1600×600 的透明 SVG 平面原生组成 3D 舞台，展开旋转与独奏时雨丝、烟火与避让行人仍维持 60fps 实时运行。",
+                "程序化 Web Audio 和声合成：双轨分流加压缩器防破音，强拍严守和弦组成音并支持表演再按一次优雅停止。",
+            ],
+            "alt": "Formosa SVG X-Ray 界面展示九份山城雨夜 8 层 3D 图层炸裂透视实机截图",
+            "cta_demo": "打开 3D X-Ray 互动展厅",
+            "cta_repo": "查看 GitHub 开源源码 (MIT)",
+        },
+        "en": {
+            "badge": "AI CODING LIVE DEMO",
+            "title": "Formosa SVG X-Ray: Zero-Dependency Living Taiwan SVG & Live 3D Layer Dissector",
+            "summary": (
+                "Curious what disciplined AI-assisted engineering can produce without external frameworks? "
+                "Autonomously coded by Gemini 4 Neon under Purple Maple specs, this open-source lab packs three intricate "
+                "Taiwan scenes (Jiufen, Tainan Shennong Street, Taipei 101 NYE) into self-contained 65–85 KB HTML files "
+                "that explode into 8 live GPU-composited 3D slices at 60fps with procedural Web Audio scores."
+            ),
+            "heading": "Engineering Highlights & Verifiable Specs",
+            "points": [
+                "Zero frameworks, zero images, zero audio files: every scene runs offline as a standalone single HTML file.",
+                "Zero-clone 8-layer 3D X-Ray stack: 8 aligned 1600×600 SVG planes animate continuously at 60fps even while orbited or soloed in mid-air.",
+                "Procedural Web Audio synthesis: dual-bus mixing with DynamicsCompressorNode, chord-locked melodies, and graceful ghost-fade show stop.",
+            ],
+            "alt": "Formosa SVG X-Ray observatory displaying Jiufen Rainy Lanterns exploded into 8 floating 3D SVG layers",
+            "cta_demo": "Launch Live 3D X-Ray Demo",
+            "cta_repo": "View Open-Source GitHub Repo (MIT)",
+        },
+    }
+    p = packs.get(locale_code, packs["zh-TW"])
+    pts = "\n".join(f"            <li>{html.escape(x)}</li>" for x in p["points"])
+    return f"""
+      <section class="chapter-card" id="ai-coding-showcase" aria-labelledby="aiShowcaseTitle" style="border-left: 4px solid #d4a24c;">
+        <div class="chapter-header">
+          <span class="badge">{html.escape(p["badge"])}</span>
+          <h2 id="aiShowcaseTitle">{html.escape(p["title"])}</h2>
+        </div>
+        <p class="chapter-summary">{html.escape(p["summary"])}</p>
+        <figure style="margin: 14px 0 16px;">
+          <a href="{demo_url}" target="_blank" rel="noopener noreferrer" style="display:block;border-radius:8px;overflow:hidden;border:1px solid rgba(148,163,184,0.28);">
+            <img src="{img_href}" width="1200" height="817" loading="lazy" decoding="async" alt="{html.escape(p["alt"])}" style="display:block;width:100%;height:auto;">
+          </a>
+        </figure>
+        <div class="concepts-box">
+          <h3>{html.escape(p["heading"])}</h3>
+          <ul>
+{pts}
+          </ul>
+        </div>
+        <div class="cta-group" style="margin-top: 14px;">
+          <a class="btn btn-primary" href="{demo_url}" target="_blank" rel="noopener noreferrer">{html.escape(p["cta_demo"])}</a>
+          <a class="btn btn-secondary" href="{repo_url}" target="_blank" rel="noopener noreferrer">{html.escape(p["cta_repo"])}</a>
+        </div>
+      </section>"""
+
+
 def build_book_index_json_ld(
     locale_code: str,
     ui: dict[str, Any],
@@ -3459,6 +3552,7 @@ def render_index_page(
     )
     cms_div = '\n      <div id="cms-tutorials-container"></div>' if locale_code == "zh-TW" else ""
     bookshelf_html = render_bookshelf_section(locale_code, ui, books) if books else ""
+    showcase_html = render_ai_coding_showcase(locale_code)
     study_items_html = "\n".join(
         f"            <li><strong>{html.escape(label)}</strong>{body_html}</li>"
         for label, body_html in ui["study_guide_items"]
@@ -3523,7 +3617,7 @@ def render_index_page(
     </nav>
 
     <main>
-      <p class="aeo-capsule">{ui["index_aeo_capsule"]}</p>{bookshelf_html}{cms_div}
+      <p class="aeo-capsule">{ui["index_aeo_capsule"]}</p>{bookshelf_html}{showcase_html}{cms_div}
 {all_cards}
 {render_affiliate_resources_section(locale_code, ui, resources)}
 
@@ -4068,6 +4162,7 @@ def build_site(out_dir: Path) -> Path:
         "- [Meta Muse 邀請碼分享站](https://muse.ai-purplemaple.com/): 支援 6 語系的 Meta Muse AI 邀請碼看板、48 小時 10 億 Token 兌換教學與失效回報系統\n"
         "- [WaifuScan（二次元角色六維性格數據百科）](https://waifu.ai-purplemaple.com/): 四語系 612 頁角色評測百科、5 題靈魂波長診斷與 16 位原創角色互動\n"
         "- [AI王紫楓官方部落格](https://blog.ai-purplemaple.com/)\n"
+        "- [Formosa SVG X-Ray（AI Coding 零依賴 8 層 3D 活體台灣 SVG 展示庫）](https://tbpfs.github.io/formosa-svg-xray/): 由 Gemini 4 Neon 全自動打造之九份雨夜、台南神農街與台北 101 單檔互動場景與 3D 圖層炸裂解剖器（開源 MIT：https://github.com/tbpfs/formosa-svg-xray）\n"
         "- [YouTube 完整教學播放清單](https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd)\n"
         f"- [紫楓程式與 AI 學習發問社團（Facebook）]({FB_GROUP_URL})\n"
         "- 官方社群矩陣：X (https://x.com/tbpfs1)｜YouTube (https://www.youtube.com/@PurpleMapleAI)｜YouTube Music (https://music.youtube.com/channel/UCcEBgbHV3rcee1FfgfHXprw)｜Spotify (https://open.spotify.com/artist/7D7CLJoxLhsMos8xI9H2kx)｜Apple Music (https://music.apple.com/tw/artist/purple-maple/1745241062)｜Pixiv (https://www.pixiv.net/users/3503246)｜Facebook 紫楓 (https://www.facebook.com/tbpfs2/)｜Facebook 艾莉 (https://www.facebook.com/AilyAIAI/)｜TikTok (https://www.tiktok.com/@ai_purple_maple)｜LinkedIn (https://www.linkedin.com/in/tbpfs2/)\n"
