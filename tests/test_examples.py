@@ -251,11 +251,11 @@ class TestLearningExamples(unittest.TestCase):
                     'https://www.facebook.com/share/g/19jsJ8crsC/',
                     'qa-copy-btn',
                     'https://ai-purplemaple.com',
-                    '/api/v1/learn-feedback',
+                    "postJson('learn-feedback'",
                 ):
                     self.assertIn(fb_tok, ch_html, f"Missing {fb_tok} in {ch_id}.html")
-                for removed_tok in ('class="fb-ask"', 'id="askForm"', '/api/v1/learn-question'):
-                    self.assertNotIn(removed_tok, ch_html, f"Deprecated private Q&A token {removed_tok} still in {ch_id}.html")
+                for removed_tok in ('class="fb-ask"', 'id="askForm"', '/api/v1/learn-question', "'/api/v1/learn-feedback'"):
+                    self.assertNotIn(removed_tok, ch_html, f"Deprecated or crawl-prone token {removed_tok} still in {ch_id}.html")
 
                 class _DomCount(HTMLParser):
                     def __init__(self):
@@ -345,6 +345,8 @@ class TestLearningExamples(unittest.TestCase):
             self.assertIn(f"<lastmod>{SITE_LASTMOD}</lastmod>", sitemap_text)
 
             robots_text = (Path(tmpdir) / "robots.txt").read_text(encoding="utf-8")
+            self.assertIn("Disallow: /api/", robots_text)
+            self.assertIn("Disallow: /cdn-cgi/", robots_text)
             for bot in ("Twitterbot", "GrokBot", "xAI-Bot", "xAI-SearchBot", "Bravebot"):
                 self.assertIn(f"User-agent: {bot}", robots_text)
 

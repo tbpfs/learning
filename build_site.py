@@ -2569,7 +2569,7 @@ def render_copy_script(ui: dict[str, Any], *, include_cms_fetch: bool) -> str:
       if (!fbBox) return;
       var chId = fbBox.getAttribute('data-chapter') || '';
       var fbMode = fbBox.getAttribute('data-fb-mode') || 'api';
-      var apiBase = 'https://ai-purplemaple.com';
+      var apiBase = ['https://ai-purplemaple.com', 'api', 'v1'].join('/');
       var fbKey = 'learnFb:' + chId;
       var curVote = 0;
 
@@ -2598,8 +2598,8 @@ def render_copy_script(ui: dict[str, Any], *, include_cms_fetch: bool) -> str:
         }});
       }}
 
-      function postJson(path, body) {{
-        return fetch(apiBase + path, {{
+      function postJson(endpoint, body) {{
+        return fetch(apiBase + '/' + endpoint, {{
           method: 'POST',
           headers: {{ 'Content-Type': 'application/json' }},
           body: JSON.stringify(body)
@@ -2639,7 +2639,7 @@ def render_copy_script(ui: dict[str, Any], *, include_cms_fetch: bool) -> str:
             return;
           }}
           setFbBtns(vote);
-          postJson('/api/v1/learn-feedback', {{ slug: chId, vote: vote, note: '' }})
+          postJson('learn-feedback', {{ slug: chId, vote: vote, note: '' }})
             .then(function () {{
               try {{ localStorage.setItem(fbKey, String(vote)); }} catch (_) {{}}
               if (noteForm) noteForm.hidden = false;
@@ -2664,7 +2664,7 @@ def render_copy_script(ui: dict[str, Any], *, include_cms_fetch: bool) -> str:
           if (!note) return;
           var hp = noteForm.elements.website ? noteForm.elements.website.value : '';
           if (noteBtn) noteBtn.disabled = true;
-          postJson('/api/v1/learn-feedback', {{ slug: chId, vote: curVote || 1, note: note, website: hp }})
+          postJson('learn-feedback', {{ slug: chId, vote: curVote || 1, note: note, website: hp }})
             .then(function () {{
               if (inp) inp.value = '';
               noteForm.hidden = true;
@@ -3859,7 +3859,7 @@ def build_site(out_dir: Path) -> Path:
         encoding="utf-8",
     )
     (out_dir / "robots.txt").write_text(
-        "User-agent: *\nAllow: /\n\n"
+        "User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /cdn-cgi/\n\n"
         "User-agent: OAI-SearchBot\nAllow: /\n\n"
         "User-agent: ChatGPT-User\nAllow: /\n\n"
         "User-agent: GPTBot\nAllow: /\n\n"
