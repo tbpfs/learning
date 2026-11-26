@@ -161,6 +161,8 @@ UI_ZH_CN: dict[str, Any] = {
     ),
     "footer_blog_label": "紫枫技术与创作日志",
     "footer_github_label": "GitHub 源码",
+    "footer_copyright_label": "版权与转载声明",
+    "footer_copyright_notice": "© 2026 紫枫出版社（Purple Maple / 王紫枫）. All Rights Reserved. 示例代码采用 MIT 许可；专著正文与原创图解保留著作权（欢迎附原文链接节录引用，禁止全文搬运与未授权商用）。",
     "js_copied": "已复制 ✓",
     "js_err_rate": "今天的次数已用完，明天再来",
     "js_err_short": "请至少输入 5 个字描述你的疑问",

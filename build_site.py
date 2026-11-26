@@ -405,6 +405,8 @@ UI_ZH_TW: dict[str, Any] = {
     ),
     "footer_blog_label": "紫楓技術與創作日誌",
     "footer_github_label": "GitHub 原始碼",
+    "footer_copyright_label": "版權與轉載聲明",
+    "footer_copyright_notice": "© 2026 紫楓出版社（Purple Maple / 王紫楓）. All Rights Reserved. 範例程式碼採 MIT 授權；專書內文與原創圖解保留著作權（歡迎附原文連結節錄引用，禁止全文搬運與未授權商用）。",
     "js_copied": "已複製 ✓",
     "js_err_rate": "今天的次數已用完，明天再來",
     "js_err_short": "請至少輸入 5 個字描述你的疑問",
@@ -593,6 +595,9 @@ def build_index_json_ld(
             "url": "https://ai-purplemaple.com/",
             "sameAs": CREATOR_SAME_AS,
         },
+        "copyrightHolder": {"@id": "https://ai-purplemaple.com/#creator"},
+        "copyrightYear": 2026,
+        "license": "https://ai-purplemaple.com/privacy.html#copyright",
         "speakable": {
             "@type": "SpeakableSpecification",
             "cssSelector": [".aeo-capsule", "header.hero h1"],
@@ -655,6 +660,9 @@ def build_chapter_json_ld(
                 "keywords": ", ".join(ch.keywords),
                 "author": creator_ref,
                 "publisher": creator_ref,
+                "copyrightHolder": {"@id": "https://ai-purplemaple.com/#creator"},
+                "copyrightYear": 2026,
+                "license": "https://ai-purplemaple.com/privacy.html#copyright",
                 "speakable": {
                     "@type": "SpeakableSpecification",
                     "cssSelector": [".aeo-capsule", "header.hero h1"],
@@ -2349,12 +2357,13 @@ def render_shared_styles() -> str:
 
 
 def render_footer(ui: dict[str, Any]) -> str:
-    """Render shared privacy policy & ecosystem footer with root-absolute /ads.txt."""
+    """Render shared privacy policy, dual-license copyright notice & ecosystem footer with root-absolute /ads.txt."""
     return f"""    <footer id="privacy">
       <div class="privacy-policy-card">
         <h3>{html.escape(ui["privacy_heading"])}</h3>
         <p>{ui["privacy_body_html"]}</p>
       </div>
+      <p style="margin-bottom:0.45rem;">{html.escape(ui["footer_copyright_notice"])} · <a href="https://ai-purplemaple.com/privacy.html#copyright" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">{html.escape(ui["footer_copyright_label"])}</a></p>
       <p>Created by <strong><a href="https://ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">{html.escape(ui["brand_anchor_footer"])}</a></strong> · <a href="https://blog.ai-purplemaple.com/" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">{html.escape(ui["footer_blog_label"])}</a> · <a href="https://github.com/tbpfs/learning" target="_blank" rel="noopener noreferrer" style="color: var(--muted);">{html.escape(ui["footer_github_label"])}</a> · Powered by Python 3.12 &amp; GitHub Pages · <a href="/ads.txt">ads.txt</a></p>
     </footer>"""
 
@@ -2778,6 +2787,9 @@ def build_book_index_json_ld(
                 "dateModified": meta.date_modified,
                 "author": creator_ref,
                 "publisher": creator_ref,
+                "copyrightHolder": {"@id": "https://ai-purplemaple.com/#creator"},
+                "copyrightYear": 2026,
+                "license": "https://ai-purplemaple.com/privacy.html#copyright",
                 "hasPart": has_part,
             },
             {
@@ -2844,6 +2856,9 @@ def build_book_chapter_json_ld(
                 "keywords": ", ".join(ch.keywords),
                 "author": creator_ref,
                 "publisher": creator_ref,
+                "copyrightHolder": {"@id": "https://ai-purplemaple.com/#creator"},
+                "copyrightYear": 2026,
+                "license": "https://ai-purplemaple.com/privacy.html#copyright",
                 "speakable": {
                     "@type": "SpeakableSpecification",
                     "cssSelector": [".aeo-capsule", "header.hero h1"],

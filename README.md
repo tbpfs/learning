@@ -67,3 +67,12 @@ python3 build_site.py -o _site
 - **[時空守護者｜國小 108 課綱免費互動學習網](https://edu.ai-purplemaple.com/)**：近 900 篇段考攻略與低年級注音朗讀
 - **[府城保衛戰｜台南古蹟 3D 網頁戰術射擊](https://fps.ai-purplemaple.com/)**（Three.js）｜ **[星界斷章｜原創機甲音遊](https://astral.ai-purplemaple.com/)**
 - **X (Twitter)**：[@tbpfs1](https://x.com/tbpfs1) ｜ **AI 語料索引**：https://learn.ai-purplemaple.com/llms.txt
+
+---
+
+## 版權與雙重授權說明（Dual License & Copyright）
+
+本倉庫採**程式碼與書籍內容分離之雙重授權**（詳見 [LICENSE](./LICENSE) 與 [全站版權與轉載聲明](https://ai-purplemaple.com/privacy.html#copyright)）：
+
+- **範例程式碼（`examples/`、建置與測試程式）**：採 **MIT License**，歡迎自由執行、學習、修改與於專案中使用。
+- **專書內文、章節講義、原創圖解與封面視覺**：**© 2026 紫楓（Purple Maple / 王紫楓）. All Rights Reserved.** 歡迎非商業學習筆記、書評與搜尋引用節錄少量內容（建議 200 字內）並附原作者名稱與原文連結；**禁止未經書面授權全文搬運、鏡像站複製或打包販售**。

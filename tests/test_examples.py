@@ -647,6 +647,22 @@ class TestLearningExamples(unittest.TestCase):
                 if expected_pub:
                     self.assertIn(f'<time datetime="{expected_pub}">{expected_pub}</time>', page_html)
 
+            # 6) Verify Dual License (Code MIT / Book Prose All Rights Reserved) & footer/JSON-LD copyright
+            lic_text = (Path(__file__).resolve().parent.parent / "LICENSE").read_text(encoding="utf-8")
+            self.assertIn("MIT License", lic_text)
+            self.assertIn("All Rights Reserved", lic_text)
+            self.assertIn("https://ai-purplemaple.com/privacy.html#copyright", lic_text)
+            for rel_page, marker in (
+                ("index.html", "範例程式碼採 MIT 授權"),
+                ("zh-cn/index.html", "示例代码采用 MIT 许可"),
+                ("en/index.html", "Standalone code examples are MIT-licensed"),
+                ("books/ai-engineering/ch01.html", "https://ai-purplemaple.com/privacy.html#copyright"),
+            ):
+                p_html = (root / rel_page).read_text(encoding="utf-8")
+                self.assertIn(marker, p_html)
+                self.assertIn("https://ai-purplemaple.com/privacy.html#copyright", p_html)
+                self.assertIn('"copyrightHolder"', p_html)
+
 
 if __name__ == "__main__":
     unittest.main()

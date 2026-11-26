@@ -1,21 +1,50 @@
-MIT License
+Dual License — Code (MIT) / Book Prose & Original Visuals (All Rights Reserved)
+===============================================================================
 
-Copyright (c) 2026 Purple Maple (紫楓)
+Copyright (c) 2026 Purple Maple (王紫楓 / 紫楓 / AI王紫楓)
+Official Policy: https://ai-purplemaple.com/privacy.html#copyright
+Contact & Licensing / DMCA: commission@ai-purplemaple.com
+
+This repository uses a DUAL LICENSE to keep educational code examples freely
+reusable while protecting original technical monographs, diagrams, and brand
+artwork from unauthorized republication or commercial resale.
+
+-------------------------------------------------------------------------------
+PART 1: SOURCE CODE (MIT License)
+-------------------------------------------------------------------------------
+Applies ONLY to standalone executable code examples and build/test tooling
+(including `examples/*.py`, `tests/*.py`, `scripts/*.py`, and `build_site.py`
+program logic — excluding narrative prose, chapter text, and original diagrams).
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+of this software (the "Code"), to deal in the Code without restriction,
+including without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Code, and to permit persons
+to whom the Code is furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+copies or substantial portions of the Code.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE CODE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+OUT OF OR IN CONNECTION WITH THE CODE OR THE USE OR OTHER DEALINGS IN THE CODE.
+
+-------------------------------------------------------------------------------
+PART 2: BOOK CONTENT, PROSE, DIAGRAMS & ARTWORK (All Rights Reserved)
+-------------------------------------------------------------------------------
+Applies to all editorial and creative works in this repository and published at
+https://learn.ai-purplemaple.com/, including all technical book manuscripts,
+chapter explanations, interview FAQs, localized prose (`books/`, `i18n/`,
+`chapter_content.py`, `docs/`), original SVG/architecture diagrams, book covers,
+and brand/character visuals (`assets/`).
+
+All rights reserved.
+- Permitted: Non-commercial short excerpts (recommended <= 200 words/chars) for
+  study notes, reviews, social sharing, or search/AI engine citation WITH clear
+  attribution to "紫楓 (Purple Maple)" and a direct link to the source page.
+- Prohibited without prior written permission: Full-text republication, mirror
+  cloning, scraping or bundling chapters into paid e-books/courses, or any
+  commercial redistribution.

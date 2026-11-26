@@ -166,6 +166,8 @@ UI_EN: dict[str, Any] = {
     ),
     "footer_blog_label": "Purple Maple Tech & Creator Blog",
     "footer_github_label": "GitHub Source",
+    "footer_copyright_label": "Copyright & Licensing",
+    "footer_copyright_notice": "© 2026 Purple Maple Press (Purple Maple / Wang Tzu-Feng). All Rights Reserved. Standalone code examples are MIT-licensed; book prose, diagrams, and covers remain copyrighted (attributed short excerpts with source link welcome; full-text republication or commercial resale prohibited).",
     "js_copied": "Copied ✓",
     "js_err_rate": "Daily limit reached. Please try again tomorrow.",
     "js_err_short": "Please enter at least 5 characters to describe your question.",
