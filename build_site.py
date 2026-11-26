@@ -2746,75 +2746,83 @@ def render_bookshelf_section(
 
 
 def render_ai_coding_showcase(locale_code: str) -> str:
-    """Render the live AI Coding showcase section featuring Formosa SVG X-Ray."""
-    img_href = html.escape(asset_root_href("/assets/formosa-svg-xray-demo.webp"))
+    """Render the live AI Coding showcase section featuring Shan Hai Bianjing 3D."""
+    img_href = html.escape(asset_root_href("/assets/shan-hai-scroll-3d-demo.webp"))
     demo_url = (
+        "https://tbpfs.github.io/shan-hai-scroll-3d/?lang=en"
+        if locale_code == "en"
+        else "https://tbpfs.github.io/shan-hai-scroll-3d/"
+    )
+    repo_url = "https://github.com/tbpfs/shan-hai-scroll-3d"
+    svg_url = (
         "https://tbpfs.github.io/formosa-svg-xray/en/"
         if locale_code == "en"
         else "https://tbpfs.github.io/formosa-svg-xray/"
     )
-    repo_url = "https://github.com/tbpfs/formosa-svg-xray"
     packs = {
         "zh-TW": {
-            "badge": "AI CODING LIVE DEMO",
-            "title": "Formosa SVG X-Ray：零依賴台灣微縮活體 SVG 與 3D 圖層炸裂引擎",
+            "badge": "AI CODING LIVE DEMO · PURE WEBGL2",
+            "title": "《山海汴京圖》：走進清明上河圖 × 山海經 3D 即時水墨世界",
             "summary": (
-                "想直觀感受現代 AI Coding 與工程規格約束能做到什麼極限？這套開源實戰作品由紫楓策劃、"
-                "Gemini 4 Neon 全自動零外部框架實作：收錄九份山城雨夜、台南神農街暮色與台北 101 象山跨年三座單檔 HTML 場景（65–85 KB），"
-                "點擊即可在 60fps 下即時炸裂為 8 層懸浮 3D 光學切片，並內建零音檔 Web Audio 台灣在地原創配樂。"
+                "第一秒以為是靜止的北宋青綠水墨古卷，滑鼠一拖或點「踏入畫卷」，整個世界直接化為可自由航行的 3D 水墨空間——"
+                "泛舟穿過《清明上河圖》木拱虹橋、仰望《山海經》北冥巨鯤游過蓬萊浮空仙島與千尺飛瀑。"
+                "本作品由紫楓策劃、Gemini 4 Neon 以純原生 WebGL2 零外部框架全自動寫成，零貼圖、零 3D 模型檔、零音檔，並支援即時拉開「3D 線框幕簾」透視 49,000+ 三角形原形。"
             ),
-            "heading": "架構亮點與可驗收工程指標",
+            "heading": "零依賴純 WebGL2 雙 Pass 水墨著色器亮點",
             "points": [
-                "零外部框架、零圖片、零 MP3 音檔：每座場景皆為 100% 可離線開啟的單一自包含 HTML 檔。",
-                "零複製 8 層 3D X-Ray 引擎：8 個對齊 1600×600 的透明 SVG 平面原生組合成 3D 舞台，展開旋轉與 Solo 獨奏時雨絲、煙火與避讓行人仍持續 60fps 運作。",
-                "程式化 Web Audio 和聲合成：雙軌分流＋壓縮器防爆音，強拍嚴守和弦組成音並支援大秀再按一次殘影凍結優雅停止。",
+                "零 Three.js、零外部模型與圖片：整座汴京城、20 節木拱虹橋、青綠山巒與 32 節游動巨鯤全由純數學程序化建模生成（geometry.js 36 KB）。",
+                "雙 Pass MRT 水墨 NPR 管線：一次輸出色彩、法線深度與重心線框緩衝，後處理即時執行雙通道 Sobel 毛筆描邊、山壁斧劈皴筆觸、宣紙纖維與朱砂掃描幕簾。",
+                "3 種水墨意境 × 4 種運鏡 × 零音檔古琴合成：一鍵切換北宋青綠／焦墨寫意／山海夜燈，搭配原生 Web Audio 五聲音階古琴泛音與江風聲景。",
             ],
-            "alt": "Formosa SVG X-Ray 台灣測繪所介面展示九份山城雨夜 8 層 3D 圖層炸裂透視實機畫面",
-            "cta_demo": "開啟 3D X-Ray 互動展廳",
-            "cta_repo": "檢視 GitHub 開源原始碼 (MIT)",
+            "alt": "山海汴京圖 WebGL2 即時 3D 水墨世界：左側宋代青綠水墨古畫與右側 3D 幾何拓撲線框幕簾對照實機畫面",
+            "cta_demo": "踏入 3D 水墨畫卷 (Live Demo)",
+            "cta_repo": "GitHub 開源原始碼 (MIT)",
+            "cta_svg": "另看：Formosa SVG X-Ray 8 層 3D 台灣圖鑑",
         },
         "zh-CN": {
-            "badge": "AI CODING LIVE DEMO",
-            "title": "Formosa SVG X-Ray：零依赖台湾微缩活体 SVG 与 3D 图层炸裂引擎",
+            "badge": "AI CODING LIVE DEMO · PURE WEBGL2",
+            "title": "《山海汴京图》：走进清明上河图 × 山海经 3D 实时水墨世界",
             "summary": (
-                "想直观感受现代 AI Coding 结合严格工程约束能达到什么上限？这套开源实战作品由紫枫策划、"
-                "Gemini 4 Neon 全自动零外部框架实现：收录九份山城雨夜、台南神农街暮色与台北 101 象山跨年三座单文件 HTML 场景（65–85 KB），"
-                "点击即可在 60fps 下实时炸裂为 8 层悬浮 3D 光学切片，并内置零音频文件 Web Audio 实时合成配乐。"
+                "第一秒以为是静止的北宋青绿水墨古卷，鼠标一拖或点击「踏入画卷」，整个世界直接化为可自由航行的 3D 水墨空间——"
+                "泛舟穿过《清明上河图》木拱虹桥、仰望《山海经》北冥巨鲲游过蓬莱浮空仙岛与千尺飞瀑。"
+                "本作品由紫枫策划、Gemini 4 Neon 以纯原生 WebGL2 零外部框架全自动写成，零贴图、零 3D 模型文件、零音频文件，并支持实时拉开「3D 线框幕帘」透视 49,000+ 三角形原形。"
             ),
-            "heading": "架构亮点与可验收工程指标",
+            "heading": "零依赖纯 WebGL2 双 Pass 水墨着色器亮点",
             "points": [
-                "零外部框架、零图片、零 MP3 音频：每座场景均为 100% 可离线打开的单一自包含 HTML 文件。",
-                "零克隆 8 层 3D X-Ray 引擎：8 个对齐 1600×600 的透明 SVG 平面原生组成 3D 舞台，展开旋转与独奏时雨丝、烟火与避让行人仍维持 60fps 实时运行。",
-                "程序化 Web Audio 和声合成：双轨分流加压缩器防破音，强拍严守和弦组成音并支持表演再按一次优雅停止。",
+                "零 Three.js、零外部模型与图片：整座汴京城、20 节木拱虹桥、青绿山峦与 32 节游动巨鲲全由纯数学程序化建模生成。",
+                "双 Pass MRT 水墨 NPR 管线：同时输出色彩、法线深度与重心线框缓冲，后处理实时执行双通道 Sobel 毛笔描边、山壁斧劈皴笔触与宣纸纤维。",
+                "3 种水墨意境 × 4 种运镜 × 零音频古琴合成：一键切换北宋青绿／焦墨写意／山海夜灯，搭配原生 Web Audio 五声音阶古琴泛音。",
             ],
-            "alt": "Formosa SVG X-Ray 界面展示九份山城雨夜 8 层 3D 图层炸裂透视实机截图",
-            "cta_demo": "打开 3D X-Ray 互动展厅",
-            "cta_repo": "查看 GitHub 开源源码 (MIT)",
+            "alt": "山海汴京图 WebGL2 实时 3D 水墨世界：左侧宋代青绿古画与右侧 3D 几何线框幕帘对照实机截图",
+            "cta_demo": "踏入 3D 水墨画卷 (Live Demo)",
+            "cta_repo": "GitHub 开源源码 (MIT)",
+            "cta_svg": "另看：Formosa SVG X-Ray 台湾 3D 图鉴",
         },
         "en": {
-            "badge": "AI CODING LIVE DEMO",
-            "title": "Formosa SVG X-Ray: Zero-Dependency Living Taiwan SVG & Live 3D Layer Dissector",
+            "badge": "AI CODING LIVE DEMO · PURE WEBGL2",
+            "title": "Shan Hai Bianjing 3D: Step Inside a Living Qingming × Shan Hai Jing Ink Scroll",
             "summary": (
-                "Curious what disciplined AI-assisted engineering can produce without external frameworks? "
-                "Autonomously coded by Gemini 4 Neon under Purple Maple specs, this open-source lab packs three intricate "
-                "Taiwan scenes (Jiufen, Tainan Shennong Street, Taipei 101 NYE) into self-contained 65–85 KB HTML files "
-                "that explode into 8 live GPU-composited 3D slices at 60fps with procedural Web Audio scores."
+                "At first glance it looks like a quiet Northern-Song blue-green ink scroll — until you drag the camera "
+                "and sail straight through the 3D wooden arch of the Rainbow Bridge beneath a flying Shan Hai Jing Giant Kun "
+                "and Penglai waterfalls. Autonomously written by Gemini 4 Neon in pure zero-dependency WebGL2 "
+                "(no Three.js, no external meshes, textures, or audio files) with a live Ink-to-3D-Wireframe reveal curtain."
             ),
-            "heading": "Engineering Highlights & Verifiable Specs",
+            "heading": "Pure WebGL2 Two-Pass Ink NPR Highlights",
             "points": [
-                "Zero frameworks, zero images, zero audio files: every scene runs offline as a standalone single HTML file.",
-                "Zero-clone 8-layer 3D X-Ray stack: 8 aligned 1600×600 SVG planes animate continuously at 60fps even while orbited or soloed in mid-air.",
-                "Procedural Web Audio synthesis: dual-bus mixing with DynamicsCompressorNode, chord-locked melodies, and graceful ghost-fade show stop.",
+                "Zero Three.js, zero external assets: ~49,500 procedural triangles generate the mountains, Rainbow Bridge, Song pavilions, boats, cranes, and animated 32-ring Giant Kun.",
+                "Two-Pass MRT NPR pipeline: simultaneous Color, Normal+Depth, and barycentric Wireframe outputs driving Sobel brush outlines, anisotropic cliff brushwork, and Xuan-paper grain.",
+                "3 ink moods × 4 camera modes × procedural Guqin Web Audio: switch seamlessly between Song Blue-Green, Sumi-e Monochrome, and Lantern Night.",
             ],
-            "alt": "Formosa SVG X-Ray observatory displaying Jiufen Rainy Lanterns exploded into 8 floating 3D SVG layers",
-            "cta_demo": "Launch Live 3D X-Ray Demo",
-            "cta_repo": "View Open-Source GitHub Repo (MIT)",
+            "alt": "Shan Hai Bianjing 3D real-time WebGL2 split view showing Song ink painting on the left and 3D wireframe mesh on the right",
+            "cta_demo": "Enter the 3D Ink Scroll (Live Demo)",
+            "cta_repo": "View GitHub Source (MIT)",
+            "cta_svg": "Also see: Formosa SVG X-Ray Lab",
         },
     }
     p = packs.get(locale_code, packs["zh-TW"])
     pts = "\n".join(f"            <li>{html.escape(x)}</li>" for x in p["points"])
     return f"""
-      <section class="chapter-card" id="ai-coding-showcase" aria-labelledby="aiShowcaseTitle" style="border-left: 4px solid #d4a24c;">
+      <section class="chapter-card" id="ai-coding-showcase" aria-labelledby="aiShowcaseTitle" style="border-left: 4px solid #bf3426;">
         <div class="chapter-header">
           <span class="badge">{html.escape(p["badge"])}</span>
           <h2 id="aiShowcaseTitle">{html.escape(p["title"])}</h2>
@@ -2822,7 +2830,7 @@ def render_ai_coding_showcase(locale_code: str) -> str:
         <p class="chapter-summary">{html.escape(p["summary"])}</p>
         <figure style="margin: 14px 0 16px;">
           <a href="{demo_url}" target="_blank" rel="noopener noreferrer" style="display:block;border-radius:8px;overflow:hidden;border:1px solid rgba(148,163,184,0.28);">
-            <img src="{img_href}" width="1200" height="817" loading="lazy" decoding="async" alt="{html.escape(p["alt"])}" style="display:block;width:100%;height:auto;">
+            <img src="{img_href}" width="1200" height="675" loading="lazy" decoding="async" alt="{html.escape(p["alt"])}" style="display:block;width:100%;height:auto;">
           </a>
         </figure>
         <div class="concepts-box">
@@ -2834,6 +2842,7 @@ def render_ai_coding_showcase(locale_code: str) -> str:
         <div class="cta-group" style="margin-top: 14px;">
           <a class="btn btn-primary" href="{demo_url}" target="_blank" rel="noopener noreferrer">{html.escape(p["cta_demo"])}</a>
           <a class="btn btn-secondary" href="{repo_url}" target="_blank" rel="noopener noreferrer">{html.escape(p["cta_repo"])}</a>
+          <a class="btn btn-secondary" href="{svg_url}" target="_blank" rel="noopener noreferrer">{html.escape(p["cta_svg"])}</a>
         </div>
       </section>"""
 
@@ -4162,6 +4171,7 @@ def build_site(out_dir: Path) -> Path:
         "- [Meta Muse 邀請碼分享站](https://muse.ai-purplemaple.com/): 支援 6 語系的 Meta Muse AI 邀請碼看板、48 小時 10 億 Token 兌換教學與失效回報系統\n"
         "- [WaifuScan（二次元角色六維性格數據百科）](https://waifu.ai-purplemaple.com/): 四語系 612 頁角色評測百科、5 題靈魂波長診斷與 16 位原創角色互動\n"
         "- [AI王紫楓官方部落格](https://blog.ai-purplemaple.com/)\n"
+        "- [山海汴京圖 3D（清明上河圖 × 山海經純 WebGL2 即時水墨世界）](https://tbpfs.github.io/shan-hai-scroll-3d/): 由 Gemini 4 Neon 全自動零外部框架實作之宋代青綠水墨 3D 世界與即時線框幕簾（開源 MIT：https://github.com/tbpfs/shan-hai-scroll-3d）\n"
         "- [Formosa SVG X-Ray（AI Coding 零依賴 8 層 3D 活體台灣 SVG 展示庫）](https://tbpfs.github.io/formosa-svg-xray/): 由 Gemini 4 Neon 全自動打造之九份雨夜、台南神農街與台北 101 單檔互動場景與 3D 圖層炸裂解剖器（開源 MIT：https://github.com/tbpfs/formosa-svg-xray）\n"
         "- [YouTube 完整教學播放清單](https://www.youtube.com/playlist?list=PLhxdaTcUMi3nRM5mtOdQgO4VEtAEsTiYd)\n"
         f"- [紫楓程式與 AI 學習發問社團（Facebook）]({FB_GROUP_URL})\n"
