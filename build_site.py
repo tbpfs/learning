@@ -186,6 +186,8 @@ CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
         "upload_date": "2020-09-12T12:00:00+08:00",
         "views_label": "67,700+ 次觀看",
         "related": [
+            ("YGZ1S79628s", "【零基礎生活圖解】用「兩排矮到高排隊合併」3分鐘看懂合併排序串列 (LeetCode #21)"),
+            ("o2q_HCyf16U", "【零基礎生活圖解】用「固定長度尺子量距離」3分鐘一趟刪除倒數第N站 (LeetCode #19)"),
             ("ov_WvWbEryg", "【零基礎生活圖解】用「操場龜兔賽跑」3分鐘看懂鏈結串列環路檢測 (LeetCode #141)"),
             ("2aSyeVdwATA", "【OpenMotion 動態圖解】單向鏈結串列原地反轉 (LeetCode #206) 三指標移動"),
             ("7xBrPbmOsSs", "輕鬆搞懂資料結構總覽（28,200+ 觀看）"),
