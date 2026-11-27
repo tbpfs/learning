@@ -186,9 +186,9 @@ CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
         "upload_date": "2020-09-12T12:00:00+08:00",
         "views_label": "67,700+ 次觀看",
         "related": [
-            ("YGZ1S79628s", "【零基礎生活圖解】用「兩排矮到高排隊合併」3分鐘看懂合併排序串列 (LeetCode #21)"),
-            ("o2q_HCyf16U", "【零基礎生活圖解】用「固定長度尺子量距離」3分鐘一趟刪除倒數第N站 (LeetCode #19)"),
-            ("ov_WvWbEryg", "【零基礎生活圖解】用「操場龜兔賽跑」3分鐘看懂鏈結串列環路檢測 (LeetCode #141)"),
+            ("ohON8ReJdUw", "【艾莉 VTuber 圖解】兩排學生怎麼一趟排成一排？合併排序串列 (LeetCode #21)"),
+            ("MXZprZptdIE", "【艾莉 VTuber 圖解】不知道全長也能刪倒數第N站？固定長度尺子 (LeetCode #19)"),
+            ("yRj4Sekz2Ss", "【艾莉 VTuber 圖解】寫程式竟然會走到鬼打牆？操場龜兔賽跑環路檢測 (LeetCode #141)"),
             ("2aSyeVdwATA", "【OpenMotion 動態圖解】單向鏈結串列原地反轉 (LeetCode #206) 三指標移動"),
             ("7xBrPbmOsSs", "輕鬆搞懂資料結構總覽（28,200+ 觀看）"),
             ("RObLhJlg2O8", "程式基礎語法：變數、資料型態、運算符號與陣列"),
@@ -200,7 +200,7 @@ CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
         "upload_date": "2020-09-13T12:00:00+08:00",
         "views_label": "35,500+ 次觀看",
         "related": [
-            ("wRa59B9N11Q", "【零基礎生活圖解】用「雙筒最低價小抄」3分鐘看懂最小堆疊 Min Stack (LeetCode #155)"),
+            ("zjf3ykoKISE", "【艾莉 VTuber 圖解】一秒報出全場最低價！雙筒小抄最小堆疊 Min Stack (LeetCode #155)"),
             ("qys8Cs7J0wE", "【零基礎生活圖解】用洋芋片筒與冬天穿衣服 3 分鐘看懂堆疊 Stack 與括號配對 (LeetCode #20)"),
             ("JSKtJqj2pwc", "輕鬆搞懂資料結構：佇列 Queue 詳解（23,900+ 觀看）"),
             ("hWrZPqJZXyg", "Function 函式總整理：基礎、Overload 與 Recursive 遞迴呼叫堆疊"),
