@@ -78,6 +78,7 @@ jobs:
                 "https://ai-purplemaple.com/learn/books/ai-engineering/ch04.html",
                 "https://ai-purplemaple.com/learn/books/ai-engineering/ch05.html",
                 "https://ai-purplemaple.com/learn/books/ai-engineering/ch06.html",
+                "https://ai-purplemaple.com/learn/books/ai-engineering/ch07.html",
                 "https://ai-purplemaple.com/learn/zh-cn/",
                 "https://ai-purplemaple.com/learn/zh-cn/ch01.html",
                 "https://ai-purplemaple.com/learn/zh-cn/ch02.html",
@@ -93,6 +94,7 @@ jobs:
                 "https://ai-purplemaple.com/learn/zh-cn/books/ai-engineering/ch04.html",
                 "https://ai-purplemaple.com/learn/zh-cn/books/ai-engineering/ch05.html",
                 "https://ai-purplemaple.com/learn/zh-cn/books/ai-engineering/ch06.html",
+                "https://ai-purplemaple.com/learn/zh-cn/books/ai-engineering/ch07.html",
                 "https://ai-purplemaple.com/learn/en/",
                 "https://ai-purplemaple.com/learn/en/ch01.html",
                 "https://ai-purplemaple.com/learn/en/ch02.html",
@@ -108,6 +110,7 @@ jobs:
                 "https://ai-purplemaple.com/learn/en/books/ai-engineering/ch04.html",
                 "https://ai-purplemaple.com/learn/en/books/ai-engineering/ch05.html",
                 "https://ai-purplemaple.com/learn/en/books/ai-engineering/ch06.html",
+                "https://ai-purplemaple.com/learn/en/books/ai-engineering/ch07.html",
                 "https://ai-purplemaple.com/learn/llms.txt",
                 "https://ai-purplemaple.com/learn/llms-full.txt"
               ]
