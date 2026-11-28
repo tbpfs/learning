@@ -200,6 +200,7 @@ CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
         "upload_date": "2020-09-13T12:00:00+08:00",
         "views_label": "35,500+ 次觀看",
         "related": [
+            ("64vXS6pEhYw", "【艾莉 VTuber 圖解】洋芋片筒怎麼排隊買珍奶？雙筒倒茶術看懂雙堆疊佇列 (LeetCode #232)"),
             ("zjf3ykoKISE", "【艾莉 VTuber 圖解】一秒報出全場最低價！雙筒小抄最小堆疊 Min Stack (LeetCode #155)"),
             ("qys8Cs7J0wE", "【零基礎生活圖解】用洋芋片筒與冬天穿衣服 3 分鐘看懂堆疊 Stack 與括號配對 (LeetCode #20)"),
             ("JSKtJqj2pwc", "輕鬆搞懂資料結構：佇列 Queue 詳解（23,900+ 觀看）"),
@@ -212,6 +213,7 @@ CHAPTER_YOUTUBE_VIDEOS: dict[str, dict[str, Any]] = {
         "upload_date": "2020-09-23T12:00:00+08:00",
         "views_label": "23,800+ 次觀看",
         "related": [
+            ("f4s0phnI6mI", "【艾莉 VTuber 圖解】一億筆只找 27 次！用終極密碼看懂二分搜尋 Binary Search (LeetCode #704)"),
             ("3B4dXDxk_ck", "【OpenMotion 動態圖解】30秒徹底搞懂合併排序 Merge Sort 分治法 O(n log n)"),
             ("C9Xes8wH6Co", "輕鬆搞懂演算法：合併排序 Merge Sort（20,500+ 觀看）"),
             ("iwCUOKhIhAA", "演算法概論與 Big-O 時間複雜度（19,100+ 觀看）"),
