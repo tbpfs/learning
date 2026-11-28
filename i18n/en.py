@@ -33,7 +33,8 @@ UI_EN: dict[str, Any] = {
     "cta_youtube": "▶ Watch Full YouTube Lecture Playlist (Mandarin)",
     "cta_github": "GitHub Source Repository",
     "cta_chapter_github": "View Chapter Source on GitHub",
-    "og_image_alt": "Purple Maple (@tbpfs1) Python 3.12 Data Structures and Algorithms Interactive Tutorial featuring mascot Shirase Airi (Aily, crimson #fb7185 left eye and azure #38bdf8 right eye)",
+    "skip_to_content": "Skip to main content",
+    "og_image_alt": "Purple Maple (@tbpfs1) Python 3.12 Data Structures and Algorithms Interactive Tutorial featuring mascot Shirase Airi (Aily) with crimson-blue heterochromia (viewer's left eye crimson, viewer's right eye azure)",
     "index_keywords": (
         "Purple Maple, tbpfs, Python 3.12 tutorial, data structures and algorithms Python, "
         "singly linked list Python, stack and queue deque, binary search Python, merge sort Python, "
@@ -191,7 +192,7 @@ UI_EN: dict[str, Any] = {
     "book_cta_read_dsa": "Jump to All 7 Chapters ↓",
     "dsa_book_title": "Python 3.12 Data Structures & Algorithms Handbook",
     "dsa_book_desc": "Master Arrays & Linked Lists, Stacks & Queues, Binary Search & Merge Sort, Hash Tables & BSTs, Graphs & OOP, Dynamic Programming, and Binary Heaps with CI-verified code and LeetCode interview guides.",
-    "dsa_cover_alt": "Purple Maple Press book cover illustration for Python 3.12 Data Structures & Algorithms Handbook featuring scholar-engineer Shirase Airi (Aily) studying binary trees and graphs (crimson #fb7185 left eye, azure #38bdf8 right eye)",
+    "dsa_cover_alt": "Purple Maple Press book cover illustration for Python 3.12 Data Structures & Algorithms Handbook featuring scholar-engineer Shirase Airi (Aily) studying binary trees and graphs, with crimson-blue heterochromia (viewer's left eye crimson, viewer's right eye azure)",
     "book_back_to_shelf": "<- Back to Purple Maple Press Bookshelf",
     "book_back_to_toc": "<- Back to {book_title} Table of Contents",
     "book_toc_heading": "Table of Contents (4 Parts × 10 Chapters)",

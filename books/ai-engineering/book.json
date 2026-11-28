@@ -32,14 +32,14 @@
     "en": "Free open-source 2026 AI Engineering monograph by Purple Maple (@tbpfs1) covering BPE tokenization & attention internals, Context Engineering, BM25+Vector RRF Hybrid RAG, automated RAG evals, deterministic FSM agents, MCP JSON-RPC 2.0 servers, local LLM deployment, Spec-Driven Development beyond Vibe Coding, and LLMOps routing."
   },
   "aeo_capsule": {
-    "zh-TW": "《AI 工程師實戰聖經》（<code>learn.ai-purplemaple.com/books/ai-engineering/</code>）是紫楓出版社推出的免費開源技術專書，規劃 4 大篇、10 個核心章節，每章皆附 Python 3.12 零依賴實機驗證程式碼、原生架構圖解、生產環境踩坑指南與互動測驗。",
-    "zh-CN": "《AI 工程师实战圣经》（<code>learn.ai-purplemaple.com/zh-cn/books/ai-engineering/</code>）是紫枫出版社推出的免费开源技术专著，规划 4 大篇、10 个核心章节，每章均附 Python 3.12 零依赖真实运行源码、原生架构图解、生产环境避坑指南与互动测验。",
-    "en": "The AI Engineer's Field Guide (<code>learn.ai-purplemaple.com/en/books/ai-engineering/</code>) is Purple Maple Press's free open-source technical monograph organized into 4 parts and 10 hands-on chapters, each backed by CI-verified zero-dependency Python 3.12 implementations, native architecture diagrams, production pitfalls, and interactive quizzes."
+    "zh-TW": "《AI 工程師實戰聖經》（<code>ai-purplemaple.com/learn/books/ai-engineering/</code>）是紫楓出版社推出的免費開源技術專書，規劃 4 大篇、10 個核心章節，每章皆附 Python 3.12 零依賴實機驗證程式碼、原生架構圖解、生產環境踩坑指南與互動測驗。",
+    "zh-CN": "《AI 工程师实战圣经》（<code>ai-purplemaple.com/learn/zh-cn/books/ai-engineering/</code>）是紫枫出版社推出的免费开源技术专著，规划 4 大篇、10 个核心章节，每章均附 Python 3.12 零依赖真实运行源码、原生架构图解、生产环境避坑指南与互动测验。",
+    "en": "The AI Engineer's Field Guide (<code>ai-purplemaple.com/learn/en/books/ai-engineering/</code>) is Purple Maple Press's free open-source technical monograph organized into 4 parts and 10 hands-on chapters, each backed by CI-verified zero-dependency Python 3.12 implementations, native architecture diagrams, production pitfalls, and interactive quizzes."
   },
   "cover_alt": {
-    "zh-TW": "紫楓出版社《AI 工程師實戰聖經》典藏書封插畫：白瀬アイリ（艾莉 / Aily）身著貓耳連帽外套閱讀 AI 系統架構筆記（左眼緋紅 #fb7185、右眼蒼藍 #38bdf8）",
-    "zh-CN": "紫枫出版社《AI 工程师实战圣经》典藏书封插画：白濑艾莉（Aily）身着猫耳连帽外套阅读 AI 系统架构笔记（左眼绯红 #fb7185、右眼苍蓝 #38bdf8）",
-    "en": "Purple Maple Press book cover illustration for The AI Engineer's Field Guide featuring scholar-engineer mascot Shirase Airi (Aily) in a black cat-ear hoodie studying AI system notes (crimson #fb7185 left eye, azure #38bdf8 right eye)"
+    "zh-TW": "紫楓出版社《AI 工程師實戰聖經》典藏書封插畫：白瀬アイリ（艾莉 / Aily）身著貓耳連帽外套閱讀 AI 系統架構筆記，紅藍異色瞳（觀看者畫面左側角色右眼緋紅、畫面右側角色左眼蒼藍）",
+    "zh-CN": "紫枫出版社《AI 工程师实战圣经》典藏书封插画：白濑艾莉（Aily）身着猫耳连帽外套阅读 AI 系统架构笔记，红蓝异色瞳（画面左侧角色右眼绯红、画面右侧角色左眼苍蓝）",
+    "en": "Purple Maple Press book cover illustration for The AI Engineer's Field Guide featuring scholar-engineer mascot Shirase Airi (Aily) in a black cat-ear hoodie studying AI system notes, with crimson-blue heterochromia (viewer's left eye crimson, viewer's right eye azure)"
   },
   "keywords": {
     "zh-TW": "紫楓出版社, AI 工程師教學, LLM 底層原理, BPE Tokenizer, Transformer Attention, Context Engineering, 生產級 RAG, BM25 RRF, MCP Model Context Protocol, AI Agent 狀態機, 地端 LLM LM Studio, Vibe Coding 規格驅動開發, LLMOps",

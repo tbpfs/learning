@@ -679,6 +679,23 @@ class TestLearningExamples(unittest.TestCase):
                 self.assertIn("https://ai-purplemaple.com/privacy.html#copyright", p_html)
                 self.assertIn('"copyrightHolder"', p_html)
 
+            # 7) Verify WCAG / Anti-Hex-Alt / Skip-Link / SERP CTR regression guards
+            for html_file in root.rglob("*.html"):
+                raw = html_file.read_text(encoding="utf-8")
+                self.assertIn('class="skip-link"', raw, f"Missing skip-link in {html_file.name}")
+                self.assertIn('id="main-content"', raw, f"Missing #main-content in {html_file.name}")
+                for attr_m in re.finditer(r'(?:alt|og:image:alt|twitter:image:alt)["\']?\s*(?:=|content=)\s*"([^"]*)"', raw, re.I):
+                    val = attr_m.group(1)
+                    self.assertNotRegex(val, r"#(?:fb7185|38bdf8)", f"Hex leaked in alt in {html_file.name}: {val}")
+            zh_home = (root / "index.html").read_text(encoding="utf-8")
+            m_t = re.search(r"<title>(.*?)</title>", zh_home, re.S)
+            m_d = re.search(r'<meta name="description" content="([^"]*)"', zh_home)
+            self.assertIsNotNone(m_t)
+            self.assertIsNotNone(m_d)
+            self.assertLessEqual(len(m_t.group(1).strip()), 36, f"zh-TW home title too long: {m_t.group(1)}")
+            self.assertLessEqual(len(m_d.group(1).strip()), 120, f"zh-TW home desc too long: {m_d.group(1)}")
+            self.assertIn("white-space: nowrap;", zh_home)
+
 
 if __name__ == "__main__":
     unittest.main()

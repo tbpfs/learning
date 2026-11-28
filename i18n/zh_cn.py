@@ -33,7 +33,8 @@ UI_ZH_CN: dict[str, Any] = {
     "cta_fb_group": "加入编程与 AI 学习问答群（Facebook）",
     "cta_github": "GitHub 开源代码仓库",
     "cta_chapter_github": "查看本章 GitHub 源码",
-    "og_image_alt": "紫枫（王紫枫 / @tbpfs1）Python 数据结构与算法互动教学｜原创看板娘白濑艾莉（左红 #fb7185、右蓝 #38bdf8）",
+    "skip_to_content": "跳至主要内容",
+    "og_image_alt": "紫枫（王紫枫 / @tbpfs1）Python 数据结构与算法互动教学｜原创看板娘白濑艾莉，红蓝异色瞳（画面左侧角色右眼绯红、画面右侧角色左眼苍蓝）",
     "index_keywords": (
         "紫枫, 王紫枫, Purple Maple, tbpfs, Python教程, 数据结构, 算法, 单向链表, 栈, 队列, "
         "二分查找, 归并排序, Merge Sort, 哈希表, Hash Table, 二叉搜索树, BST, 图论, BFS, DFS, "
@@ -186,7 +187,7 @@ UI_ZH_CN: dict[str, Any] = {
     "book_cta_read_dsa": "前往下方 7 章完整目录 ↓",
     "dsa_book_title": "Python 3.12 数据结构与算法精解",
     "dsa_book_desc": "涵盖数组与链表、栈与队列、二分查找与归并排序、哈希表与 BST、图论 BFS/DFS、动态规划与二叉堆 Top-K，结合 31 集实战讲解视频与力扣 LeetCode 高频白板题。",
-    "dsa_cover_alt": "紫枫出版社《Python 3.12 数据结构与算法精解》典藏书封插画：白濑艾莉（Aily）解析树与算法图谱（左眼绯红 #fb7185、右眼苍蓝 #38bdf8）",
+    "dsa_cover_alt": "紫枫出版社《Python 3.12 数据结构与算法精解》典藏书封插画：白濑艾莉（Aily）解析树与算法图谱，红蓝异色瞳（画面左侧角色右眼绯红、画面右侧角色左眼苍蓝）",
     "book_back_to_shelf": "← 返回紫枫出版社总书架",
     "book_back_to_toc": "← 返回《{book_title}》全书目录",
     "book_toc_heading": "全书章节目录（4 大篇 × 10 章）",

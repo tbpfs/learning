@@ -272,8 +272,9 @@ UI_ZH_TW: dict[str, Any] = {
     "brand_anchor_portfolio": "王紫楓（紫楓 / Purple Maple）官方作品集（AI 音樂 ＆ 白瀬アイリ Aily）",
     "brand_anchor_portfolio_short": "王紫楓（紫楓 / Purple Maple）官方作品集",
     "brand_anchor_footer": "王紫楓（紫楓 / Purple Maple）",
-    "page_title": "從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (AI王紫楓 / Purple Maple)",
-    "og_title": "從零開始寫程式，輕鬆搞懂資料結構、演算法 | 紫楓 (Purple Maple)",
+    "page_title": "Python 3.12 資料結構與演算法教學 | 紫楓出版社",
+    "og_title": "Python 3.12 資料結構與演算法教學 | 紫楓出版社",
+    "skip_to_content": "跳至主要內容",
     "hero_eyebrow": "鐵人賽基本功系列・資料結構 ＆ 演算法 ＆ 物件導向",
     "hero_h1": "從零開始寫程式，輕鬆搞懂資料結構，演算法",
     "hero_intro_html": (
@@ -284,15 +285,14 @@ UI_ZH_TW: dict[str, Any] = {
     "cta_fb_group": "加入程式與 AI 學習發問社團（FB）",
     "cta_github": "GitHub 原始碼儲存庫",
     "cta_chapter_github": "檢視本章 GitHub 原始碼",
-    "og_image_alt": "紫楓（AI王紫楓 / @tbpfs1）Python 資料結構與演算法互動教學｜原創看板娘白瀬アイリ（左紅 #fb7185、右藍 #38bdf8）",
+    "og_image_alt": "紫楓（AI王紫楓 / @tbpfs1）Python 資料結構與演算法互動教學｜原創看板娘白瀬アイリ，紅藍異色瞳（觀看者畫面左側角色右眼緋紅、畫面右側角色左眼蒼藍）",
     "index_keywords": (
         "紫楓, AI王紫楓, Purple Maple, tbpfs, Python教學, 資料結構, 演算法, 鏈結串列, 堆疊, 佇列, "
         "二分搜尋, Merge Sort, 雜湊表, Hash Table, 二元搜尋樹, BST, 圖論, BFS, DFS, 動態規劃, "
         "Dynamic Programming, 堆積, Heap, Priority Queue, Top-K, 物件導向, OOP"
     ),
     "index_desc_tpl": (
-        "紫楓（AI王紫楓 / Purple Maple / tbpfs）開設之 Python 3.12 資料結構、演算法與物件導向基本功鐵人賽教學網站，"
-        "完整收錄 {chapter_titles_short} 實機執行範例。"
+        "紫楓開設之免費 Python 3.12 資料結構、演算法與 OOP 互動教材，收錄陣列、佇列、排序、BST、圖論、動態規劃與堆積 7 大實機章節，附複雜度表與 LeetCode 面試詳解。"
     ),
     "index_og_desc_tpl": "紫楓（AI王紫楓 / Purple Maple）Python 3.12 資料結構與演算法互動教學講義（{chapter_titles_short}）。",
     "course_name": "從零開始寫程式，輕鬆搞懂資料結構、演算法",
@@ -1074,7 +1074,7 @@ def render_shared_styles() -> str:
       --border-strong: #1c1917;    /* Crisp book typography rule */
       --text: #1c1917;             /* Rich charcoal editorial ink */
       --muted: #57534e;            /* Warm stone secondary text */
-      --accent: #15803d;           /* Algorithm Forest Green (Tree / Pass) */
+      --accent: #146c35;           /* Algorithm Forest Green (WCAG AA >= 5.6:1 on paper) */
       --accent-strong: #166534;    /* Deep Pine CTA */
       --accent-soft: #eef8f1;
       --success: #047857;          /* Verification Emerald */
@@ -1111,6 +1111,24 @@ def render_shared_styles() -> str:
       color: var(--text);
       line-height: 1.76;
       overflow-x: clip;
+    }
+    .skip-link {
+      position: absolute;
+      left: -9999px;
+      top: 0;
+      z-index: 999;
+      background: var(--border-strong);
+      color: #ffffff;
+      padding: 0.65rem 1.1rem;
+      font-weight: 700;
+      font-size: 0.9rem;
+      border-radius: 0 0 4px 0;
+    }
+    .skip-link:focus {
+      left: 0.75rem;
+      top: 0.5rem;
+      outline: 3px solid var(--accent);
+      outline-offset: 2px;
     }
     a {
       color: var(--accent);
@@ -1654,6 +1672,8 @@ def render_shared_styles() -> str:
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
       padding: 0.5rem 1rem;
       background: var(--code-toolbar);
       border-bottom: 1px solid var(--code-border);
@@ -1661,13 +1681,20 @@ def render_shared_styles() -> str:
       font-size: 0.8rem;
       color: var(--code-muted);
     }
+    .code-toolbar > span {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
     .copy-btn {
       background: #232838;
       color: #f1f5f9;
       border: 1px solid #3c455c;
       border-radius: 3px;
-      padding: 0.4rem 0.85rem;
-      min-height: 40px;
+      padding: 0.45rem 0.9rem;
+      min-height: 44px;
+      min-width: 44px;
+      white-space: nowrap;
+      flex-shrink: 0;
       font-family: var(--font-mono);
       font-size: 0.78rem;
       font-weight: 600;
@@ -3110,6 +3137,7 @@ def render_book_index_page(
 {render_shared_styles()}
 </head>
 <body>
+  <a class="skip-link" href="#main-content">{html.escape(ui["skip_to_content"])}</a>
   <div class="container">
     <header class="hero">
 {render_lang_switcher(locale_code, rel_path)}
@@ -3130,7 +3158,7 @@ def render_book_index_page(
       </div>
     </header>
 
-    <main>
+    <main id="main-content">
       <p class="aeo-capsule">{meta.aeo_capsule[locale_code]}</p>
       <section class="chapter-card" id="book-toc">
         <h2>{html.escape(ui["book_toc_heading"])}</h2>
@@ -3340,6 +3368,7 @@ def render_book_chapter_page(
 {render_shared_styles()}
 </head>
 <body>
+  <a class="skip-link" href="#main-content">{html.escape(ui["skip_to_content"])}</a>
   <div class="read-progress" aria-hidden="true"><div class="read-progress-bar" id="readProgressBar"></div></div>
   <div class="container book-container">
     <header class="hero">
@@ -3379,7 +3408,7 @@ def render_book_chapter_page(
         </details>
       </aside>
 
-      <main>
+      <main id="main-content">
         <article class="chapter-card" id="objectives">
           <h2>{html.escape(ui["book_objectives_heading"])}</h2>
           <p class="aeo-capsule">{ch.aeo_capsule}</p>
@@ -3613,6 +3642,7 @@ def render_index_page(
 {render_shared_styles()}
 </head>
 <body>
+  <a class="skip-link" href="#main-content">{html.escape(ui["skip_to_content"])}</a>
   <div class="container">
     <header class="hero">
 {render_lang_switcher(locale_code, None)}
@@ -3630,7 +3660,7 @@ def render_index_page(
 {toc_block}
     </nav>
 
-    <main>
+    <main id="main-content">
       <p class="aeo-capsule">{ui["index_aeo_capsule"]}</p>{bookshelf_html}{showcase_html}{cms_div}
 {all_cards}
 {render_affiliate_resources_section(locale_code, ui, resources)}
@@ -3750,6 +3780,7 @@ def render_chapter_page(
 {render_shared_styles()}
 </head>
 <body>
+  <a class="skip-link" href="#main-content">{html.escape(ui["skip_to_content"])}</a>
   <div class="container">
     <header class="hero">
 {render_lang_switcher(locale_code, page_filename)}
@@ -3779,7 +3810,7 @@ def render_chapter_page(
       <a href="#interview-faq">{html.escape(ui["nav_interview"])}</a>
     </nav>
 
-    <main>
+    <main id="main-content">
       <article class="chapter-card" id="intro">
         <h2>{html.escape(ui["chapter_intro_heading"])}</h2>
         <p class="aeo-capsule">{ch_aeo}</p>
