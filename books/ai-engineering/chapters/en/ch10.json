@@ -1,0 +1,276 @@
+{
+  "book_id": "ai-engineering",
+  "chapter_id": "ch10",
+  "locale": "en",
+  "status": "published",
+  "badge": "Ch.10",
+  "part_id": "part4",
+  "title": "Production LLMOps: Tiered Model Routing, Cost Control, Rate Limits & Observability",
+  "short_title": "LLMOps & Cost Routing",
+  "summary": "Bridge the final mile from prototype to production: build a two-tier fast/flagship model router that cuts costs by 40%, enforce Token Bucket rate limits, and emit OpenTelemetry-aligned latency and cost telemetry.",
+  "aeo_capsule": "<strong>Production LLMOps Gateways</strong> combine <code>route_model</code> two-tier routing, <code>compute_call_cost_usd</code> asymmetric token accounting, and <code>TokenBucketLimiter</code> burst control to cut inference bills while preserving reasoning quality and end-to-end observability.",
+  "reading_minutes": 18,
+  "lastmod": "2026-11-28",
+  "example_file": "examples/ai_ch10_llmops_router.py",
+  "keywords": [
+    "LLMOps",
+    "Model Routing",
+    "Cost Optimization",
+    "Token Bucket",
+    "Rate Limiting",
+    "OpenTelemetry",
+    "Observability",
+    "Purple Maple Press"
+  ],
+  "learning_objectives": [
+    "Design a two-tier model routing policy that sends routine classification, summarization, and extraction to fast low-cost models while quantifying real savings",
+    "Implement the Token Bucket rate-limiting algorithm to absorb legitimate bursts while stopping infinite agent loops and quota exhaustion",
+    "Build asymmetric input/output token cost ledgers and OpenTelemetry GenAI telemetry tracking latency, tokens, and cost per request"
+  ],
+  "sections": [
+    {
+      "id": "sec10-1-model-routing-strategy",
+      "heading": "10.1 Two-Tier Model Routing: Complexity- and Context-Driven Savings",
+      "paragraphs": [
+        "When an AI application graduates from internal demo to live traffic, the first budget killer is rarely peak concurrency—it is the default habit of sending every single prompt to your most expensive frontier model. In real workloads, 60% to 80% of requests are well-structured routine operations such as classification, short summarization, or field extraction. Routing those tasks to a lightweight FAST_TIER priced at $0.15 per million input tokens (flash-lite) while reserving PRO_TIER ($2.50 input / $10.00 output, frontier-pro) exclusively for deep architectural reviews and long-context reasoning slashes unit costs without degrading critical outputs.",
+        "In examples/ai_ch10_llmops_router.py, we represent pricing cleanly with an immutable ModelTier frozen dataclass and implement deterministic dispatch inside route_model(task_type, context_tokens). Requests go to FAST_TIER only when task_type is in {classify, summarize, extract} AND context_tokens <= 16_000; complex tasks or long contexts automatically escalate to PRO_TIER. That 16,000-token context cap is deliberate: lightweight models suffer faster attention dilution on very long inputs, so escalating before quality collapses avoids expensive retry loops that wipe out savings.",
+        "Evaluating the runnable four-request mixed workload (three routine tasks plus an 8,000-input / 1,200-output architecture_review) proves the math concretely: running every request on PRO_TIER costs $0.05575, whereas two-tier routing spends just $0.00143 across the first three tasks plus $0.03200 on the review—totaling $0.03343, an immediate 40.0% savings. Because rule-based routing executes in microseconds with zero extra LLM latency, it delivers the highest ROI of any production LLMOps optimization."
+      ],
+      "bullets": [
+        "ModelTier frozen dataclasses encode immutable per-million-token pricing for FAST_TIER ($0.15 / $0.60) and PRO_TIER ($2.50 / $10.00)",
+        "route_model enforces both task allowlisting and a context_tokens <= 16_000 cap to prevent long-context degradation on small models",
+        "Live mixed-workload verification cuts total spend from $0.05575 (all-flagship) to $0.03343 (two-tier)—saving 40.0%"
+      ],
+      "callout_title": "Engineering Note: Evolving Rule Routing into Cascade Fallback",
+      "callout_body": "When task difficulty is hard to classify up front, layer Cascade Fallback onto rule routing: run the fast model first, validate its output through Chapter 9's mechanical contract gate, and escalate to the flagship tier only when validation fails."
+    },
+    {
+      "id": "sec10-2-token-bucket-rate-limiting",
+      "heading": "10.2 Token Bucket Rate Limiting: Absorbing Bursts & Stopping Runaway Loops",
+      "paragraphs": [
+        "In production AI gateways, rate limiters do far more than fend off abusive clients—they act as a circuit breaker protecting your monthly budget when an autonomous agent enters an infinite retry loop. Unlike Fixed Window Counters, which allow double-rate spikes across window boundaries, the Token Bucket algorithm uses two intuitive knobs—bucket capacity and steady refill_per_sec—to absorb short legitimate bursts while capping sustained throughput strictly.",
+        "Look closely at TokenBucketLimiter in our runnable code: it starts full at capacity and tracks the previous timestamp in last_ts. On every call to allow(now_sec, cost=1.0), it computes elapsed = max(0.0, now_sec - self.last_ts) (guarding against negative deltas), refills tokens capped at self.capacity via min(self.capacity, self.tokens + elapsed * self.refill_per_sec), and updates last_ts. Notice the exact boundary condition self.tokens >= cost (greater-than-or-equal, not strictly greater): when enough tokens exist, it deducts cost and returns True; otherwise it denies immediately with False.",
+        "Running the four-step burst simulation with capacity=2.0 and refill_per_sec=0.5 demonstrates exact behavior: at t=0.0, call 1 drops tokens from 2.0 to 1.0 (True), call 2 drops tokens to 0.0 (True), and call 3 fails since 0.0 < 1.0 (False). Two seconds later at t=2.0, 2.0 * 0.5 = 1.0 token has refilled, allowing call 4 to succeed (True)—yielding [True, True, False, True]. Injecting now_sec explicitly lets unit tests verify arbitrary timelines deterministically with zero time.sleep(); in production, pass time.monotonic() so wall-clock adjustments never break rate calculations."
+      ],
+      "bullets": [
+        "Token Bucket tunes burst headroom via capacity and steady throughput via refill_per_sec without fixed-window boundary spikes",
+        "allow() refills by elapsed time capped at capacity and permits requests whenever tokens >= cost—verified as [True, True, False, True]",
+        "Explicitly passing now_sec enables zero-sleep deterministic unit tests while production callers supply time.monotonic()"
+      ],
+      "callout_title": "Production Pattern: Enforce Both RPM and TPM with Variable Cost",
+      "callout_body": "A 100-token classification and a 16,000-token summary consume vastly different provider quotas. Because allow(now_sec, cost=1.0) already accepts a flexible cost argument, passing estimated token counts turns the exact same TokenBucketLimiter into a precision Tokens-Per-Minute (TPM) guard."
+    },
+    {
+      "id": "sec10-3-cost-accounting-and-telemetry",
+      "heading": "10.3 Precision Cost Accounting: Asymmetric Pricing & Unit Economics",
+      "paragraphs": [
+        "Teams shipping their first production AI service are frequently blindsided by monthly invoices: traffic grew 20%, yet API spend tripled. The root cause is almost always asymmetric input/output pricing. Both tiers in our reference code charge 4x more per output token than per input token ($10.00 vs. $2.50 on PRO_TIER; $0.60 vs. $0.15 on FAST_TIER). Leaving max_tokens uncapped or letting models ramble through verbose reasoning chains inflates unit economics rapidly.",
+        "compute_call_cost_usd(tier, input_tokens, output_tokens) computes exact per-call USD spend inline—(input_tokens / 1_000_000) * tier.input_per_1m_usd + (output_tokens / 1_000_000) * tier.output_per_1m_usd—enabling real-time budget visibility rather than waiting for delayed vendor CSV exports. For multi-tenant billing or million-call financial ledgers, accumulate totals with Python's Decimal type or integer micro-dollars to eliminate IEEE 754 drift, and tag every record with a price_version identifier so historical statements remain auditable after vendor price cuts or hikes.",
+        "Equally critical is accounting for failed and retried calls. When a client retries malformed JSON twice or escalates from FAST_TIER to PRO_TIER after a validation failure, every upstream attempt is billed. Dividing total billed spend by successfully delivered user tasks produces Cost per Successful Task—the true metric for judging whether prompt pruning, caching, and routing genuinely lowered operating costs."
+      ],
+      "bullets": [
+        "Output tokens typically cost 3x-5x more than input tokens; capping max_tokens and tightening output schemas cuts bills immediately",
+        "Compute per-call USD spend inline with compute_call_cost_usd, using Decimal or integer micro-dollars for billing-grade ledgers",
+        "Include retried and failed calls when measuring Cost per Successful Task so hidden retry waste never slips past dashboards"
+      ],
+      "callout_title": "FinOps Lever: Pair Two-Tier Routing with Provider Prompt Caching",
+      "callout_body": "When every request shares thousands of tokens of system instructions, MCP tool schemas, or static domain context, enabling Prompt Caching typically cuts repeated input token costs by 50%-90% while simultaneously lowering Time To First Token (TTFT)."
+    },
+    {
+      "id": "sec10-4-observability-and-production-readiness",
+      "heading": "10.4 Structured Observability & Resilience: OpenTelemetry's Golden Triangle",
+      "paragraphs": [
+        "Conventional web APIs get by monitoring HTTP status codes and total response time, but streaming, token-billed LLM services require a dedicated observability triangle of Latency, Usage, and Quality. For latency, break end-to-end P50/P95/P99 down into Time To First Token (TTFT, which drives perceived responsiveness) and Time Per Output Token (TPOT, which reflects decode throughput). For usage and spend, align logs directly with OpenTelemetry GenAI Semantic Conventions—recording gen_ai.request.model, gen_ai.usage.input_tokens, gen_ai.usage.output_tokens alongside custom routing_tier, cost_usd, and rate_limited attributes.",
+        "Correlating rate-limit rejections and routing decisions on the same structured trace accelerates incident triage dramatically. When HTTP 429 rates spike, engineers can slice immediately by task_type, tenant_id, and context_tokens to tell whether one tenant triggered an infinite loop, prompt lengths crossed the 16,000-token escalation threshold, or upstream slowdowns sparked a client retry storm. Whenever TokenBucketLimiter denies a request, return standard HTTP 429 Too Many Requests with a computed Retry-After header (missing tokens divided by refill_per_sec) so callers back off exponentially with jitter.",
+        "Reaching Chapter 10 completes our end-to-end blueprint across all ten chapters of this book: from BPE tokenization and attention, Context Engineering, Hybrid RAG and quantitative evaluation, ReAct Agent FSMs, hand-rolled JSON-RPC 2.0 MCP servers, multi-agent RBAC and HITL defenses, local GGUF VRAM scheduling, and Spec-Driven mechanical gates, all the way to production routing, rate limiting, and OpenTelemetry observability. Every zero-dependency Python 3.12 script shares one core engineering principle: wrap probabilistic AI models inside deterministic software contracts, security gates, and operational guardrails to build systems that thrive in production."
+      ],
+      "bullets": [
+        "Emit OpenTelemetry GenAI-aligned telemetry capturing request_id, model_tier, TTFT, TPOT, input/output tokens, and cost_usd",
+        "Return HTTP 429 with dynamic Retry-After headers when rate-limited and enforce jittered exponential backoff to stop retry storms",
+        "Unify all ten chapters: deterministic contracts, safety gates, tiered routing, and observability turn probabilistic LLMs into reliable systems"
+      ],
+      "callout_title": "Closing Rule: Ship Telemetry and Budget Circuit Breakers on Day 1",
+      "callout_body": "Never wait for a surprise invoice to instrument your AI gateway. Attach per-tenant TokenBucketLimiters, rolling hourly/daily Budget Circuit Breakers, and structured JSON telemetry before serving your very first production user."
+    }
+  ],
+  "diagram_caption": "Figure 10-1: Production LLMOps Pipeline with Token Bucket Limiter, Two-Tier Router, and OTel Cost Telemetry",
+  "diagram_svg": "<svg viewBox=\"0 0 760 260\" role=\"img\" aria-label=\"Production LLMOps Pipeline with Token Bucket Limiter, Two-Tier Router, and OTel Cost Telemetry\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"ops-arrow-dark\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#1c1917\"/></marker><marker id=\"ops-arrow-green\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#15803d\"/></marker><marker id=\"ops-arrow-amber\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#b45309\"/></marker></defs><rect width=\"760\" height=\"260\" fill=\"#fdfcf9\"/><rect x=\"16\" y=\"52\" width=\"130\" height=\"124\" rx=\"8\" fill=\"#ffffff\" stroke=\"#1c1917\" stroke-width=\"1.8\"/><rect x=\"16\" y=\"52\" width=\"130\" height=\"28\" rx=\"8\" fill=\"#1c1917\"/><text x=\"81\" y=\"71\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#fdfcf9\">1. Token Bucket</text><text x=\"81\" y=\"98\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#1c1917\">cap=2.0 | 0.5/s</text><text x=\"81\" y=\"118\" font-family=\"monospace\" font-size=\"9.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#15803d\">[T, T, F, T]</text><text x=\"81\" y=\"140\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#b91c1c\">Excess -&gt; HTTP 429</text><text x=\"81\" y=\"158\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#57534e\">Stops runaway loops</text><rect x=\"176\" y=\"52\" width=\"146\" height=\"124\" rx=\"8\" fill=\"#fffbeb\" stroke=\"#b45309\" stroke-width=\"1.8\"/><text x=\"249\" y=\"76\" font-family=\"monospace\" font-size=\"11.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">2. route_model()</text><text x=\"249\" y=\"98\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#1c1917\">classify / summarize</text><text x=\"249\" y=\"114\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#1c1917\">extract &amp; &lt;= 16k</text><line x1=\"192\" y1=\"126\" x2=\"306\" y2=\"126\" stroke=\"#f59e0b\" stroke-width=\"1\" stroke-dasharray=\"4 2\"/><text x=\"249\" y=\"145\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#57534e\">Complex or &gt; 16k</text><text x=\"249\" y=\"162\" font-family=\"sans-serif\" font-size=\"9.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#b45309\">Escalate to Pro Tier</text><rect x=\"362\" y=\"22\" width=\"176\" height=\"78\" rx=\"8\" fill=\"#f0fdf4\" stroke=\"#15803d\" stroke-width=\"1.8\"/><text x=\"450\" y=\"44\" font-family=\"monospace\" font-size=\"11.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#14532d\">FAST_TIER (flash-lite)</text><text x=\"450\" y=\"64\" font-family=\"monospace\" font-size=\"10\" text-anchor=\"middle\" fill=\"#15803d\">$0.15 in / $0.60 out / 1M</text><text x=\"450\" y=\"84\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#57534e\">Routine classify/extract (3)</text><rect x=\"362\" y=\"122\" width=\"176\" height=\"78\" rx=\"8\" fill=\"#fff7ed\" stroke=\"#b45309\" stroke-width=\"1.8\"/><text x=\"450\" y=\"144\" font-family=\"monospace\" font-size=\"11.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">PRO_TIER (frontier-pro)</text><text x=\"450\" y=\"164\" font-family=\"monospace\" font-size=\"10\" text-anchor=\"middle\" fill=\"#b45309\">$2.50 in / $10.00 out / 1M</text><text x=\"450\" y=\"184\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#57534e\">Architecture review (1)</text><rect x=\"576\" y=\"36\" width=\"168\" height=\"152\" rx=\"8\" fill=\"#ffffff\" stroke=\"#1c1917\" stroke-width=\"1.8\"/><rect x=\"576\" y=\"36\" width=\"168\" height=\"28\" rx=\"8\" fill=\"#1c1917\"/><text x=\"660\" y=\"55\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#fdfcf9\">3. Ledger &amp; OTel</text><text x=\"660\" y=\"84\" font-family=\"monospace\" font-size=\"10\" text-anchor=\"middle\" fill=\"#1c1917\">TTFT / TPOT / P95</text><text x=\"660\" y=\"104\" font-family=\"monospace\" font-size=\"10\" text-anchor=\"middle\" fill=\"#57534e\">input / output tokens</text><rect x=\"588\" y=\"118\" width=\"144\" height=\"58\" rx=\"5\" fill=\"#f0fdf4\" stroke=\"#16a34a\" stroke-width=\"1.2\"/><text x=\"660\" y=\"136\" font-family=\"monospace\" font-size=\"10\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#14532d\">Routed: $0.03343</text><text x=\"660\" y=\"152\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#57534e\">All-Pro: $0.05575</text><text x=\"660\" y=\"168\" font-family=\"sans-serif\" font-size=\"10\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#15803d\">Saves 40.0% Spend</text><line x1=\"146\" y1=\"114\" x2=\"172\" y2=\"114\" stroke=\"#1c1917\" stroke-width=\"1.8\" marker-end=\"url(#ops-arrow-dark)\"/><path d=\"M 322 94 L 358 62\" fill=\"none\" stroke=\"#15803d\" stroke-width=\"1.8\" marker-end=\"url(#ops-arrow-green)\"/><path d=\"M 322 136 L 358 160\" fill=\"none\" stroke=\"#b45309\" stroke-width=\"1.8\" marker-end=\"url(#ops-arrow-amber)\"/><path d=\"M 538 62 L 572 92\" fill=\"none\" stroke=\"#15803d\" stroke-width=\"1.8\" marker-end=\"url(#ops-arrow-green)\"/><path d=\"M 538 160 L 572 130\" fill=\"none\" stroke=\"#b45309\" stroke-width=\"1.8\" marker-end=\"url(#ops-arrow-amber)\"/><rect x=\"16\" y=\"216\" width=\"728\" height=\"30\" rx=\"6\" fill=\"#fef3c7\" stroke=\"#d97706\" stroke-width=\"1.2\"/><text x=\"380\" y=\"236\" font-family=\"sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">Production Rules: Rate-limit first | Watch 4x output pricing | Emit OpenTelemetry GenAI traces</text></svg>",
+  "comparison_table": {
+    "caption": "Table 10-1: Verified Workload Cost Comparison Across Routing Strategies (14,700 Input / 1,900 Output Tokens)",
+    "headers": [
+      "Routing Strategy",
+      "4-Call Workload Cost",
+      "Savings vs. All-Pro",
+      "Latency & Quality Trade-off",
+      "Best Fit"
+    ],
+    "rows": [
+      [
+        "All Flagship (PRO_TIER)",
+        "$0.05575",
+        "0.0% (Baseline)",
+        "Highest reasoning quality, highest latency & bill",
+        "Pure deep-research or low-volume internal tools"
+      ],
+      [
+        "Two-Tier (route_model)",
+        "$0.03343",
+        "40.0%",
+        "Low latency on routine calls, full Pro quality on reviews",
+        "Default architecture for production AI apps"
+      ],
+      [
+        "All Lightweight (FAST_TIER)",
+        "$0.00335",
+        "94.0%",
+        "Fastest speed, sharp quality drop on complex reviews",
+        "Pure classification or extraction batch pipelines"
+      ]
+    ]
+  },
+  "code_walkthrough": [
+    "ModelTier uses dataclass(frozen=True) to encode immutable per-million-token pricing for FAST_TIER ($0.15 / $0.60) and PRO_TIER ($2.50 / $10.00).",
+    "route_model() requires both a routine task type (classify / summarize / extract) and context_tokens <= 16_000 for FAST_TIER, escalating everything else to PRO_TIER.",
+    "compute_call_cost_usd() computes exact USD cost per call—yielding $0.03343 across the 4-call workload vs. $0.05575 all-Pro (40.0% savings).",
+    "TokenBucketLimiter(capacity=2.0, refill_per_sec=0.5) runs three t=0.0 calls and one t=2.0 call, returning [True, True, False, True]."
+  ],
+  "pitfalls": [
+    {
+      "title": "Pitfall 1: Forcing Long Contexts onto Lightweight Models Until Retries Erase Savings",
+      "symptom": "Routing 30,000-token summaries to a small model to save money causes missed fields and broken JSON, triggering retries and flagship fallbacks that cost more than escalating immediately.",
+      "root_cause_and_fix": "Missing a context-length escalation cap. Enforce a hard context_tokens threshold (like 16_000 in route_model) and monitor first-pass success rates on FAST_TIER to tune cutoffs continuously."
+    },
+    {
+      "title": "Pitfall 2: Relying on Per-Process In-Memory Limiters Across Scaled Containers",
+      "symptom": "Autoscaling Cloud Run to 10 containers gives each replica its own independent TokenBucketLimiter, multiplying aggregate throughput by 10x and triggering upstream provider 429 bans.",
+      "root_cause_and_fix": "In-memory limiters only guard single processes. For multi-replica fleets, centralize bucket state in Redis using atomic Lua scripts (or enforce global limits at the API gateway) and smooth cold-start bursts."
+    },
+    {
+      "title": "Pitfall 3: Omitting Retries from Cost Ledgers or Letting Pricing Tables Go Stale",
+      "symptom": "Dashboards look comfortably under budget while end-of-month vendor bills overshoot dramatically due to unlogged retry calls or outdated ModelTier pricing.",
+      "root_cause_and_fix": "Record compute_call_cost_usd for every upstream call including failed parses and fallbacks, externalize ModelTier pricing with a price_version tag, and reconcile weekly against vendor billing exports."
+    }
+  ],
+  "quiz": [
+    {
+      "question": "Under route_model(task_type, context_tokens) in examples/ai_ch10_llmops_router.py, which tier receives a 'summarize' task with context_tokens=20_000?",
+      "options": [
+        "FAST_TIER because 'summarize' is in the lightweight task set",
+        "PRO_TIER because 20_000 exceeds the 16_000 context_tokens safety threshold",
+        "It raises ValueError and rejects the request",
+        "It splits the request randomly between FAST_TIER and PRO_TIER"
+      ],
+      "answer_index": 1,
+      "explanation": "route_model sends a request to FAST_TIER only when BOTH conditions hold: routine task_type AND context_tokens <= 16_000. At 20,000 tokens it escalates automatically to PRO_TIER."
+    },
+    {
+      "question": "Given TokenBucketLimiter(capacity=5.0, refill_per_sec=1.0), if 5 requests drain the bucket at t=0.0 (and request 6 returns False), what is the earliest timestamp the next cost=1.0 request can succeed?",
+      "options": [
+        "t = 1.0 s (1 second refills 1.0 token, satisfying tokens >= 1.0)",
+        "t = 0.5 s (requests can borrow tokens whenever the bucket is below capacity)",
+        "t = 5.0 s (the bucket must refill completely to 5.0 before allowing any call)",
+        "Never—the limiter must be re-instantiated once drained"
+      ],
+      "answer_index": 0,
+      "explanation": "With tokens at 0.0 and refill_per_sec=1.0, waiting 1.0 second restores 1.0 token, satisfying self.tokens >= cost (1.0 >= 1.0) immediately at t=1.0 s."
+    },
+    {
+      "question": "Using PRO_TIER ($2.50 per 1M input tokens, $10.00 per 1M output tokens), what is the exact compute_call_cost_usd for 10,000 input tokens and 500 output tokens?",
+      "options": [
+        "$0.030",
+        "$0.025",
+        "$0.035",
+        "$0.00775"
+      ],
+      "answer_index": 0,
+      "explanation": "Input cost = (10,000 / 1,000,000) * $2.50 = $0.025; output cost = (500 / 1,000,000) * $10.00 = $0.005; total = $0.030."
+    }
+  ],
+  "interview_faqs": [
+    {
+      "question": "How do you choose between Token Bucket and Leaky Bucket for LLMOps rate limiting?",
+      "answer": "Token Bucket absorbs short bursts whenever tokens are available, matching interactive user traffic and batch spikes naturally while bounding long-term averages. Leaky Bucket enforces a strictly constant outflow rate, better suited to fragile downstream databases. Production LLM gateways generally prefer Token Bucket—often pairing an RPM bucket with a TPM bucket."
+    },
+    {
+      "question": "How do you scale a single-process TokenBucketLimiter across autoscaling Cloud Run containers?",
+      "answer": "Move bucket state (tokens, last_ts) per tenant or endpoint into Redis and execute refill-plus-deduct inside a single atomic Lua script so concurrent replicas never race. For lower-frequency quota enforcement, Cloud Firestore transactions can also enforce consistent cross-instance limits."
+    },
+    {
+      "question": "Why must LLMOps dashboards track TTFT and TPOT separately instead of only total latency?",
+      "answer": "In streaming UIs, perceived responsiveness depends on Time To First Token (TTFT), which exposes queueing and long-prompt prefill bottlenecks, whereas Time Per Output Token (TPOT) reveals decode bandwidth and GPU contention. Splitting them lets engineers tell immediately whether to trim RAG prompts/enable Prompt Caching (TTFT) or offload traffic across tiers (TPOT)."
+    },
+    {
+      "question": "Besides routing and rate limits, what financial safeguard should ship before Day 1 production launch?",
+      "answer": "Add a tiered Budget Circuit Breaker aggregating compute_call_cost_usd over rolling hourly and daily windows: alert at 70% spend, automatically downgrade non-critical traffic to FAST_TIER or cached responses at 90%, and hard-block expensive model tiers at 100% so no undiscovered bug can generate a runaway bill."
+    }
+  ],
+  "further_reading": [
+    {
+      "title": "OpenTelemetry — Semantic Conventions for Generative AI",
+      "url": "https://opentelemetry.io/docs/specs/semconv/gen-ai/",
+      "note": "Industry-standard telemetry schema for GenAI model identifiers, input/output token counts, latency spans, and error attributes."
+    },
+    {
+      "title": "Google SRE Book — Handling Overload",
+      "url": "https://sre.google/sre-book/handling-overload/",
+      "note": "Foundational SRE guidance on load shedding, rate limiting, client-side backoff, and preventing cascading retry storms."
+    },
+    {
+      "title": "Token Bucket Algorithm — Overview & Mathematical Formulation",
+      "url": "https://en.wikipedia.org/wiki/Token_bucket",
+      "note": "Formal definition of Token Bucket burst capacity, refill rates, and trade-offs compared with Leaky Bucket."
+    }
+  ],
+  "code_replacements": [
+    [
+      "Book 1 Ch.10 AI 系統上線與 LLMOps：雙層模型路由、精確 Token 成本帳本與 Token Bucket 限流器",
+      "Book 1 Ch.10 Production LLMOps: Two-Tier Model Routing, Precision Token Cost Ledger & Token Bucket Limiter"
+    ],
+    [
+      "示範如何依任務難度將日常流量分流至輕量低價模型、保留旗艦模型給複雜推理，並透過限流防爆帳單。",
+      "Demonstrates routing routine traffic to fast low-cost models, reserving flagship models for complex reasoning, and rate-limiting bursts."
+    ],
+    [
+      "雙層路由策略：分類／摘要／擷取走輕量級；深度架構審查或超長推理才升艙旗艦。",
+      "Two-tier routing: route classify/summarize/extract to fast tier; escalate complex reviews or long contexts to flagship."
+    ],
+    [
+      "經典 Token Bucket 演算法：限制每分鐘最大請求突發量，防止迴圈 Bug 瞬間燒光 API 額度。",
+      "Classic Token Bucket limiter: caps request bursts so runaway loops cannot drain API quotas."
+    ],
+    [
+      "Ch.10 雙層路由成本: $",
+      "Ch.10 Two-tier cost: $"
+    ],
+    [
+      " vs 全旗艦: $",
+      " vs all-Pro: $"
+    ],
+    [
+      "(省下 ",
+      "(saves "
+    ],
+    [
+      "%) | TokenBucket 突發測試: ",
+      "%) | TokenBucket burst test: "
+    ]
+  ],
+  "output_replacements": [
+    [
+      "雙層路由成本:",
+      "Two-tier cost:"
+    ],
+    [
+      "全旗艦:",
+      "all-Pro:"
+    ],
+    [
+      "(省下 40.0%)",
+      "(saves 40.0%)"
+    ],
+    [
+      "突發測試:",
+      "burst test:"
+    ]
+  ]
+}

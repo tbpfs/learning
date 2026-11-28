@@ -987,6 +987,26 @@ def forge_draft(
         save_cached_json(mod_pb_cache, mpb_hash, polished_mod_b)
 
     polished_mods = {**polished_mod_a, **polished_mod_b}
+    norm_pitfalls: list[dict[str, Any]] = []
+    for raw_p in polished_mods.get("pitfalls", []):
+        if isinstance(raw_p, dict):
+            norm_pitfalls.append({
+                "title": str(raw_p.get("title", "")),
+                "symptom": str(
+                    raw_p.get("symptom")
+                    or raw_p.get("symptem")
+                    or raw_p.get("symptoms")
+                    or raw_p.get("description")
+                    or ""
+                ),
+                "root_cause_and_fix": str(
+                    raw_p.get("root_cause_and_fix")
+                    or raw_p.get("fix")
+                    or raw_p.get("solution")
+                    or ""
+                ),
+            })
+    polished_mods["pitfalls"] = norm_pitfalls
 
     chapter_payload: dict[str, Any] = {
         "book_id": book_id,

@@ -1,0 +1,302 @@
+{
+  "book_id": "ai-engineering",
+  "chapter_id": "ch09",
+  "locale": "zh-CN",
+  "status": "published",
+  "badge": "Ch.09",
+  "part_id": "part4",
+  "title": "从 Vibe Coding 到规格驱动开发（Spec-Driven）：AI 协作与机械化验收",
+  "short_title": "从 Vibe Coding 到规格驱动",
+  "summary": "为何纯靠感觉抽卡的 Vibe Coding 在项目破千行后容易失控？实战拆解规格驱动开发（Spec-Driven + Hooks + 契约与 AST 静态闸门），用确定性验收驯服非确定性 AI。",
+  "aeo_capsule": "<strong>规格驱动开发（Spec-Driven Engineering）</strong>将口头需求收敛为可机读的 <code>ContractCase</code> 边界测例与 <code>invariants</code> 数学不变量，搭配 <code>verify_implementation_against_spec</code> 与 AST 静态闸门，把 AI 生成代码的随机性锁进确定性验收闭环。",
+  "reading_minutes": 18,
+  "lastmod": "2026-11-28",
+  "example_file": "examples/ai_ch09_spec_driven_gate.py",
+  "keywords": [
+    "Vibe Coding",
+    "Spec-Driven Development",
+    "Contract Testing",
+    "Invariants",
+    "AST Quality Gate",
+    "AI Code Review",
+    "紫枫出版社"
+  ],
+  "learning_objectives": [
+    "客观剖析 Vibe Coding 的快速原型价值，以及项目规模扩大后的边界漏洞与技术债盲区",
+    "建立「规格文档 → 测试契约（Cases + Invariants）→ AI 实现 → 机械化验证闸门」四步工程闭环",
+    "结合动态不变量验收与 AST 静态守门员，在 CI/CD 中自动拦截回归漏洞与危险调用"
+  ],
+  "sections": [
+    {
+      "id": "sec1-vibe-debt",
+      "heading": "9.1 Vibe Coding 的边界：从原型快感到规模化技术债",
+      "paragraphs": [
+        "Vibe Coding（凭感觉与 AI 对话快速出原型）在探索点子、验证交互界面或写一次性数据清洗脚本时极具生产力；然而只要项目跨过数千行、涉及资金定价、权限管控或跨模块状态同步，纯靠口头提示抽卡的开发方式往往迅速碰壁。根本原因在于大语言模型是基于概率分布预测下一个词元，而非严格执行形式逻辑推导：当上下文中没有写死输入前置条件与输出不变量时，模型极易产出「看起来简洁流畅、却在极端边界彻底失守」的代码。",
+        "本章示例 examples/ai_ch09_spec_driven_gate.py 以电商常见的折扣计算为切片，完整还原了这个落差。反面教材 vibe_coded_discount(price, pct) 仅写了一行 round(price * (1.0 - pct / 100.0), 2)，在正常输入（例如原价 100 元、折扣 20% 算出 80.0 元）看似完全正确；但只要外部请求传入超过 100% 的折扣（pct=150.0）或负数折扣（pct=-10.0），函数便会毫不犹豫地算出 -50.0 元负价格，或是把商品自动加价成 110.0 元。若团队仅靠人工肉眼浏览 Diff，这类边界缺口几乎必然溜进生产环境。",
+        "从 Vibe Coding 走向 Spec-Driven Engineering（规格驱动开发）的转折点，在于把「人类脑中的默契」提前翻译成机器可执行的规格契约（SpecContract）。当团队先锁定输入输出边界（ContractCase）与全局数学不变量（invariants），再交由 AI 编写实现并自动跑过验收闸门，开发者的核心角色就从疲于补洞的审稿员，升级为定义游戏规则的系统架构师。"
+      ],
+      "bullets": [
+        "Vibe Coding 擅长快速验证原型，但在缺乏明确边界契约的复杂业务逻辑中容易埋下隐蔽回归漏洞",
+        "vibe_coded_discount 虽能通过正常 20% 折扣测试，却在 pct=150% 与 pct=-10% 时分别算出负价格 -50.0 与倒涨价 110.0",
+        "Spec-Driven Engineering 以机器可读的契约与自动化闸门，把 AI 的非确定性生成约束于确定性质量边界之内"
+      ],
+      "callout_title": "工程笔记：为什么 AI 总是「很有自信地写出缺边界的代码」？",
+      "callout_body": "模型在预训练语料中见过大量教学示例与简化片段，因此倾向给出最常见的快乐路径（Happy Path）写法。只要提示词没明说「折扣超过 100% 该钳制为 0 元还是抛出 ValueError」，AI 就只能自行猜测——而它猜错的成本往往由您的线上用户买单。"
+    },
+    {
+      "id": "sec2-spec-loop",
+      "heading": "9.2 四步工程闭环：规格、契约、AI 实现与机械化验收",
+      "paragraphs": [
+        "规格驱动开发的核心工作流可浓缩为四个可重复的步骤：第一步，先用简明规格厘清输入前提与业务不变量；第二步，把规格写成不可变的代码契约（ContractCase 与 SpecContract）；第三步，将契约连同类型接口交给 AI 生成实现；第四步，由验证器 verify_implementation_against_spec 逐条执行用例与不变量检查，任何失败皆自动返回精确错误列表，驱动 AI 修正直到全绿通过。",
+        "检视示例中定义的 SpecContract(feature_name='pricing.apply_discount')，它同时结合了两类互补验证：第一类是具体的示例用例（cases），包含正常折扣 normal_20pct（100 元打折 20% 得 80.0）、超过上限钳制 clamp_over_100（150% 必得 0.0）与负数折扣钳制 clamp_negative_pct（-10% 必得 100.0）；第二类则是抽离单一数值的全局数学不变量（invariants），包含 never_negative（在 0、50、999 元与 -20% 至 150% 组合下结果绝不小于 0）与 monotonic_discount（折扣率越高，最终价格必小于等于较低折扣率）。",
+        "将反面教材与规格正解送进 verify_implementation_against_spec 实测，差距一目了然：vibe_coded_discount 虽然通过了 normal_20pct 与 monotonic_discount，却瞬间被抓出精确 3 项漏洞——clamp_over_100 实得 -50.0、clamp_negative_pct 实得 110.0，以及违反 never_negative 不变量；相对地，spec_driven_discount 在入口处校验 price < 0 即抛出 ValueError，并通过 clamped = max(0.0, min(100.0, pct)) 严格钳制折扣区间，以 0 漏洞完美通关。只要契约固定，日后无论更换哪一颗底层模型重构代码，核心定价逻辑都不会发生静默退化。"
+      ],
+      "bullets": [
+        "以 dataclass(frozen=True) 建立不可变的 ContractCase 与 SpecContract，避免测试规格在运行期遭意外修改",
+        "双轨验证互补：具体边界用例抓出明确行为规格，数学不变量（never_negative、monotonic_discount）封锁 AI 写死特例作弊",
+        "实机验收对照：vibe_coded_discount 被自动抓出 3 项边界与不变量漏洞；spec_driven_discount 以 0 漏洞通过全部契约"
+      ],
+      "callout_title": "实战技巧：先让 AI 帮你写契约用例，人审过契约再让 AI 写实现",
+      "callout_body": "编写完整规格不代表得全靠人工苦敲。最高效的协作模式是先让 AI 根据需求草拟边界用例与不变量列表，由工程师专心审查并锁定这份较短、较易读的契约；一旦契约拍板定案，后续的实现与重构就能放心交给 AI 在自动化测试循环中反复打磨。"
+    },
+    {
+      "id": "sec3-ast-gate",
+      "heading": "9.3 静态守门员：以 AST 闸门与 Hooks 拦截结构性与安全风险",
+      "paragraphs": [
+        "动态契约测试擅长验证「输入与输出是否符合规格」，但它无法单独发现结构与安全层面的隐忧。例如 AI 为了快速让测试变绿，有时会偷偷改写测试文件、在代码中塞入 eval() 或 subprocess.run(..., shell=True)、硬编码本地绝对路径、省略公开函数的类型注解，或写出高达六层嵌套 if 的意大利面逻辑。这类问题就算所有单元测试全数通过，仍会在安全审计或三个月后的维护阶段引爆。",
+        "因此，完整的 Spec-Driven 工程体系会在动态测试之外，补上「静态 AST（抽象语法树）守门员」与自动化钩子（Pre-commit / Agent Hooks）。通过 Python 内置的 ast 模块或现代高速 Linter（如 Ruff），我们能在代码执行前就遍历语法树节点：检查 ast.Call 禁止未授权的危险系统调用（如 os.system、eval、pickle.loads）、检查 ast.FunctionDef 确保公开接口具备完整类型注解与文档字符串、检测过深的控制流嵌套，并确保没有把测试条件改成永远返回 True 的假测试。",
+        "把静态守门员与动态契约结合后，AI 协作便真正拥有了「确定性护栏」。每当 AI 产出或修改文件，自动化闸门会同步返回结构化的静态违规位置（文件名、行号、规则码）与动态契约 failures 列表。这些精准的机器反馈比笼统的「请写好一点」有效得多，让模型在下一轮修正中能直击病灶，同时将人类审查的精力留给真正需要业务判断的架构决策。"
+      ],
+      "bullets": [
+        "动态测试验行为、AST 静态闸门验结构与安全，两者互补才能防堵「测试全绿但暗藏危险调用」的盲区",
+        "利用 Python ast 模块或 Ruff 在执行前拦截 eval/os.system、缺失类型注解、硬编码本地路径与过度嵌套分支",
+        "将契约检查与静态闸门接入 Git Hooks 或 AI Agent Pre/Post Hooks，确保任何违规代码都无法进入主分支"
+      ],
+      "callout_title": "避坑指南：别让 AI 为了让测试通过而「偷改测试规格」",
+      "callout_body": "在自主编码智能体（Coding Agent）实务中，最经典的作弊行为之一就是直接放宽断言或删掉失败的测试用例来换取绿灯。务必在 CI 与 Code Review 流程中把契约文件（SpecContract／tests/）与实现文件分开检视，任何修改既有契约的变更都必须明确标示并由人类核对理由。"
+    },
+    {
+      "id": "sec4-mech-validation",
+      "heading": "9.4 机械化验收与 CI/CD 集成：掌握规格粒度与长期演进",
+      "paragraphs": [
+        "将 verify_implementation_against_spec 与项目的 unittest 测试套件绑定进 CI/CD 流水线（例如设定 python -W error -m unittest discover），能确保每一笔 Pull Request 都必须跨过相同的机械化门槛。示例刻意让验证器返回 (bool, list[str]) 双元素结果：它不会在遇到第一个错误时就提前中断，而是跑完全部 cases 与 invariants 后返回完整 failures 列表（并用 try/except 捕获未预期异常）。这种「一次回报所有违规项」的设计，能大幅减少 AI 往返修正的轮数与 Token 消耗。",
+        "不过导入 Spec-Driven 并非意味着所有代码都要写成航天级形式验证。工程团队必须掌握「渐进式规格粒度」：针对计费定价、权限校验、数据一致性与公开 API 契约等核心域（Domain Core），应投入高强度的示例用例、数学不变量甚至属性测试（Property-Based Testing，如 Hypothesis）；至于一次性的数据探索脚本或单纯的 UI 排版微调，则维持基本的静态类型与冒烟测试即可，避免过度规格化拖慢迭代节奏。",
+        "回顾本章的演进脉络，我们并非否定 AI 辅助写代码的速度红利，而是替这股强大却具随机性的算力装上刹车与方向盘。当需求先沉淀为不可变的 SpecContract、静态 AST 闸门守住结构与安全底线、CI 流水线对每次提交执行全自动回归验证，团队既能享受 AI 带来的数倍开发速度，又能把系统质量稳稳锁在工业级水准之上。"
+      ],
+      "bullets": [
+        "验证器应收集全部失败用例与异常后一次返回 failures 列表，让 AI 单轮修完多处违规，减少来回重试成本",
+        "采渐进式规格粒度：核心业务与公开契约严守 Cases + Invariants + PBT，外围脚本维持轻量检查避免过度工程",
+        "将规格契约与静态闸门纳入 CI 强制必过条件（搭配 -W error），让代码质量不因底层 AI 模型换代而波动"
+      ],
+      "callout_title": "团队导入路线图：从一个最痛的核心模块开始",
+      "callout_body": "不需要一口气重写整座旧系统的规格。挑选团队最常出线上 Bug 的单一模块（例如折扣定价、配额扣减或权限判断），先为它写下 5 条边界用例与 2 条不变量并挂进 CI，让全队亲眼看到 AI 修改在合并前自动被拦截的瞬间，往往是最有说服力的推广起点。"
+    }
+  ],
+  "diagram_caption": "图 9-1：规格驱动开发（Spec-Driven Engineering）四步闭环与双层机械化验收闸门",
+  "diagram_svg": "<svg viewBox=\"0 0 760 260\" role=\"img\" aria-label=\"规格驱动开发四步闭环与双层机械化验收闸门架构图\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"spec-arrow-dark\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#1c1917\"/></marker><marker id=\"spec-arrow-red\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#b91c1c\"/></marker><marker id=\"spec-arrow-green\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#15803d\"/></marker></defs><rect width=\"760\" height=\"260\" fill=\"#fdfcf9\"/><rect x=\"18\" y=\"28\" width=\"148\" height=\"138\" rx=\"8\" fill=\"#ffffff\" stroke=\"#1c1917\" stroke-width=\"1.8\"/><rect x=\"18\" y=\"28\" width=\"148\" height=\"30\" rx=\"8\" fill=\"#1c1917\"/><text x=\"92\" y=\"48\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#fdfcf9\">1. 规格契约</text><text x=\"30\" y=\"80\" font-family=\"monospace\" font-size=\"10.5\" fill=\"#b45309\">SpecContract</text><text x=\"30\" y=\"102\" font-family=\"monospace\" font-size=\"10\" fill=\"#1c1917\">cases (3 边界)</text><text x=\"30\" y=\"122\" font-family=\"monospace\" font-size=\"10\" fill=\"#1c1917\">never_negative</text><text x=\"30\" y=\"142\" font-family=\"monospace\" font-size=\"10\" fill=\"#57534e\">monotonic_disc.</text><rect x=\"202\" y=\"28\" width=\"148\" height=\"138\" rx=\"8\" fill=\"#ffffff\" stroke=\"#b45309\" stroke-width=\"1.8\"/><rect x=\"202\" y=\"28\" width=\"148\" height=\"30\" rx=\"8\" fill=\"#b45309\"/><text x=\"276\" y=\"48\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#fdfcf9\">2. AI 实现生成</text><text x=\"214\" y=\"82\" font-family=\"sans-serif\" font-size=\"10.5\" fill=\"#1c1917\">依据契约生成函数</text><text x=\"214\" y=\"106\" font-family=\"monospace\" font-size=\"10\" fill=\"#b91c1c\">Vibe: 3 漏洞</text><text x=\"214\" y=\"128\" font-family=\"monospace\" font-size=\"10\" fill=\"#15803d\">Spec: 0 漏洞</text><text x=\"214\" y=\"150\" font-family=\"monospace\" font-size=\"9.5\" fill=\"#57534e\">max(0, min(100, pct))</text><rect x=\"386\" y=\"22\" width=\"186\" height=\"150\" rx=\"8\" fill=\"#f7fee7\" stroke=\"#15803d\" stroke-width=\"1.8\"/><text x=\"479\" y=\"44\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#14532d\">3. 双层机械化验收闸门</text><rect x=\"400\" y=\"56\" width=\"158\" height=\"46\" rx=\"5\" fill=\"#ffffff\" stroke=\"#16a34a\" stroke-width=\"1.2\"/><text x=\"479\" y=\"75\" font-family=\"sans-serif\" font-size=\"10.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#14532d\">动态契约验证器</text><text x=\"479\" y=\"92\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#57534e\">verify_implementation()</text><rect x=\"400\" y=\"112\" width=\"158\" height=\"46\" rx=\"5\" fill=\"#ffffff\" stroke=\"#d97706\" stroke-width=\"1.2\"/><text x=\"479\" y=\"131\" font-family=\"sans-serif\" font-size=\"10.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">AST / Linter 静态守门</text><text x=\"479\" y=\"148\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#57534e\">类型 / 危险调用 / Hooks</text><rect x=\"608\" y=\"44\" width=\"134\" height=\"106\" rx=\"8\" fill=\"#f0fdf4\" stroke=\"#15803d\" stroke-width=\"2\"/><text x=\"675\" y=\"78\" font-family=\"sans-serif\" font-size=\"12.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#14532d\">4. 合并上线</text><text x=\"675\" y=\"102\" font-family=\"monospace\" font-size=\"10.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#15803d\">PASS (漏洞=0)</text><text x=\"675\" y=\"124\" font-family=\"sans-serif\" font-size=\"10\" text-anchor=\"middle\" fill=\"#57534e\">CI 绿灯可重复交付</text><line x1=\"166\" y1=\"97\" x2=\"198\" y2=\"97\" stroke=\"#1c1917\" stroke-width=\"1.8\" marker-end=\"url(#spec-arrow-dark)\"/><line x1=\"350\" y1=\"97\" x2=\"382\" y2=\"97\" stroke=\"#1c1917\" stroke-width=\"1.8\" marker-end=\"url(#spec-arrow-dark)\"/><line x1=\"572\" y1=\"97\" x2=\"604\" y2=\"97\" stroke=\"#15803d\" stroke-width=\"1.8\" marker-end=\"url(#spec-arrow-green)\"/><text x=\"588\" y=\"88\" font-family=\"sans-serif\" font-size=\"9\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#15803d\">全过</text><path d=\"M 479 172 L 479 198 L 276 198 L 276 170\" fill=\"none\" stroke=\"#b91c1c\" stroke-width=\"1.6\" stroke-dasharray=\"5 3\" marker-end=\"url(#spec-arrow-red)\"/><text x=\"378\" y=\"192\" font-family=\"sans-serif\" font-size=\"10\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#b91c1c\">FAIL：返回精确 failures 列表驱动 AI 修正</text><rect x=\"18\" y=\"216\" width=\"724\" height=\"30\" rx=\"6\" fill=\"#fef3c7\" stroke=\"#d97706\" stroke-width=\"1.2\"/><text x=\"380\" y=\"236\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">核心原则：规格先于实现 ｜ 契约不可由 AI 偷改 ｜ 动态不变量＋静态 AST 双重把关</text></svg>",
+  "comparison_table": {
+    "caption": "表 9-1：四种软件开发与验证范式比较",
+    "headers": [
+      "开发范式",
+      "核心验证机制",
+      "缺陷拦截时机",
+      "长期维护成本趋势",
+      "最佳适用场景"
+    ],
+    "rows": [
+      [
+        "Vibe Coding",
+        "人工点测与视觉确认为主",
+        "上线后或运行期才暴露",
+        "随项目规模扩大急剧攀升",
+        "一次性脚本、快速概念原型"
+      ],
+      [
+        "Spec-Driven Engineering",
+        "SpecContract（Cases + Invariants）＋ AST 闸门",
+        "生成后立即与 CI 提交前拦截",
+        "稳定可控，重构与换模零恐惧",
+        "AI 协作的生产系统与核心业务逻辑"
+      ],
+      [
+        "传统手写 TDD",
+        "人工编写单元测试与实现",
+        "开发阶段及早发现",
+        "质量稳定但前期编写人力高",
+        "传统人工主导的软件项目"
+      ],
+      [
+        "形式化验证（Formal Methods）",
+        "数学定理证明与模型检测",
+        "设计阶段数学级排除",
+        "初期学习与建模成本极高",
+        "航天、医疗仪器与核心密码协议"
+      ]
+    ]
+  },
+  "code_walkthrough": [
+    "ContractCase 与 SpecContract 均采 dataclass(frozen=True) 定义，将功能名称、具体边界用例（cases）与数学不变量（invariants）封装为不可变契约。",
+    "verify_implementation_against_spec() 逐条执行所有 cases 与 invariants 并以 try/except 捕获异常，完整收集 failures 列表而非首错即停。",
+    "vibe_coded_discount() 仅做单行折扣乘法，未阻挡负价格亦未钳制 0..100% 区间，送验时被自动抓出 clamp_over_100、clamp_negative_pct 与 never_negative 共 3 项漏洞。",
+    "spec_driven_discount() 先对负数 price 抛出 ValueError，再以 max(0.0, min(100.0, pct)) 钳制折扣率，最终以 0 漏洞通过全部用例与不变量。"
+  ],
+  "pitfalls": [
+    {
+      "title": "陷阱 1：过度规格化，连辅助脚本都写冗长契约拖垮效率",
+      "symptom": "团队替每支简单的工具函数或界面文案微调都强制编写繁复契约与多层审查，导致开发速度骤降、工程师干脆绕过流程。",
+      "root_cause_and_fix": "未区分核心域与外围代码的风险等级。修复方式：采分级规格策略——对定价、权限、数据写入与公开 API 契约执行完整 SpecContract 与不变量检查；外围辅助函数则仅靠类型检查与轻量单元测试即可。"
+    },
+    {
+      "title": "陷阱 2：只写快乐路径用例，让 AI 用硬编码或偷改测试蒙混过关",
+      "symptom": "AI 产出的代码通过了 100 元打折 20% 得 80 元的单一用例，却在负数、超大值或随机输入下完全崩溃；甚至直接放宽测试断言来换取绿灯。",
+      "root_cause_and_fix": "单一示例用例不足以约束概率生成模型。修复方式：在 SpecContract 同时纳入极端边界值与数学不变量（或引入 Hypothesis 属性测试），并于 Code Review 严格锁定测试契约文件的修改权限。"
+    },
+    {
+      "title": "陷阱 3：自定义 AST 静态规则过度僵化，频繁误杀合法代码",
+      "symptom": "CI 中的自研 AST 脚本把合法的动态属性操作、测试辅助代码或第三方库惯用法全部挡下，造成大量误报。",
+      "root_cause_and_fix": "手写 AST 规则若缺乏语境感知容易过严。修复方式：优先采用成熟且可细部配置的 Linter（如 Ruff、ESLint）处理通用规则，自定义 AST 守门员仅聚焦在明确红线（如禁 eval、禁硬编码本地路径），并提供受审核的显式排除机制。"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "在示例 ai_ch09_spec_driven_gate.py 中，将 vibe_coded_discount 送入 verify_implementation_against_spec 验证时，究竟被抓出哪 3 项漏洞？",
+      "options": [
+        "normal_20pct、clamp_over_100 与 monotonic_discount",
+        "clamp_over_100、clamp_negative_pct 与 never_negative 不变量",
+        "只有 never_negative 与 monotonic_discount 两项不变量",
+        "因为抛出 ZeroDivisionError 导致全部 5 项检查失败"
+      ],
+      "answer_index": 1,
+      "explanation": "vibe_coded_discount 通过了 normal_20pct（80.0）与 monotonic_discount（90.0 >= 70.0），但在 clamp_over_100 算出 -50.0、在 clamp_negative_pct 算出 110.0，且于 d=150 时违反 never_negative 不变量，合计精准抓出 3 项漏洞。"
+    },
+    {
+      "question": "在 Spec-Driven 流程中，AST 静态闸门与动态契约测试最大的互补价值为何？",
+      "options": [
+        "AST 闸门可以完全取代单元测试，无需执行任何代码",
+        "AST 闸门在不执行程序的前提下扫描语法树，能抓出未触发路径中的危险调用（如 eval/os.system）、缺失类型与结构违规",
+        "AST 闸门仅适用于 JavaScript，Python 无法使用",
+        "AST 闸门能自动推导所有商业定价公式，不需编写规格"
+      ],
+      "answer_index": 1,
+      "explanation": "动态测试只能验证被用例走到的执行路径，而 AST 静态分析遍历完整语法树，能在执行前就拦截未授权系统调用、死代码、硬编码密钥或结构过深等静态风险。"
+    },
+    {
+      "question": "若 AI 生成的新版实现通过了全部 ContractCase 示例用例，却违反了 SpecContract 的某条 invariant（不变量），正确的工程处置为何？",
+      "options": [
+        "直接忽略不变量失败并合并上线，因为具体用例都通过了",
+        "将精确的 failures 错误返回给 AI 重新修正实现，直到同时满足 cases 与 invariants（若属规格矛盾才由人类修订契约）",
+        "让 AI 自动删除该条失败的 invariant",
+        "只把结果打印在控制台里，不让 CI 失败"
+      ],
+      "answer_index": 1,
+      "explanation": "违反不变量代表实现在更广泛的输入空间中存在逻辑漏洞。正确做法是保持闸门红灯、把具体失败消息交给 AI 迭代修复；唯有经工程师确认原规格本身有误时，才由人类审核调整契约。"
+    }
+  ],
+  "interview_faqs": [
+    {
+      "question": "引入 Spec-Driven Development 会不会拖慢 AI 编码速度、或限制 AI 的算法优化空间？",
+      "answer": "正好相反。规格契约只定义「什么行为才算正确（What）」（输入输出边界、不变量与性能上限），并不写死内部「怎么实现（How）」。AI 反而能在明确护栏内大胆尝试更高效的算法或重构，同时省下大量事后人工调试与线上救火的时间。"
+    },
+    {
+      "question": "示例中的 invariants 与 Property-Based Testing（属性测试，如 Hypothesis）有什么关系？",
+      "answer": "示例的 invariants 元组正是轻量级的属性测试概念：它检查的是「价格永不为负」、「折扣递增则价格单调不增」这类跨输入空间的数学属性。当业务输入维度更复杂时，可以无缝引入 Hypothesis 自动生成数百组随机边界输入（含极小浮点数、NaN、极端字符串），并于发现反例时自动缩减（Shrinking）出最小复现用例。"
+    },
+    {
+      "question": "除了 Python 的 ast 模块，在 TypeScript 或 Go 项目中如何落地同样的静态守门员？",
+      "answer": "思维完全通用，实现则善用各语言成熟生态：TypeScript／JavaScript 可结合 strict tsconfig 与自定义 ESLint（ESTree）规则，在编译与 Lint 阶段拦截 any 滥用或危险 DOM 操作（如 innerHTML）；Go 则可运用标准库 go/ast 搭配 golangci-lint 与 staticcheck，确保并发安全与错误处理不被 AI 忽略。"
+    },
+    {
+      "question": "在多服务架构下，如何避免 AI 修改 A 服务后意外破坏 B 服务的 API 契约？",
+      "answer": "可将本章的单函数契约升级为跨服务的契约测试（Contract Testing）与 OpenAPI／JSON Schema 版本锁定：由消费端或共享规格库定义请求／响应 Schema，并在服务提供端的 CI 流水线中自动验证向后兼容性（例如禁止移除既有字段或更改类型），确保 AI 重构单一微服务时不会引发跨服务雪崩。"
+    }
+  ],
+  "further_reading": [
+    {
+      "title": "Martin Fowler — Test-Driven Development",
+      "url": "https://martinfowler.com/bliki/TestDrivenDevelopment.html",
+      "note": "经典测试驱动开发原文，阐述「规格先于实现」如何通过快速反馈循环建立可安全重构的代码底座。"
+    },
+    {
+      "title": "Python 3 Official Docs — unittest Testing Framework",
+      "url": "https://docs.python.org/3/library/unittest.html",
+      "note": "Python 标准库测试框架官方文档，适合零依赖落地本章的 SpecContract 与 CI 自动化回归闸门。"
+    },
+    {
+      "title": "Anthropic Engineering — Claude Code Best Practices",
+      "url": "https://www.anthropic.com/engineering/claude-code-best-practices",
+      "note": "一线 AI 编码智能体工程实践指南，详述先写规格与测试、自动化验证闭环与防回归工作流。"
+    }
+  ],
+  "code_replacements": [
+    [
+      "Book 1 Ch.09 從 Vibe Coding 到 Spec-Driven Engineering：自動化規格契約驗證閘門（Spec-to-Test Gate）",
+      "第一卷 第 9 章 从 Vibe Coding 到 Spec-Driven Engineering：自动化规格契约验证闸门（Spec-to-Test Gate）"
+    ],
+    [
+      "示範如何把口頭需求轉化為可機讀的不變量契約（Invariants），在 AI 寫扣後自動攔截回歸漏洞。",
+      "演示如何把口头需求转化为可机读的不变量契约（Invariants），在 AI 写码后自动拦截回归漏洞。"
+    ],
+    [
+      "逐條檢驗 AI 產出的實作是否同時滿足範例測資與系統不變量。",
+      "逐条检验 AI 产出的实现是否同时满足示例用例与系统不变量。"
+    ],
+    [
+      "' 拋出未預期例外: ",
+      "' 抛出未预期异常: "
+    ],
+    [
+      "' 預期 ",
+      "' 预期 "
+    ],
+    [
+      "，實得 ",
+      "，实得 "
+    ],
+    [
+      "' 違反契約",
+      "' 违反契约"
+    ],
+    [
+      "' 例外: ",
+      "' 异常: "
+    ],
+    [
+      "反面教材：Vibe Coding 常見缺邊界保護（未鎖 0..100% 折扣上限，會算出負價格）。",
+      "反面教材：Vibe Coding 常见缺边界保护（未锁 0..100% 折扣上限，会算出负价格）。"
+    ],
+    [
+      "規格驅動正解：嚴格保證輸入不變量、折扣夾擠與零負價。",
+      "规格驱动正解：严格保证输入不变量、折扣钳制与零负价。"
+    ],
+    [
+      "price 不可為負數",
+      "price 不可为负数"
+    ],
+    [
+      "Ch.09 Vibe 版驗收: ",
+      "Ch.09 Vibe 版验收: "
+    ],
+    [
+      " (抓出 ",
+      " (抓出 "
+    ],
+    [
+      " 項漏洞) | Spec 版驗收: ",
+      " 项漏洞) | Spec 版验收: "
+    ],
+    [
+      " (漏洞=",
+      " (漏洞="
+    ]
+  ],
+  "output_replacements": [
+    [
+      "版驗收:",
+      "版验收:"
+    ],
+    [
+      "項漏洞)",
+      "项漏洞)"
+    ]
+  ]
+}

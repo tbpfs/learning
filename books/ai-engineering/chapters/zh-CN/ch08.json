@@ -1,0 +1,288 @@
+{
+  "book_id": "ai-engineering",
+  "chapter_id": "ch08",
+  "locale": "zh-CN",
+  "status": "published",
+  "badge": "Ch.08",
+  "part_id": "part4",
+  "title": "本地开源大模型实战（LM Studio / Ollama）：GGUF 量化、显存精算与断点缓存",
+  "short_title": "本地模型与显存调度实战",
+  "summary": "不想被云端 API 账单与数据外泄绑死？手写零依赖 OpenAI-Compatible 本地客户端，掌握 GGUF 显存精算公式、剥离推理模型 <think> 标签、SHA-256 断点缓存与单 GPU 批处理调度。",
+  "aeo_capsule": "<strong>本地开源大模型工程实战</strong>结合 <code>estimate_gguf_vram_gb</code> 显存精算模型、<code>clean_local_llm_output</code> 思考标签清洗与 <code>CachedLocalLlmClient</code> 的 SHA-256 断点缓存及依赖注入传输层，在消费级单 GPU 上实现可离线验证、零云端账单的自动化推理流水线。",
+  "reading_minutes": 18,
+  "lastmod": "2026-11-28",
+  "example_file": "examples/ai_ch08_local_llm_client.py",
+  "keywords": [
+    "Local LLM",
+    "LM Studio",
+    "Ollama",
+    "GGUF",
+    "Q4_K_M",
+    "VRAM",
+    "SHA-256 Cache",
+    "OpenAI-Compatible API",
+    "紫枫出版社"
+  ],
+  "learning_objectives": [
+    "掌握 GGUF 量化权重、KV Cache 与运行期开销的显存估算模型，避开消费级单卡 OOM 陷阱",
+    "实现兼容 LM Studio 与 Ollama 的零依赖 OpenAI-Compatible 客户端，并以依赖注入支持离线 CI 单元测试",
+    "通过关闭非必要思考模式、剥离 <think> 标签与 SHA-256 内容哈希断点缓存，构建可续跑的单 GPU 批处理流水线"
+  ],
+  "sections": [
+    {
+      "id": "sec1-vram-estimation",
+      "heading": "8.1 GGUF 量化原理与显存（VRAM）三段式精算模型",
+      "paragraphs": [
+        "许多工程师初次在个人电脑部署本地大语言模型时，只看硬盘上的模型文件大小，便误以为 12 GB 或 16 GB 显卡就能无痛流畅推理；结果一开长对话窗口，系统立刻触发 OOM（Out of Memory）或退化为 CPU 内存交换，生成速度从每秒 40 Tokens 暴跌至个位数。真正决定单卡是否装得下模型的，是「模型权重＋KV Cache＋运行期缓冲」三项总和。在本章示例 examples/ai_ch08_local_llm_client.py 中，estimate_gguf_vram_gb 函数将这套估算公式量化为清晰的三段式预算：静态权重占用 params_billion * (quant_bits / 8.0)、键值缓存随上下文长度线性增长 (context_k / 8.0) * (params_billion * 0.04)，再加上 1.2 GB 的 CUDA 上下文与激活值固定开销。",
+        "以实机验证的 26B 参数模型搭配 Q4_K_M（平均约 4.5 bits/weight）与 8k 上下文窗口代入计算：权重空间为 26.0 * (4.5 / 8.0) = 14.625 GB，8k 上下文下的 KV Cache 约为 1.04 GB，再加上 1.2 GB 运行期开销，合计 16.865 GB（经 Python 银行家四舍五入输出 16.86 GB）。这里之所以以 4.5 bits 而非纯 4.0 bits 估算 Q4_K_M，是因为 llama.cpp 的 K-Quants 混合量化并非把所有张量一视同仁压到 4-bit，而是对敏感的注意力输出与关键层保留较高位宽（例如 Q6_K），换取接近半精度（FP16）的逻辑稳定度，同时把权重体积大幅压缩至原本的四分之一强。",
+        "工程实务中最容易低估的隐形炸弹正是 context_k。不少开发者习惯一上来就把 LM Studio 或 Ollama 的上下文窗口拉满到 64k 甚至 128k，却没发现 KV Cache 会随序列长度线性膨胀，在 26B 至 32B 模型上轻易吃掉额外数 GB 到十余 GB 显存，直接把原本放得进纯显存的权重挤到系统内存（System RAM）。对于批量摘要、翻译与结构化提取任务，将工作窗口收敛在 4K–8K 黄金区间，并在算出的显存估值外再预留约 1.5–2.0 GB 系统余量，才是单卡长时间稳定跑批不崩溃的核心纪律。"
+      ],
+      "bullets": [
+        "GGUF 显存三段公式：静态权重（参数量 × 平均位宽 / 8）＋随 context_k 线性增长的 KV Cache ＋ 约 1.2 GB 运行期开销",
+        "26B Q4_K_M（4.5 bits）在 8k 上下文实测估算为 16.86 GB；将上下文盲目拉高至 32k 以上会大幅拉升 KV Cache 风险",
+        "Q4_K_M 通过混合精度保护关键张量，在节省约 72% 显存的同时维持代码与 JSON 推理质量"
+      ],
+      "callout_title": "工程笔记：单 GPU 跑双模型的正确姿势是「分阶段批处理调度」",
+      "callout_body": "若您只有一张消费级 GPU，却想结合大型草稿模型与另一颗专精润色的模型，切忌在每一小段反复加载与卸载模型——每次模型冷启动光是把 15–20 GB 权重从 SSD 搬进显存就要耗掉十几秒。最佳实践是按阶段批量跑完模型 A 的所有任务，再通过 lms unload --all 彻底释放显存后，一次性加载模型 B 完成第二阶段，并在脚本结束时务必卸载归还资源。"
+    },
+    {
+      "id": "sec2-local-client",
+      "heading": "8.2 零依赖 OpenAI-Compatible 客户端与 <think> 输出清洗",
+      "paragraphs": [
+        "现代本地推理引擎——无论是强调桌面管理与 CLI 调度的 LM Studio（默认端口 1234），还是主打容器与常驻后台服务的 Ollama（默认端口 11434）——皆全面支持 OpenAI-Compatible Chat Completions 接口（/v1/chat/completions）。这意味着应用层根本无需绑定特定厂商的庞大 SDK，只要以标准 JSON 负载组装 model、temperature、max_tokens 与 messages 数组，就能在同一份代码中自由切换本地与云端后端。在示例 CachedLocalLlmClient 中，我们进一步采用「依赖注入（Dependency Injection）」将底层网络发送抽象为 transport: Callable[[dict, ...], dict] 参数，使核心逻辑与 urllib 或 httpx 完全解耦。",
+        "这种传输层抽象带来两项极具价值的工程红利：第一，在 GitHub Actions 等无 GPU 的 CI/CD 环境中，单元测试只需注入内存中的 mock_lm_studio 函数，即可在毫秒内完成完整协议与解析流程验证，零网络依赖且百分之百可复现；第二，当线上需要为本地调用补上连接超时（timeout）、指数退避重试或切换为异步 HTTP 客户端时，只需替换 transport 实现，不必改动任何业务逻辑与缓存层代码。",
+        "面对当代具备推理能力的开源模型（例如 Qwen3、DeepSeek-R1 或 Gemma 系列），本地产线还必须正面处理两类格式污染：一是模型在正文前主动输出的 <think>...</think> 内部思考区块，二是即使在提示词要求返回纯 JSON，模型仍习惯在外层包上一层 ```json ... ``` Markdown 代码围栏。若直接把原始响应交给 json.loads()，整个流水线立刻抛出 JSONDecodeError。因此，示例一方面在请求负载明确传入 reasoning_effort: none 与低温 temperature: 0.2 关闭非必要长思考并收敛输出，另一方面以 clean_local_llm_output 串联 THINK_BLOCK_RE（启用 re.DOTALL 与 re.IGNORECASE 跨行移除思考区块）与 FENCE_RE（精准剥离外层围栏），将杂乱原始响应还原为可直接解析的 {\"status\": \"ready\"}。"
+      ],
+      "bullets": [
+        "LM Studio（1234 端口）与 Ollama（11434 端口）共用 OpenAI-Compatible API，通过 transport 依赖注入即可实现零网络依赖的离线单元测试",
+        "批量提取与翻译等确定性任务应将 reasoning_effort 设为 none 并压低 temperature（0.2），大幅节省无谓的思考 Token 与延迟",
+        "clean_local_llm_output 以跨行正则表达式依次剥离 <think> 区块与外层 Markdown 围栏，保护下游 JSON 解析器不崩溃"
+      ],
+      "callout_title": "安全防线：本地推理服务端一律绑定 127.0.0.1",
+      "callout_body": "启动 LM Studio Server 或 Ollama 时，除非您在受控内网并于前方架设反向代理与 Bearer Token 认证，否则务必维持仅监听 127.0.0.1（localhost），切勿轻易暴露于 0.0.0.0。本地推理端点默认无身份认证，若直接对局域网或公网开放，等同把您的 GPU 算力与敏感提示上下文免费开放给未授权连接。"
+    },
+    {
+      "id": "sec3-sha256-cache",
+      "heading": "8.3 SHA-256 内容哈希断点缓存与可续跑流水线设计",
+      "paragraphs": [
+        "在本地单张 GPU 上批量翻译数十章技术文档或处理上千条数据记录，动辄耗时数十分钟；一旦过程中因 JSON 格式异常、显卡驱动重置或断电中断，若没有断点缓存（Checkpoint Cache），整批任务就得从第一条重算，白白浪费大量电力与时间。CachedLocalLlmClient 示范了最经典且零外部依赖的内容寻址缓存（Content-Addressed Caching）策略：在 _cache_key 方法中，将 [self.model_id, system_prompt, user_prompt] 序列化为确定性 JSON 字符串，再以 hashlib.sha256 取前 16 位十六进制字符作为唯一缓存键。",
+        "请特别留意缓存键同时纳入 self.model_id、system_prompt 与 user_prompt 三个维度的设计理由：只要我们把底层模型从 Qwen 切换成 Gemma、或是微调了系统提示词中的一项术语规范，算出来的 SHA-256 哈希值便会自动失效并触发重新推理，彻底避免「换了模型却读到旧模型缓存结果」的隐蔽污染。反之，在实机验证中连续两次发送相同的系统与用户提示词（Ping status），第二次调用在进入 transport 前就命中 self.cache，使 self.api_calls 维持在 1 且输出完全一致。",
+        "从示例的内存字典 self.cache: dict[str, str] 迈向真实长时批处理流水线时，只需多补一层磁盘持久化即可升级为真正的断点续跑引擎：将每个成功清洗并通过校验的结果以原子写入（先写临时文件再 os.replace）落盘至 .forge_cache/ 目录下的独立 JSON 文件或 SQLite 数据表。如此一来，即使脚本在第 8 步中断或需要针对单一章节重新修正脚本，重跑时前 7 步都会在毫秒内命中磁盘缓存秒过，直接从断点接续推理。"
+      ],
+      "bullets": [
+        "SHA-256 缓存键同时绑定 model_id、system_prompt 与 user_prompt，修改模型或提示规则即自动失效防污染",
+        "重复请求直接命中缓存（实机测试二次调用 api_calls 维持为 1），免除重复 GPU 推理与带宽开销",
+        "实战长时批处理作业应将缓存原子写入磁盘 JSON 或 SQLite，确保任务中断后可秒速从断点续跑"
+      ],
+      "callout_title": "进阶细节：若调用参数改变，也要把温度与输出上限纳入哈希键",
+      "callout_body": "示例为求精简仅哈希模型与双重提示词；若同一套系统会在同一模型上动态切换 temperature、max_tokens 或 response_format（JSON Schema），建议把这组推理超参数一并放进 _cache_key 的 JSON 数组中，同时在哈希前剥除纯日志用途的时间戳，才能在缓存命中率与结果正确性之间取得完美平衡。"
+    },
+    {
+      "id": "sec4-integration",
+      "heading": "8.4 本地部署最佳实践：错误韧性、格式守卫与显存回收",
+      "paragraphs": [
+        "把本地模型真正纳入日常自动化工作流，除了会算显存与写缓存，还必须做好三道运维韧性防线。第一道是「输出契约守卫」：即便已关闭思考模式并套用 clean_local_llm_output，较小规模的量化模型偶尔仍可能输出截断的 JSON（因触及 max_tokens 上限）或混入未转义的双引号。因此调用端绝不可假设一次推理就会成功，应结合前文第 2 章的结构化校验与重试循环，针对解析失败把具体报错信息反馈给模型重试最多 2 至 3 次，并将不合规的结果挡在写入缓存之前，绝不把坏数据存进断点缓存。",
+        "第二道防线是「传输层超时与健康检查」。本地推理在首次加载大型 GGUF 模型或处理长输入 Prefill 阶段，首字延迟（TTFT）可能长达 15 至 30 秒，若 HTTP 客户端套用一般网页 API 的 5 秒超时就会误判失败；建议在发送推理前先以低成本的 GET /v1/models（LM Studio）或 GET /api/tags（Ollama）检查服务健康与当前挂载的模型列表，再为 /v1/chat/completions 设定充裕的读取超时（例如 180–300 秒）搭配指数退避重试，平顺吸收服务刚启动时的短暂连接拒绝。",
+        "第三道防线则是「硬件热管理与显存主动释放」。消费级显卡在长时间满载批量生成时若未设定收尾清理，后台常驻的 16–20 GB 模型会长期霸占显存，导致用户打开浏览器硬件加速、绘图或剪辑工具时画面卡顿甚至崩溃。因此在批处理脚本外层务必使用 Python 的 try...finally 代码块，无论任务成功或中途抛出异常，结束时皆通过 CLI 命令（如 lms unload --all 或 Ollama 设定 keep_alive: 0）即时释放显存。结合显存精算、依赖注入测试、输出清洗与断点缓存，单张家用 GPU 也能蜕变为零边际成本、数据绝不外流的私有 AI 工厂。"
+      ],
+      "bullets": [
+        "先校验再写入缓存：务必确认清洗后的响应通过 JSON Schema 或质量检查才落盘，防止坏输出污染断点缓存",
+        "推理前先用 GET /v1/models 或 /api/tags 做轻量健康检查，并为长文本 Prefill 预留足够读取超时与重试机制",
+        "以 try...finally 确保脚本结束时自动卸载模型释放显存，避免本地模型长期占用桌面图形资源"
+      ],
+      "callout_title": "上线检核表：单 GPU 本地产线四项开工确认",
+      "callout_body": "开跑大型批次前请依次确认：一、以 estimate_gguf_vram_gb 确认总显存低于实体卡容量并预留至少 1.5 GB 系统缓冲；二、确认推理端点仅监听 127.0.0.1；三、以离线 mock transport 跑通单元测试验证 <think> 剥离与缓存命中；四、设定脚本结束时的自动卸载指令，确保 GPU 资源用完即还。"
+    }
+  ],
+  "diagram_caption": "图 8-1：本地 LLM 客户端架构与显存／SHA-256 断点缓存数据流",
+  "diagram_svg": "<svg viewBox=\"0 0 760 260\" role=\"img\" aria-label=\"本地 LLM 客户端架构与显存及 SHA-256 断点缓存数据流\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"llm-arrow-dark\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#1c1917\"/></marker><marker id=\"llm-arrow-green\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#15803d\"/></marker></defs><rect width=\"760\" height=\"260\" fill=\"#fdfcf9\"/><rect x=\"18\" y=\"22\" width=\"212\" height=\"180\" rx=\"8\" fill=\"#ffffff\" stroke=\"#1c1917\" stroke-width=\"1.8\"/><rect x=\"18\" y=\"22\" width=\"212\" height=\"32\" rx=\"8\" fill=\"#1c1917\"/><text x=\"124\" y=\"43\" font-family=\"monospace\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#fdfcf9\">CachedLocalLlmClient</text><rect x=\"32\" y=\"66\" width=\"184\" height=\"54\" rx=\"5\" fill=\"#fffbeb\" stroke=\"#d97706\" stroke-width=\"1.2\"/><text x=\"124\" y=\"85\" font-family=\"sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">SHA-256 断点缓存</text><text x=\"124\" y=\"103\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#78350f\">hash(model, sys, user)[:16]</text><text x=\"124\" y=\"115\" font-family=\"monospace\" font-size=\"9.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#15803d\">命中直接返回 (api_calls=1)</text><rect x=\"32\" y=\"132\" width=\"184\" height=\"56\" rx=\"5\" fill=\"#f0fdf4\" stroke=\"#16a34a\" stroke-width=\"1.2\"/><text x=\"124\" y=\"151\" font-family=\"monospace\" font-size=\"10\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#14532d\">clean_local_llm_output()</text><text x=\"124\" y=\"168\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#57534e\">剥离 &lt;think&gt; 与 ```json 围栏</text><text x=\"124\" y=\"182\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#15803d\">-&gt; {\"status\": \"ready\"}</text><rect x=\"272\" y=\"52\" width=\"198\" height=\"122\" rx=\"8\" fill=\"#f7fee7\" stroke=\"#15803d\" stroke-width=\"1.8\"/><text x=\"371\" y=\"76\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#14532d\">依赖注入 Transport 层</text><text x=\"371\" y=\"98\" font-family=\"monospace\" font-size=\"10\" text-anchor=\"middle\" fill=\"#1c1917\">reasoning_effort: \"none\"</text><text x=\"371\" y=\"116\" font-family=\"monospace\" font-size=\"10\" text-anchor=\"middle\" fill=\"#57534e\">temperature: 0.2 | max_tokens</text><line x1=\"288\" y1=\"132\" x2=\"454\" y2=\"132\" stroke=\"#86efac\" stroke-width=\"1.2\" stroke-dasharray=\"4 3\"/><text x=\"371\" y=\"150\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#b45309\">Prod: 127.0.0.1:1234 / 11434</text><text x=\"371\" y=\"165\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#15803d\">CI: mock_lm_studio (零网络)</text><rect x=\"512\" y=\"22\" width=\"230\" height=\"180\" rx=\"8\" fill=\"#ffffff\" stroke=\"#b45309\" stroke-width=\"1.8\"/><rect x=\"512\" y=\"22\" width=\"230\" height=\"32\" rx=\"8\" fill=\"#b45309\"/><text x=\"627\" y=\"43\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#fdfcf9\">本地 GPU 推理引擎 (GGUF)</text><text x=\"526\" y=\"74\" font-family=\"sans-serif\" font-size=\"11\" font-weight=\"bold\" fill=\"#1c1917\">LM Studio / Ollama (llama.cpp)</text><text x=\"526\" y=\"96\" font-family=\"monospace\" font-size=\"10\" fill=\"#57534e\">26B Q4_K_M (4.5b) @ 8k ctx:</text><text x=\"526\" y=\"118\" font-family=\"monospace\" font-size=\"10\" fill=\"#1c1917\">权重: 14.625 GB</text><text x=\"526\" y=\"136\" font-family=\"monospace\" font-size=\"10\" fill=\"#1c1917\">KV Cache: 1.04 GB</text><text x=\"526\" y=\"154\" font-family=\"monospace\" font-size=\"10\" fill=\"#1c1917\">开销: 1.20 GB</text><rect x=\"526\" y=\"164\" width=\"202\" height=\"26\" rx=\"4\" fill=\"#fef3c7\" stroke=\"#d97706\" stroke-width=\"1\"/><text x=\"627\" y=\"181\" font-family=\"monospace\" font-size=\"10.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">总计预估 VRAM = 16.86 GB</text><line x1=\"230\" y1=\"92\" x2=\"268\" y2=\"92\" stroke=\"#1c1917\" stroke-width=\"1.8\" marker-end=\"url(#llm-arrow-dark)\"/><text x=\"250\" y=\"84\" font-family=\"sans-serif\" font-size=\"9\" text-anchor=\"middle\" fill=\"#1c1917\">未命中</text><line x1=\"470\" y1=\"92\" x2=\"508\" y2=\"92\" stroke=\"#1c1917\" stroke-width=\"1.8\" marker-end=\"url(#llm-arrow-dark)\"/><text x=\"490\" y=\"84\" font-family=\"sans-serif\" font-size=\"9\" text-anchor=\"middle\" fill=\"#1c1917\">POST</text><line x1=\"512\" y1=\"148\" x2=\"474\" y2=\"148\" stroke=\"#15803d\" stroke-width=\"1.8\" marker-end=\"url(#llm-arrow-green)\"/><text x=\"492\" y=\"164\" font-family=\"sans-serif\" font-size=\"9\" text-anchor=\"middle\" fill=\"#15803d\">原始响应</text><line x1=\"272\" y1=\"148\" x2=\"234\" y2=\"148\" stroke=\"#15803d\" stroke-width=\"1.8\" marker-end=\"url(#llm-arrow-green)\"/><text x=\"252\" y=\"164\" font-family=\"sans-serif\" font-size=\"9\" text-anchor=\"middle\" fill=\"#15803d\">清洗入库</text><rect x=\"18\" y=\"216\" width=\"724\" height=\"30\" rx=\"6\" fill=\"#fef3c7\" stroke=\"#d97706\" stroke-width=\"1.2\"/><text x=\"380\" y=\"236\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">核心心法：预估显存留缓冲 ｜ 单卡分阶段批处理调度 ｜ 先清洗校验再写入 SHA-256 断点缓存</text></svg>",
+  "comparison_table": {
+    "caption": "表 8-1：依 estimate_gguf_vram_gb 公式估算之常见 Q4_K_M（4.5 bits）模型显存对照",
+    "headers": [
+      "模型规模（Q4_K_M）",
+      "纯权重估算",
+      "8k 上下文总显存",
+      "32k 上下文总显存",
+      "建议硬件配置"
+    ],
+    "rows": [
+      [
+        "8B 模型（如 Llama-3 8B）",
+        "4.50 GB",
+        "6.02 GB",
+        "6.98 GB",
+        "8 GB 以上 GPU（RTX 4060 / Mac 16GB）"
+      ],
+      [
+        "14B 模型（如 Qwen 14B）",
+        "7.88 GB",
+        "9.64 GB",
+        "11.32 GB",
+        "12 GB GPU（RTX 3060 12G / 4070）"
+      ],
+      [
+        "26B 模型（如 Gemma4-26B）",
+        "14.63 GB",
+        "16.86 GB",
+        "19.99 GB",
+        "24 GB GPU（RTX 3090 / 4090）或 MoE 部分卸载"
+      ],
+      [
+        "32B 模型（如 Qwen 32B）",
+        "18.00 GB",
+        "20.48 GB",
+        "24.32 GB",
+        "24 GB GPU（限 8k）或 32 GB+ 统一内存"
+      ]
+    ]
+  },
+  "code_walkthrough": [
+    "estimate_gguf_vram_gb() 以权重空间、KV Cache（随 context_k 线性增长）与 1.2 GB 运行期开销估算显存，对 26B Q4_K_M（4.5 bits、8k）精准返回 16.86 GB。",
+    "clean_local_llm_output() 通过 THINK_BLOCK_RE（re.DOTALL | re.IGNORECASE）移除跨行 <think> 思考区块，再以 FENCE_RE 剥离外层 Markdown 代码围栏。",
+    "CachedLocalLlmClient._cache_key() 将 model_id、system_prompt 与 user_prompt 序列化为 JSON 后取 SHA-256 前 16 位，确保换模或改提示即自动失效。",
+    "complete() 通过依赖注入的 transport 发送 reasoning_effort: none 与 temperature: 0.2 请求；主程序以 mock_lm_studio 离线验证缓存命中（二次调用 api_calls 维持 1）。"
+  ],
+  "pitfalls": [
+    {
+      "title": "陷阱 1：上下文窗口开太大导致 KV Cache 爆显存（OOM）",
+      "symptom": "模型权重明显小于显卡容量，但设定 64k 或 128k 上下文加载后，推理立刻发生 OOM 或因系统自动把部分层卸载到 CPU 内存，导致生成速度暴跌十倍以上。",
+      "root_cause_and_fix": "KV Cache 体积与上下文长度成正比。修复方式：在加载前以 estimate_gguf_vram_gb 验算目标 context_k，对批量写作与翻译任务将窗口锁定在 4K–8K 黄金区间，并保留至少 1.5–2.0 GB 实体显存缓冲。"
+    },
+    {
+      "title": "陷阱 2：未剥离 <think> 思考区块与 Markdown 围栏导致 JSON 解析崩溃",
+      "symptom": "本地推理模型响应中夹带跨行 <think>...</think> 推理过程或 ```json ... ``` 标记，下游直接执行 json.loads() 时抛出 JSONDecodeError。",
+      "root_cause_and_fix": "请双管齐下：对不需深度推演的格式化任务在请求负载设定 reasoning_effort: none，同时于客户端固定串联 clean_local_llm_output() 跨行剥离思考区块与外层代码围栏，并在校验合法后才写入缓存。"
+    },
+    {
+      "title": "陷阱 3：本地 API 暴露公网或批处理脚本结束未释放显存",
+      "symptom": "本地 LM Studio / Ollama 绑定 0.0.0.0 遭同网段未授权调用；或批处理脚本跑完却忘记卸载 20 GB 模型，害桌面图形应用或下一轮调度直接卡死报显存不足。",
+      "root_cause_and_fix": "本地服务一律绑定 127.0.0.1（跨机访问须加反向代理与 OAuth/Bearer 认证）；并在 Python 批处理入口以 try...finally 确保结束时调用 lms unload --all 或释放模型，彻底归还 GPU 显存。"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "依据本章 estimate_gguf_vram_gb(params_billion, quant_bits=4.5, context_k=8) 公式，估算一颗 8B 参数的 Q4_K_M（4.5 bits）模型在 8k 上下文所需总显存（含权重、KV Cache 与 1.2 GB 系统开销），最接近何者？",
+      "options": [
+        "约 2.50 GB",
+        "约 6.02 GB",
+        "约 12.80 GB",
+        "约 24.00 GB"
+      ],
+      "answer_index": 1,
+      "explanation": "代入公式：权重 = 8.0 * (4.5 / 8.0) = 4.50 GB，KV Cache = (8 / 8) * (8.0 * 0.04) = 0.32 GB，固定开销 = 1.20 GB，三者相加为 6.02 GB。"
+    },
+    {
+      "question": "在 CachedLocalLlmClient._cache_key() 中，为何必须将 self.model_id 与 system_prompt 一并纳入 SHA-256 哈希，而不能只对 user_prompt 计算哈希？",
+      "options": [
+        "因为 Python 的 hashlib.sha256 规定输入至少要有三个元素",
+        "避免切换模型版本或修改系统提示词规则后，误命中旧模型的过期响应造成数据污染",
+        "为了压缩 GPU 内部的 KV Cache 显存体积",
+        "因为 OpenAI-Compatible API 不允许发送相同的 user_prompt"
+      ],
+      "answer_index": 1,
+      "explanation": "这层缓存存储的是应用层的文本响应结果。若缓存键不含 model_id 与 system_prompt，当您升级模型或修改系统规则后，输入相同 user_prompt 仍会读回旧模型的缓存输出，导致静默污染。"
+    },
+    {
+      "question": "在 clean_local_llm_output() 中，THINK_BLOCK_RE 为何必须启用 re.DOTALL 标志？",
+      "options": [
+        "让正则表达式自动忽略大小写差异",
+        "让点号（.）也能匹配换行字符，才能完整剥离跨越多行的 <think>...</think> 推理区块",
+        "让正则表达式只匹配字符串开头的字符",
+        "强制将输出结果自动转成 Python 字典对象"
+      ],
+      "answer_index": 1,
+      "explanation": "默认情况下正则表达式的点号（.）不会匹配换行符 \\n。推理模型的 <think> 区块几乎都会跨越多行，未开 re.DOTALL 将导致整个区块完全无法匹配而残留于输出中。"
+    }
+  ],
+  "interview_faqs": [
+    {
+      "question": "LM Studio 与 Ollama 在工程实务上有何差异？各自适合什么场景？",
+      "answer": "两者底层皆构建于 llama.cpp 并提供 OpenAI-Compatible API，但定位互补：LM Studio（默认端口 1234）内置可视化模型管理、细部 GPU 卸载微调与 lms CLI 命令，非常适合开发者单机实验与可控的单 GPU 批处理脚本（通过 lms load / lms unload 精准调度）；Ollama（默认端口 11434）则擅长以轻量后台常驻服务与 Modelfile 封装模型，搭配 Docker 或 systemd 部署于服务器环境最为顺手。"
+    },
+    {
+      "question": "Q4_K_M 量化格式对代码生成与结构化 JSON 输出的质量影响大吗？",
+      "answer": "对于 14B 至 35B 等级的现代开源模型，Q4_K_M（平均约 4.5 bits/weight）通常是单卡实战的甜蜜点：它比 FP16 节省超过 70% 显存，同时通过 K-Quants 混合精度保护关键权重层，困惑度（Perplexity）仅微幅上升，足以胜任代码草稿、翻译与 JSON 提取。若发现小型模型（如 7B/8B）在严格 JSON Schema 下不稳，可优先升至 Q6_K 或 Q8_0，或在外部搭配结构化重试与 Linter 校验。"
+    },
+    {
+      "question": "如何在不触发昂贵 GPU 推理的前提下，对本地 LLM 服务做存活检查（Health Check）？",
+      "answer": "切勿使用 /v1/chat/completions 发送测试文本来当健康检查，那会触发真实的 Prefill 与 Decode 算力消耗。LM Studio 可发送轻量的 GET http://127.0.0.1:1234/v1/models 确认服务返回 HTTP 200 且目标模型已挂载；Ollama 则可调用 GET http://127.0.0.1:11434/api/tags（查可用模型）或 /api/ps（查当前常驻显存中的模型）。"
+    },
+    {
+      "question": "若 Prompt 中包含时间戳或请求 ID 等动态字段，SHA-256 缓存一直无法命中该怎么办？",
+      "answer": "应将「不影响语义的追踪元数据（如 request_id、调用时间）」移出提示词正文、改放于 HTTP 请求头或应用层日志中；若业务上确有日期等动态变量，则在计算 _cache_key 前先做规范化模板化（只对稳定内容与必要上下文计算哈希），并将动态与静态段落分开设计，让昂贵的长文档处理仍能享受高缓存命中率。"
+    }
+  ],
+  "further_reading": [
+    {
+      "title": "ggml-org/llama.cpp — Official Repository",
+      "url": "https://github.com/ggml-org/llama.cpp",
+      "note": "GGUF 格式与 K-Quants 量化算法的核心开源引擎，涵盖量化等级比较、KV Cache 量化与 GPU 卸载参数。"
+    },
+    {
+      "title": "LM Studio Developer Docs — OpenAI Compatibility API",
+      "url": "https://lmstudio.ai/docs/developer/openai-compat",
+      "note": "LM Studio 官方本地 API 文档，详列 /v1/models、/v1/chat/completions 与推理控制参数规范。"
+    },
+    {
+      "title": "Hugging Face Docs — GGUF Format Overview",
+      "url": "https://huggingface.co/docs/hub/gguf",
+      "note": "GGUF 单文件权重与元数据封装规范说明，快速对照 Q4_K_M、Q6_K 与 Q8_0 的位宽与选型准则。"
+    }
+  ],
+  "code_replacements": [
+    [
+      "Book 1 Ch.08 地端開源大模型實戰（LM Studio / Ollama）：零依賴客戶端、雜湊快取與 VRAM 估算",
+      "第一卷 第 8 章 本地开源大模型实战（LM Studio / Ollama）：零依赖客户端、哈希缓存与显存估算"
+    ],
+    [
+      "示範 OpenAI-Compatible API 請求封裝、關閉思考模式、剝離 <think> 標籤與 SHA-256 斷點快取（CI 全離線安全）。",
+      "演示 OpenAI-Compatible API 请求封装、关闭思考模式、剥离 <think> 标签与 SHA-256 断点缓存（CI 全离线安全）。"
+    ],
+    [
+      "估算地端模型載入所需顯存（權重空間 ＋ KV Cache ＋ 系統開銷）。",
+      "估算本地模型加载所需显存（权重空间 ＋ KV Cache ＋ 系统开销）。"
+    ],
+    [
+      "參數規模與量化位元數必須為正數",
+      "参数规模与量化位宽必须为正数"
+    ],
+    [
+      "剝離地端推理模型可能夾帶的 <think> 思考區塊與外層 Markdown 程式碼圍欄。",
+      "剥离本地推理模型可能夹带的 <think> 思考区块与外层 Markdown 代码围栏。"
+    ],
+    [
+      "支援斷點雜湊快取與依賴注入傳輸層（Transport）之本機 OpenAI-Compatible 客戶端。",
+      "支持断点哈希缓存与依赖注入传输层（Transport）的本地 OpenAI-Compatible 客户端。"
+    ],
+    [
+      "# CI 環境零網路依賴：使用記憶體內模擬傳輸層示範 <think> 清理與快取命中",
+      "# CI 环境零网络依赖：使用内存模拟传输层演示 <think> 清理与缓存命中"
+    ],
+    [
+      "Ch.08 26B Q4 預估顯存: ",
+      "Ch.08 26B Q4 预估显存: "
+    ],
+    [
+      "清理輸出: ",
+      "清理输出: "
+    ],
+    [
+      " | 二次呼叫快取命中(API次=",
+      " | 二次调用缓存命中(API次="
+    ]
+  ],
+  "output_replacements": [
+    [
+      "預估顯存:",
+      "预估显存:"
+    ],
+    [
+      "清理輸出:",
+      "清理输出:"
+    ],
+    [
+      "二次呼叫快取命中",
+      "二次调用缓存命中"
+    ]
+  ]
+}

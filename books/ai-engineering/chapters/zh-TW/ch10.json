@@ -1,0 +1,224 @@
+{
+  "book_id": "ai-engineering",
+  "chapter_id": "ch10",
+  "locale": "zh-TW",
+  "status": "published",
+  "badge": "Ch.10",
+  "part_id": "part4",
+  "title": "LLMOps 上線實戰：雙層模型路由、成本控管、限流與可觀測性",
+  "short_title": "LLMOps 路由與成本控管",
+  "summary": "從原型邁向高並發正式上線的最後一哩路：實作輕量／旗艦雙層模型路由器省下 40% 成本、Token Bucket 限流器防迴圈刷爆，以及對齊 OpenTelemetry 的延遲與費用遙測。",
+  "aeo_capsule": "<strong>生產級 LLMOps 營運閘門</strong>結合 <code>route_model</code> 雙層模型路由、<code>compute_call_cost_usd</code> 精確 Token 成本帳本與 <code>TokenBucketLimiter</code> 突發限流器，在確保深度推理品質的同時大幅壓低帳單並建立端到端可觀測性。",
+  "reading_minutes": 18,
+  "lastmod": "2026-11-28",
+  "example_file": "examples/ai_ch10_llmops_router.py",
+  "keywords": [
+    "LLMOps",
+    "Model Routing",
+    "Cost Optimization",
+    "Token Bucket",
+    "Rate Limiting",
+    "OpenTelemetry",
+    "Observability",
+    "紫楓出版社"
+  ],
+  "learning_objectives": [
+    "設計輕量與旗艦雙層模型路由策略，將日常分類／摘要／擷取分流至低價模型並精準量化省費比例",
+    "手刻 Token Bucket 令牌桶限流演算法，在容忍合理突發流量的同時防止迴圈 Bug 與惡意刷爆",
+    "建立拆解輸入／輸出非對稱費率的成本帳本，並對齊 OpenTelemetry GenAI 語意慣例追蹤延遲與費用"
+  ],
+  "sections": [
+    {
+      "id": "sec10-1-model-routing-strategy",
+      "heading": "10.1 雙層模型路由：以任務難度與脈絡長度驅動成本最佳化",
+      "paragraphs": [
+        "AI 應用從內部 Demo 邁向真實流量上線時，第一個擊垮營運預算的往往不是尖峰並發，而是「所有請求一律打給最貴的旗艦模型」的惰性架構。事實上，企業日常流量中有高達六至八成屬於意圖分類（classify）、短文摘要（summarize）或欄位擷取（extract）等結構化明確的任務；把這些輕量工作交給每百萬輸入 Token 僅 $0.15 的 FAST_TIER（如 flash-lite），而把每百萬輸入 $2.50、輸出 $10.00 的 PRO_TIER（frontier-pro）專留給架構審查與複雜多步推理，就能在不犧牲核心品質的前提下大幅拉低單位成本。",
+        "在本章範例 examples/ai_ch10_llmops_router.py 中，我們先以不可變資料類別 ModelTier(frozen=True) 定義各層級模型的輸入與輸出費率，再透過 route_model(task_type, context_tokens) 建立確定性分流門檻：唯有任務屬於 {classify, summarize, extract} 且輸入脈絡 context_tokens <= 16_000 時才指派 FAST_TIER，其餘高難度或超長脈絡請求一律升艙至 PRO_TIER。設定 16,000 Tokens 的脈絡上限非常務實——輕量模型在超長文本中較容易出現「大海撈針」注意力稀釋，提前於閾值處升艙能避免因輸出品質崩壞而反覆重試，反而把省下來的費用賠光。",
+        "以範例中的四筆混合工作負載實測（三筆輕量任務加一筆 8,000 輸入／1,200 輸出的 architecture_review）：若全部請求硬走旗艦模型，總費用為 $0.05575；導入雙層路由後，前三筆合計僅花 $0.00143，加上架構審查的 $0.03200，總計 $0.03343，單靠數行確定性路由邏輯便立省 40.0% 預算。且這類規則型路由器只需微秒級運算，零額外模型推論延遲，是所有生產級 AI 閘道器最具投資報酬率的第一項最佳化。"
+      ],
+      "bullets": [
+        "以 dataclass(frozen=True) 建立不可變 ModelTier 費率表，明確區隔 FAST_TIER（$0.15 / $0.60）與 PRO_TIER（$2.50 / $10.00）",
+        "route_model 同時檢查任務類型與 context_tokens <= 16_000 門檻，防止輕量模型因長脈絡注意力稀釋而失準",
+        "範例混合負載實測：雙層路由總成本 $0.03343 對比全旗艦 $0.05575，直接省下 40.0% 費用"
+      ],
+      "callout_title": "工程筆記：從規則路由進化到級聯回退（Cascade Fallback）",
+      "callout_body": "若部分請求在進入前難以單憑 task_type 判斷難易度，可在規則路由之外搭配「級聯回退」模式：先以低價輕量模型快速產出結果並透過第 9 章的結構化驗證閘門檢驗，僅當驗證失敗或信心指標不足時，才自動升艙重跑旗艦模型。"
+    },
+    {
+      "id": "sec10-2-token-bucket-rate-limiting",
+      "heading": "10.2 Token Bucket 令牌桶限流器：吸收突發流量並防堵迴圈刷爆",
+      "paragraphs": [
+        "在 AI 系統裡，限流器不只是為了擋住外部惡意爬蟲，更是防範自家 Agent 陷入無窮重試迴圈、在幾分鐘內燒光整月 API 預算的關鍵斷路器。相較於容易在整點交界處爆出雙倍尖峰的固定時間視窗計數器（Fixed Window Counter），Token Bucket（令牌桶）演算法透過「桶容量（capacity）」與「恆定補充速率（refill_per_sec）」兩個直覺參數，既允許短暫合理的突發批次（Burst），又能嚴格鎖死長期平均吞吐量上限。",
+        "檢視範例中 TokenBucketLimiter 的實作細節：初始化時桶內預設裝滿 capacity 枚令牌並記錄上次時間戳 last_ts。每當呼叫 allow(now_sec, cost=1.0) 時，系統先以 elapsed = max(0.0, now_sec - self.last_ts) 計算經過秒數（加上 max 保護防止系統時鐘回撥造成負值），接著依 min(self.capacity, self.tokens + elapsed * self.refill_per_sec) 補齊令牌並更新 last_ts。關鍵判斷在於 self.tokens >= cost（大於等於而非嚴格大於）：只要餘額足以支付本次請求成本，即扣除 cost 並回傳 True，否則立即拒絕並回傳 False。",
+        "主程式以 capacity=2.0、refill_per_sec=0.5 進行四步突發測試，精準印證演算法行為：在時間 t=0.0 連續送出三筆請求時，第 1 筆把令牌從 2.0 扣至 1.0（True），第 2 筆扣至 0.0（True），第 3 筆因 0.0 < 1.0 被即時擋下（False）；直到 t=2.0 經過 2 秒補充 2.0 * 0.5 = 1.0 枚令牌後，第 4 筆請求才再次放行（True），輸出完全符合 [True, True, False, True]。值得注意的是，範例採呼叫端顯式傳入 now_sec 的設計，讓單元測試無需 time.sleep() 就能在微秒內確定性重現任何時間間隔；上線時再由外層注入 time.monotonic() 單調時鐘即可。"
+      ],
+      "bullets": [
+        "Token Bucket 以 capacity 控制瞬間最大突發量、以 refill_per_sec 控制長期平均速率，優於易生邊界雙倍尖峰的固定視窗法",
+        "allow() 先依 elapsed 補桶並封頂於 capacity，只要 tokens >= cost 即扣額放行；範例四步測試輸出 [True, True, False, True]",
+        "以顯式注入時間戳 now_sec 實作限流器，測試零 sleep 秒跑完，線上則務必餵入 time.monotonic() 避免系統校時漂移"
+      ],
+      "callout_title": "進階實戰：LLM 限流建議同時管制 RPM（請求數）與 TPM（Token 數）",
+      "callout_body": "一筆 100 Token 的短分類與一筆 16,000 Token 的長摘要對供應商配額消耗相差百倍。範例的 allow(now_sec, cost=1.0) 刻意保留了可變 cost 參數——在生產環境中，您只要把 cost 設為該請求預估的 Token 數量，同一套 TokenBucketLimiter 立刻升級為精準的 TPM（Tokens Per Minute）限流器。"
+    },
+    {
+      "id": "sec10-3-cost-accounting-and-telemetry",
+      "heading": "10.3 精確成本帳本：拆解非對稱 Token 費率與單位經濟學",
+      "paragraphs": [
+        "把 AI 系統投入商業營運後，工程團隊最常在月底對帳時大吃一驚：明明請求總量只成長兩成，API 費用卻暴增三倍。元兇幾乎總是「輸入與輸出的非對稱定價結構」。觀察範例中的 PRO_TIER 費率即可一目了然：每百萬輸入 Token 定價 $2.50，但輸出 Token 高達 $10.00，整整貴了四倍（FAST_TIER 亦同為四倍：$0.15 對 $0.60）。當模型未設 max_tokens 上限、或因過度冗長的思考鏈輸出數千字廢話時，單位成本會急遽惡化。",
+        "範例的 compute_call_cost_usd(tier, input_tokens, output_tokens) 將單次呼叫拆解為 (input_tokens / 1_000_000) * tier.input_per_1m_usd + (output_tokens / 1_000_000) * tier.output_per_1m_usd，讓系統能在每次請求完成當下即時算出精確美元花費，而不必等到隔天去雲端後台拉取延遲報表。若是跨租戶計費或百萬級月帳本對帳，建議將金額改以 Python 標準庫 Decimal 或整數「微美元（micro-dollars）」累計，消除 IEEE 754 浮點數長時加總誤差，並於紀錄中保存當時生效的費率版本號（price_version），確保供應商調價後歷史帳目仍可重算稽核。",
+        "此外，實務記帳千萬別漏掉「失敗與重試請求的隱形成本」。當客戶端遇到 JSON 解析失敗重試兩次、或輕量模型驗證不通過而回退旗艦模型時，每一次打向供應商的請求都會計費。將總支出除以「真正成功交付給使用者的任務數」，得出「每成功任務成本（Cost per Successful Task）」，才是衡量 Prompt 精簡、快取命中與路由策略是否真正替公司省錢的黃金指標。"
+      ],
+      "bullets": [
+        "輸入與輸出費率高度非對稱（輸出通常為輸入的 3–5 倍），限制 max_tokens 與精簡輸出格式是最直接的降本槓桿",
+        "即時呼叫 compute_call_cost_usd 記錄每筆請求成本，跨租戶對帳與財務帳本應改用 Decimal 或整數微美元防浮點誤差",
+        "務必將重試與回退請求一併入帳，持續追蹤「每成功任務成本」與快取節省率，避免低估真實營運開銷"
+      ],
+      "callout_title": "財務洞察：雙層路由之外，Prompt Caching 是第二大降本引擎",
+      "callout_body": "若所有請求都共用數千 Token 的系統提示詞、工具定義（MCP Schema）或固定領域規範，啟用雲端供應商的 Prompt Caching（前綴快取）通常可讓重複輸入 Token 的費用大降 50% 至 90%，同時大幅縮短首字延遲（TTFT），與雙層模型路由相輔相成。"
+    },
+    {
+      "id": "sec10-4-observability-and-production-readiness",
+      "heading": "10.4 結構化可觀測性與上線韌性：對齊 OpenTelemetry 的黃金三角",
+      "paragraphs": [
+        "傳統 Web 服務只要監控 HTTP 狀態碼與總回應時間即可大致掌握健康度，但 LLM 應用具備串流輸出、按 Token 計費與語意退化三大特性，必須建立專屬的「延遲 × 用量 × 品質」可觀測性黃金三角。在延遲維度，除了整體端到端 P50／P95／P99 耗時，更須拆出首字延遲（TTFT，決定使用者覺得系統快不快）與每 Token 生成速度（TPOT）；在用量與成本維度，則直接對齊業界標準 OpenTelemetry GenAI Semantic Conventions，記錄 gen_ai.request.model、gen_ai.usage.input_tokens、gen_ai.usage.output_tokens 與自訂的 routing_tier、cost_usd 及 rate_limited 欄位。",
+        "把限流狀態與路由決策寫入同一條結構化 Trace，能讓線上排障速度倍增。當監控系統偵測到 HTTP 429 限流比例攀升時，工程師可立刻依 task_type、tenant_id 與 context_tokens 切分診斷：究竟是單一租戶寫了死迴圈、某類任務上下文突然暴漲逼過 16,000 Tokens 觸發大量升艙，還是上游供應商延遲飆高引發客戶端雪崩重試。同時，對被 TokenBucketLimiter 拒絕的請求，閘道層應主動回傳標準 HTTP 429 Too Many Requests 與精確的 Retry-After 秒數標頭（依缺額令牌數除以 refill_per_sec 算出），引導客戶端執行含隨機抖動（Jitter）的指數退避。",
+        "走到本書第十章的終點，回望我們從第 1 章到第 10 章親手建構的完整地圖：從底層 BPE Tokenizer 與注意力機制、Context Engineering、Hybrid RAG 與自動化評測、ReAct Agent 狀態機、手刻 JSON-RPC 2.0 MCP Server、Multi-Agent 最小權限與 HITL 防禦、地端 GGUF 單卡排程、規格驅動契約閘門，一路收斂至本章的雙層路由、令牌桶限流與結構化遙測。所有十支零依賴 Python 3.12 範例共同傳達同一個工程信念——唯有把機率性的 AI 模型包進確定性的軟體工程、測試契約與營運護欄中，AI 系統才能真正經得起真實世界的長期考驗。"
+      ],
+      "bullets": [
+        "對齊 OpenTelemetry GenAI 語意慣例記錄 request_id、model_tier、TTFT、TPOT、輸入／輸出 Token 與 cost_usd",
+        "限流拒絕時回傳標準 HTTP 429 與動態計算的 Retry-After 標頭，並搭配含 Jitter 的指數退避防堵重試風暴",
+        "串聯全書十章工程主線：以確定性契約、權限閘門、路由限流與可觀測性馴服非確定性大型語言模型"
+      ],
+      "callout_title": "全書結語：可觀測性與預算熔斷必須在 Day 1 寫進架構",
+      "callout_body": "不要等到收到天價帳單或被使用者投訴系統卡死才開始補日誌。上線第一天就為每個 API 金鑰與租戶掛上 TokenBucketLimiter、每日費用上限告警（Budget Circuit Breaker）與結構化 JSON 遙測，讓每一分算力花得清清楚楚。"
+    }
+  ],
+  "diagram_caption": "圖 10-1：LLMOps 雙層模型路由、Token Bucket 限流與成本可觀測性架構圖",
+  "diagram_svg": "<svg viewBox=\"0 0 760 260\" role=\"img\" aria-label=\"LLMOps 雙層模型路由、Token Bucket 限流與成本可觀測性架構圖\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"ops-arrow-dark\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#1c1917\"/></marker><marker id=\"ops-arrow-green\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#15803d\"/></marker><marker id=\"ops-arrow-amber\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#b45309\"/></marker></defs><rect width=\"760\" height=\"260\" fill=\"#fdfcf9\"/><rect x=\"16\" y=\"52\" width=\"130\" height=\"124\" rx=\"8\" fill=\"#ffffff\" stroke=\"#1c1917\" stroke-width=\"1.8\"/><rect x=\"16\" y=\"52\" width=\"130\" height=\"28\" rx=\"8\" fill=\"#1c1917\"/><text x=\"81\" y=\"71\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#fdfcf9\">1. Token Bucket</text><text x=\"81\" y=\"98\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#1c1917\">cap=2.0 | 0.5/s</text><text x=\"81\" y=\"118\" font-family=\"monospace\" font-size=\"9.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#15803d\">[T, T, F, T]</text><text x=\"81\" y=\"140\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#b91c1c\">超額回傳 429</text><text x=\"81\" y=\"158\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#57534e\">防迴圈與突發刷爆</text><rect x=\"176\" y=\"52\" width=\"146\" height=\"124\" rx=\"8\" fill=\"#fffbeb\" stroke=\"#b45309\" stroke-width=\"1.8\"/><text x=\"249\" y=\"76\" font-family=\"monospace\" font-size=\"11.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">2. route_model()</text><text x=\"249\" y=\"98\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#1c1917\">classify / summarize</text><text x=\"249\" y=\"114\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#1c1917\">extract &amp; &lt;= 16k</text><line x1=\"192\" y1=\"126\" x2=\"306\" y2=\"126\" stroke=\"#f59e0b\" stroke-width=\"1\" stroke-dasharray=\"4 2\"/><text x=\"249\" y=\"145\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#57534e\">複雜審查或 &gt; 16k</text><text x=\"249\" y=\"162\" font-family=\"sans-serif\" font-size=\"9.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#b45309\">自動升艙旗艦層</text><rect x=\"362\" y=\"22\" width=\"176\" height=\"78\" rx=\"8\" fill=\"#f0fdf4\" stroke=\"#15803d\" stroke-width=\"1.8\"/><text x=\"450\" y=\"44\" font-family=\"monospace\" font-size=\"11.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#14532d\">FAST_TIER (flash-lite)</text><text x=\"450\" y=\"64\" font-family=\"monospace\" font-size=\"10\" text-anchor=\"middle\" fill=\"#15803d\">$0.15 in / $0.60 out / 1M</text><text x=\"450\" y=\"84\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#57534e\">日常分類、摘要、擷取（3 筆）</text><rect x=\"362\" y=\"122\" width=\"176\" height=\"78\" rx=\"8\" fill=\"#fff7ed\" stroke=\"#b45309\" stroke-width=\"1.8\"/><text x=\"450\" y=\"144\" font-family=\"monospace\" font-size=\"11.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">PRO_TIER (frontier-pro)</text><text x=\"450\" y=\"164\" font-family=\"monospace\" font-size=\"10\" text-anchor=\"middle\" fill=\"#b45309\">$2.50 in / $10.00 out / 1M</text><text x=\"450\" y=\"184\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#57534e\">深度架構審查與長推理（1 筆）</text><rect x=\"576\" y=\"36\" width=\"168\" height=\"152\" rx=\"8\" fill=\"#ffffff\" stroke=\"#1c1917\" stroke-width=\"1.8\"/><rect x=\"576\" y=\"36\" width=\"168\" height=\"28\" rx=\"8\" fill=\"#1c1917\"/><text x=\"660\" y=\"55\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#fdfcf9\">3. 帳本與 OTel 遙測</text><text x=\"660\" y=\"84\" font-family=\"monospace\" font-size=\"10\" text-anchor=\"middle\" fill=\"#1c1917\">TTFT / TPOT / P95</text><text x=\"660\" y=\"104\" font-family=\"monospace\" font-size=\"10\" text-anchor=\"middle\" fill=\"#57534e\">input / output tokens</text><rect x=\"588\" y=\"118\" width=\"144\" height=\"58\" rx=\"5\" fill=\"#f0fdf4\" stroke=\"#16a34a\" stroke-width=\"1.2\"/><text x=\"660\" y=\"136\" font-family=\"monospace\" font-size=\"10\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#14532d\">雙層: $0.03343</text><text x=\"660\" y=\"152\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#57534e\">全旗艦: $0.05575</text><text x=\"660\" y=\"168\" font-family=\"sans-serif\" font-size=\"10\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#15803d\">立省 40.0% 預算</text><line x1=\"146\" y1=\"114\" x2=\"172\" y2=\"114\" stroke=\"#1c1917\" stroke-width=\"1.8\" marker-end=\"url(#ops-arrow-dark)\"/><path d=\"M 322 94 L 358 62\" fill=\"none\" stroke=\"#15803d\" stroke-width=\"1.8\" marker-end=\"url(#ops-arrow-green)\"/><path d=\"M 322 136 L 358 160\" fill=\"none\" stroke=\"#b45309\" stroke-width=\"1.8\" marker-end=\"url(#ops-arrow-amber)\"/><path d=\"M 538 62 L 572 92\" fill=\"none\" stroke=\"#15803d\" stroke-width=\"1.8\" marker-end=\"url(#ops-arrow-green)\"/><path d=\"M 538 160 L 572 130\" fill=\"none\" stroke=\"#b45309\" stroke-width=\"1.8\" marker-end=\"url(#ops-arrow-amber)\"/><rect x=\"16\" y=\"216\" width=\"728\" height=\"30\" rx=\"6\" fill=\"#fef3c7\" stroke=\"#d97706\" stroke-width=\"1.2\"/><text x=\"380\" y=\"236\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">上線鐵律：先限流再路由 ｜ 拆解輸出 4 倍溢價 ｜ 每筆請求對齊 OpenTelemetry 紀錄成本與延遲</text></svg>",
+  "comparison_table": {
+    "caption": "表 10-1：範例四筆混合負載（總計 14,700 輸入 / 1,900 輸出 Tokens）三種路由策略成本實算比較",
+    "headers": [
+      "路由策略",
+      "負載四筆總成本",
+      "較全旗艦省費",
+      "延遲與品質表現",
+      "最佳適用定位"
+    ],
+    "rows": [
+      [
+        "全旗艦（All PRO_TIER）",
+        "$0.05575",
+        "0.0%（基準）",
+        "品質最高但延遲與帳單最貴",
+        "純高難度研究或極低流量內部工具"
+      ],
+      [
+        "雙層路由（route_model）",
+        "$0.03343",
+        "40.0%",
+        "日常任務低延遲、架構審查保旗艦品質",
+        "多數生產級 AI 系統首選架構"
+      ],
+      [
+        "全輕量（All FAST_TIER）",
+        "$0.00335",
+        "94.0%",
+        "速度最快但複雜架構審查品質大幅下滑",
+        "僅限純分類、萃取等高結構化批次管線"
+      ]
+    ]
+  },
+  "code_walkthrough": [
+    "ModelTier 以 dataclass(frozen=True) 定義不可變的每百萬輸入／輸出美元費率，設定 FAST_TIER（$0.15 / $0.60）與 PRO_TIER（$2.50 / $10.00）。",
+    "route_model() 同時檢查任務類型（classify / summarize / extract）與 context_tokens <= 16_000 門檻，其餘任務自動導向 PRO_TIER。",
+    "compute_call_cost_usd() 精準計算每筆請求的美元支出；對四筆混合負載實測總花費 $0.03343，相較全旗艦 $0.05575 省下 40.0%。",
+    "TokenBucketLimiter 以 capacity=2.0、refill_per_sec=0.5 示範連續三次 t=0.0 與一次 t=2.0 呼叫，精準輸出 [True, True, False, True]。"
+  ],
+  "pitfalls": [
+    {
+      "title": "陷阱 1：輕量模型超長脈絡失準引發級聯重試，反而比直上旗艦更貴",
+      "symptom": "為了省錢把 30,000 Tokens 的長文檔摘要也硬塞給輕量模型，結果輸出屢次漏欄或格式錯誤，重試三次後才切回旗艦模型，總延遲與成本雙雙飆高。",
+      "root_cause_and_fix": "未針對上下文長度設定升艙安全門檻。修復方式：在 route_model 中明確以 context_tokens（如範例的 16_000）作為硬門檻，並持續監控各任務在 FAST_TIER 的首次通過率，一旦低於目標即調低閾值。"
+    },
+    {
+      "title": "陷阱 2：限流器冷啟動滿桶衝擊，或跨多實例僅用本機記憶體限流",
+      "symptom": "Cloud Run 水平擴展到 10 個容器實例後，每個實例各自維護獨立的 TokenBucketLimiter，導致系統總吞吐量放大十倍直接撞爆上游 API 供應商的 429 配額。",
+      "root_cause_and_fix": "單機記憶體限流僅適用於單程序或單節點保護。多實例叢集應將令牌桶狀態外置至 Redis（搭配 Lua 腳本保證原子扣減）或 API Gateway 層統一控管，並於服務冷啟動時避免同時釋放滿額突發流量。"
+    },
+    {
+      "title": "陷阱 3：成本帳本漏記重試與錯誤請求，或未同步更新費率表",
+      "symptom": "儀表板顯示每日預估花費平穩，但月底收到雲端供應商帳單卻嚴重超支，事後才發現重試流量未入帳或供應商已調整模型單價。",
+      "root_cause_and_fix": "無論推論成功或下游驗證失敗，凡送出並取得回應的呼叫都必須記錄 compute_call_cost_usd；同時將 ModelTier 費率表獨立於設定檔並標註 price_version，按週與雲端帳單匯出檔自動對帳。"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "依據範例 ai_ch10_llmops_router.py 的 route_model(task_type, context_tokens) 邏輯，一筆 task_type='summarize' 且 context_tokens=20_000 的請求會被分派至哪一層模型？",
+      "options": [
+        "FAST_TIER，因為 summarize 屬於輕量任務清單",
+        "PRO_TIER，因為 context_tokens=20_000 超過了 16_000 的安全閾值",
+        "拋出 ValueError 拒絕處理",
+        "隨機分配至 FAST_TIER 或 PRO_TIER"
+      ],
+      "answer_index": 1,
+      "explanation": "route_model 要求同時滿足 task_type in {'classify', 'summarize', 'extract'} 且 context_tokens <= 16_000 才會走 FAST_TIER；20,000 超過門檻，因此自動升艙至 PRO_TIER。"
+    },
+    {
+      "question": "若建立 TokenBucketLimiter(capacity=5.0, refill_per_sec=1.0)，於 t=0.0 瞬間消耗完 5 枚令牌（第 6 筆請求被拒絕回傳 False），則最早在什麼時間點能再放行下一筆 cost=1.0 的請求？",
+      "options": [
+        "t = 1.0 秒（經過 1 秒補充 1.0 枚令牌，滿足 tokens >= 1.0）",
+        "t = 0.5 秒（只要桶未滿即可提前預支）",
+        "t = 5.0 秒（必須等桶完全裝滿才能再放行）",
+        "永遠無法再放行，必須重新實例化限流器"
+      ],
+      "answer_index": 0,
+      "explanation": "t=0.0 桶內歸零後，每秒補充 1.0 枚令牌；經過 1.0 秒即可累積 1.0 枚令牌，滿足 self.tokens >= cost (1.0 >= 1.0) 而放行下一筆請求。"
+    },
+    {
+      "question": "使用 PRO_TIER（輸入 $2.50 / 1M、輸出 $10.00 / 1M）處理一筆 10,000 輸入 Tokens、500 輸出 Tokens 的請求，compute_call_cost_usd 算出的精確費用為何？",
+      "options": [
+        "$0.030",
+        "$0.025",
+        "$0.035",
+        "$0.00775"
+      ],
+      "answer_index": 0,
+      "explanation": "輸入費用 = (10,000 / 1,000,000) * $2.50 = $0.025；輸出費用 = (500 / 1,000,000) * $10.00 = $0.005；兩者相加為 $0.030。"
+    }
+  ],
+  "interview_faqs": [
+    {
+      "question": "Token Bucket（令牌桶）與 Leaky Bucket（漏桶）在 LLMOps 限流上該怎麼選？",
+      "answer": "Token Bucket 允許在桶內有餘額時瞬間吸收突發請求（Burst），非常符合使用者互動尖峰或短批次檢索的自然流量曲線；Leaky Bucket 則強制以完全恆定的速率輸出請求，適合保護吞吐上限極度僵化的下游客戶端或寫入型資料庫。LLMOps 閘道器通常優先採用 Token Bucket（並依 RPM 與 TPM 雙桶並行），兼顧互動體感與配額保護。"
+    },
+    {
+      "question": "在多節點自動擴展（如 Cloud Run）的架構下，如何把範例的單機 TokenBucketLimiter 升級為分散式限流？",
+      "answer": "單機記憶體限流會因實例數水平擴增而失效。分散式標準做法是將每個租戶或 API 路徑的 (tokens, last_ts) 狀態存於 Redis，並透過單一原子 Lua 腳本在 Redis 伺服器端同步完成 elapsed 補充與扣減判斷，避免跨節點網路競爭（Race Condition）；若屬低頻配額管理，也可結合 Cloud Firestore 交易實現跨實例一致限流。"
+    },
+    {
+      "question": "為什麼 LLMOps 可觀測性不能只看總回應時間，還必須拆出 TTFT 與 TPOT？",
+      "answer": "在串流回應介面中，使用者對速度的體感主要由首字延遲（TTFT, Time To First Token）決定，它反映網路排隊與長上下文 Prefill 負擔；每 Token 生成時間（TPOT, Time Per Output Token）則反映解碼階段的 GPU 頻寬與並發壓力。拆開兩項指標後，就能立刻分辨系統變慢是因為輸入上下文太長（優化 RAG 壓縮或 Prompt Caching），還是輸出模型本身過載（觸發路由分流）。"
+    },
+    {
+      "question": "除了模型路由與限流，上線前還應該加上哪一道「財務防爆」機制？",
+      "answer": "務必建立「分級預算熔斷器（Budget Circuit Breaker）」：以每小時與每日滾動視窗加總 compute_call_cost_usd，當支出達預算 70% 時發送告警通知團隊、達 90% 時自動將非關鍵任務全面降級至 FAST_TIER 或唯讀快取、達 100% 硬上限時強制切斷高價模型呼叫。這能從架構底層杜絕任何未知 Bug 釀成天價雲端帳單。"
+    }
+  ],
+  "further_reading": [
+    {
+      "title": "OpenTelemetry — Semantic Conventions for Generative AI",
+      "url": "https://opentelemetry.io/docs/specs/semconv/gen-ai/",
+      "note": "業界標準的 GenAI 可觀測性遙測欄位規範，定義模型名稱、輸入／輸出 Token、延遲與錯誤追蹤標準。"
+    },
+    {
+      "title": "Google SRE Book — Handling Overload",
+      "url": "https://sre.google/sre-book/handling-overload/",
+      "note": "Google 站點可靠性工程經典章節，深入剖析限流、負載卸載、用戶端退避與防止重試雪崩的系統原則。"
+    },
+    {
+      "title": "Token Bucket Algorithm — Overview & Mathematical Formulation",
+      "url": "https://en.wikipedia.org/wiki/Token_bucket",
+      "note": "令牌桶演算法的數學定義、突發容量與恆定速率參數分析，以及與漏桶演算法的完整對照。"
+    }
+  ]
+}

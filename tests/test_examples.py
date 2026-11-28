@@ -379,11 +379,11 @@ class TestLearningExamples(unittest.TestCase):
                 self.assertTrue(ap.is_file(), f"Missing copied asset {asset_name}")
                 self.assertLess(ap.stat().st_size, 100_000, f"Asset {asset_name} exceeds 100 KB")
 
-            # 1) Exact 48 canonical HTML URLs in sitemap.xml (24 legacy + 3 Book 1 covers + 21 Book 1 Ch.01-07)
+            # 1) Exact 57 canonical HTML URLs in sitemap.xml (24 legacy + 3 Book 1 covers + 30 Book 1 Ch.01-10)
             sitemap = (root / "sitemap.xml").read_text(encoding="utf-8")
             locs = re.findall(r"<loc>(.*?)</loc>", sitemap)
-            self.assertEqual(len(locs), 48, f"Expected 48 URLs in sitemap.xml, got {len(locs)}")
-            self.assertEqual(len(set(locs)), 48)
+            self.assertEqual(len(locs), 57, f"Expected 57 URLs in sitemap.xml, got {len(locs)}")
+            self.assertEqual(len(set(locs)), 57)
 
             ch_ids = ("ch01", "ch02", "ch03", "ch04", "ch05", "ch06", "ch07")
             all_pages: tuple[str | None, ...] = (
@@ -397,6 +397,9 @@ class TestLearningExamples(unittest.TestCase):
                 "books/ai-engineering/ch05.html",
                 "books/ai-engineering/ch06.html",
                 "books/ai-engineering/ch07.html",
+                "books/ai-engineering/ch08.html",
+                "books/ai-engineering/ch09.html",
+                "books/ai-engineering/ch10.html",
             )
 
             class _DomCounter(HTMLParser):
@@ -457,8 +460,9 @@ class TestLearningExamples(unittest.TestCase):
                         self.assertIn('href="ch05.html"', raw_html)
                         self.assertIn('href="ch06.html"', raw_html)
                         self.assertIn('href="ch07.html"', raw_html)
-                        for unpub in ("ch08", "ch09", "ch10"):
-                            self.assertNotIn(f'href="{unpub}.html"', raw_html)
+                        self.assertIn('href="ch08.html"', raw_html)
+                        self.assertIn('href="ch09.html"', raw_html)
+                        self.assertIn('href="ch10.html"', raw_html)
                         ld_m = re.search(
                             r'<script type="application/ld\+json">\s*(\{.*?\})\s*</script>',
                             raw_html,
@@ -469,9 +473,9 @@ class TestLearningExamples(unittest.TestCase):
                         self.assertIn("Book", g_types)
                         self.assertIn("Course", g_types)
                         self.assertIn("BreadcrumbList", g_types)
-                        self.assertEqual(len(g_types["Book"]["hasPart"]), 7)
+                        self.assertEqual(len(g_types["Book"]["hasPart"]), 10)
 
-                    # Book 1 published chapter invariants (Ch.01 - Ch.07)
+                    # Book 1 published chapter invariants (Ch.01 - Ch.10 COMPLETE)
                     if page_fn in (
                         "books/ai-engineering/ch01.html",
                         "books/ai-engineering/ch02.html",
@@ -480,6 +484,9 @@ class TestLearningExamples(unittest.TestCase):
                         "books/ai-engineering/ch05.html",
                         "books/ai-engineering/ch06.html",
                         "books/ai-engineering/ch07.html",
+                        "books/ai-engineering/ch08.html",
+                        "books/ai-engineering/ch09.html",
+                        "books/ai-engineering/ch10.html",
                     ):
                         self.assertIn('data-fb-mode="local"', raw_html)
                         self.assertIn('id="readProgressBar"', raw_html)
@@ -586,6 +593,9 @@ class TestLearningExamples(unittest.TestCase):
                         "books/ai-engineering/ch05.html",
                         "books/ai-engineering/ch06.html",
                         "books/ai-engineering/ch07.html",
+                        "books/ai-engineering/ch08.html",
+                        "books/ai-engineering/ch09.html",
+                        "books/ai-engineering/ch10.html",
                     ):
                         prose = re.sub(r"<style\b[^>]*>.*?</style>", "", no_switcher, flags=re.DOTALL)
                         prose = re.sub(r"<script\b[^>]*>.*?</script>", "", prose, flags=re.DOTALL)
@@ -595,7 +605,7 @@ class TestLearningExamples(unittest.TestCase):
                         cjk_cnt = len(re.findall(r"[\u4e00-\u9fff]", prose))
                         self.assertGreaterEqual(cjk_cnt, 2500, f"zh-TW {page_fn} CJK {cjk_cnt} < 2500")
 
-            # 3) Verify llms.txt references all 3 language editions + Book 1 Ch.01-07
+            # 3) Verify llms.txt references all 3 language editions + Book 1 Ch.01-10
             llms_txt = (root / "llms.txt").read_text(encoding="utf-8")
             for url_marker in (
                 "https://ai-purplemaple.com/learn/zh-cn/",
@@ -608,17 +618,20 @@ class TestLearningExamples(unittest.TestCase):
                 "https://ai-purplemaple.com/learn/books/ai-engineering/ch05.html",
                 "https://ai-purplemaple.com/learn/books/ai-engineering/ch06.html",
                 "https://ai-purplemaple.com/learn/books/ai-engineering/ch07.html",
-                "https://ai-purplemaple.com/learn/zh-cn/books/ai-engineering/ch07.html",
-                "https://ai-purplemaple.com/learn/en/books/ai-engineering/ch07.html",
+                "https://ai-purplemaple.com/learn/books/ai-engineering/ch08.html",
+                "https://ai-purplemaple.com/learn/books/ai-engineering/ch09.html",
+                "https://ai-purplemaple.com/learn/books/ai-engineering/ch10.html",
+                "https://ai-purplemaple.com/learn/zh-cn/books/ai-engineering/ch10.html",
+                "https://ai-purplemaple.com/learn/en/books/ai-engineering/ch10.html",
             ):
                 self.assertIn(url_marker, llms_txt)
 
-            # 4) Verify .github/workflows/pages.yml IndexNow JSON payload matches sitemap.xml + llms*.txt EXACTLY (50 URLs)
+            # 4) Verify .github/workflows/pages.yml IndexNow JSON payload matches sitemap.xml + llms*.txt EXACTLY (59 URLs)
             wf_text = (REPO_ROOT / ".github" / "workflows" / "pages.yml").read_text(encoding="utf-8")
             m_json = re.search(r"-d\s*'(\{.*?\})'", wf_text, flags=re.DOTALL)
             self.assertIsNotNone(m_json, "IndexNow JSON payload missing in pages.yml")
             idx_payload = json.loads(m_json.group(1))
-            self.assertEqual(len(idx_payload["urlList"]), 50)
+            self.assertEqual(len(idx_payload["urlList"]), 59)
             expected_indexnow = set(locs) | {
                 "https://ai-purplemaple.com/learn/llms.txt",
                 "https://ai-purplemaple.com/learn/llms-full.txt",

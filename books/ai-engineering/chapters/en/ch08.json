@@ -1,0 +1,288 @@
+{
+  "book_id": "ai-engineering",
+  "chapter_id": "ch08",
+  "locale": "en",
+  "status": "published",
+  "badge": "Ch.08",
+  "part_id": "part4",
+  "title": "Running Local Open-Weight LLMs (LM Studio / Ollama): GGUF VRAM Math & Checkpoint Caching",
+  "short_title": "Local LLMs & VRAM Budgeting",
+  "summary": "Break free from cloud API bills and data-privacy concerns. Build a zero-dependency OpenAI-Compatible local client with GGUF VRAM budgeting, <think> block stripping, SHA-256 checkpoint caching, and single-GPU batch scheduling.",
+  "aeo_capsule": "<strong>Local Open-Weight LLM Engineering</strong> pairs <code>estimate_gguf_vram_gb</code> memory budgeting, <code>clean_local_llm_output</code> reasoning-tag scrubbing, and <code>CachedLocalLlmClient</code> SHA-256 checkpoint caching with an injectable transport layer for deterministic, zero-bill single-GPU pipelines.",
+  "reading_minutes": 18,
+  "lastmod": "2026-11-28",
+  "example_file": "examples/ai_ch08_local_llm_client.py",
+  "keywords": [
+    "Local LLM",
+    "LM Studio",
+    "Ollama",
+    "GGUF",
+    "Q4_K_M",
+    "VRAM",
+    "SHA-256 Cache",
+    "OpenAI-Compatible API",
+    "Purple Maple Press"
+  ],
+  "learning_objectives": [
+    "Estimate total GGUF VRAM across model weights, linear KV Cache growth, and runtime overhead to prevent single-GPU OOM crashes",
+    "Build a zero-dependency OpenAI-Compatible client for LM Studio and Ollama with an injectable transport for offline CI unit testing",
+    "Combine reasoning_effort control, <think> tag scrubbing, and SHA-256 checkpoint caching for resumable single-GPU batch workflows"
+  ],
+  "sections": [
+    {
+      "id": "sec1-vram-estimation",
+      "heading": "8.1 GGUF Quantization and the Three-Part VRAM Budget",
+      "paragraphs": [
+        "When engineers deploy their first local open-weight LLM, they often glance at the GGUF file size on disk and assume a 12 GB or 16 GB GPU has plenty of headroom. The moment they open a long conversation window, the runtime either throws an Out-of-Memory (OOM) error or silently spills layers into system RAM, slashing throughput from 40 tokens/sec down to single digits. Whether a model truly fits on a single card depends on three components combined: static weights, KV Cache, and runtime overhead. In examples/ai_ch08_local_llm_client.py, estimate_gguf_vram_gb formalizes this budget cleanly: weights_gb = params_billion * (quant_bits / 8.0), kv_cache_gb = (context_k / 8.0) * (params_billion * 0.04), plus 1.2 GB of fixed CUDA context and activation overhead.",
+        "Plugging our runnable benchmark—a 26B model quantized at Q4_K_M (roughly 4.5 effective bits per weight) with an 8k context window—gives 14.625 GB for weights, 1.04 GB for KV Cache, and 1.2 GB for runtime overhead, totaling 16.865 GB (rounded to 16.86 GB under Python's banker's rounding). Notice why we model Q4_K_M at 4.5 bits rather than a flat 4.0 bits: llama.cpp's K-Quants mixed quantization preserves higher precision (such as Q6_K) on sensitive attention and output tensors while compressing less sensitive weights aggressively, cutting footprint by over 70% versus FP16 without wrecking reasoning stability.",
+        "The most frequent hidden trap in local inference is oversizing context_k. Cranking LM Studio or Ollama up to 64k or 128k context by default causes KV Cache allocations to grow linearly, easily adding several gigabytes on 26B-32B models and pushing weights off the GPU. For batch summarization, translation, and structured extraction jobs, keeping context in the 4K-8K sweet spot and reserving 1.5-2.0 GB of free VRAM headroom keeps single-GPU runs fast and crash-free for hours."
+      ],
+      "bullets": [
+        "Three-part VRAM formula: static weights (params * quant_bits / 8) + linear KV Cache growth + ~1.2 GB runtime overhead",
+        "A 26B Q4_K_M (4.5-bit) model at 8k context budgets to 16.86 GB; inflating context to 32k+ sharply raises OOM risk",
+        "Q4_K_M mixed quantization protects high-impact layers, saving ~72% VRAM while preserving code and JSON accuracy"
+      ],
+      "callout_title": "Engineering Note: Batch Multi-Model Pipelines by Stage on a Single GPU",
+      "callout_body": "If you run a dual-model workflow (such as one model for drafting and another for polishing) on a single consumer GPU, never swap models back and forth per paragraph—cold-loading 15-20 GB of weights from SSD costs 15-20 seconds every switch. Run all Stage 1 chunks on Model A first, unload VRAM cleanly with lms unload --all, then load Model B once for Stage 2."
+    },
+    {
+      "id": "sec2-local-client",
+      "heading": "8.2 Zero-Dependency OpenAI-Compatible Client & <think> Scrubbing",
+      "paragraphs": [
+        "Modern local inference servers—whether LM Studio (default port 1234, favored for GUI inspection and lms CLI scheduling) or Ollama (default port 11434, favored for container and daemon deployments)—expose standard OpenAI-Compatible Chat Completions endpoints (/v1/chat/completions). Your application code does not need heavy vendor SDKs: assembling a plain JSON payload with model, temperature, max_tokens, and messages lets you swap local and cloud backends seamlessly. CachedLocalLlmClient goes one step further by injecting the transport layer as a Callable[[dict, ...], dict], completely decoupling orchestration logic from urllib or httpx.",
+        "Dependency-injected transport pays off immediately in two ways. First, in GPU-less CI environments like GitHub Actions, unit tests pass an in-memory mock_lm_studio callable and validate payload assembly, tag stripping, and caching in milliseconds with zero network calls. Second, upgrading production transport with custom timeouts, exponential backoff, or async HTTP pooling requires swapping one callable without touching cache keys or cleaning logic.",
+        "Modern reasoning-capable open models (such as Qwen3, DeepSeek-R1, or Gemma variants) introduce two classic output hazards: inline <think>...</think> chain-of-thought blocks emitted before the answer, and outer ```json ... ``` Markdown code fences even when instructed to emit raw JSON. Passing raw output straight into json.loads() crashes downstream parsers. Our client mitigates both simultaneously: it sets reasoning_effort: none and low temperature (0.2) in the payload to suppress unnecessary thinking tokens, and passes raw content through clean_local_llm_output—applying THINK_BLOCK_RE (with re.DOTALL | re.IGNORECASE) followed by FENCE_RE to recover clean {\"status\": \"ready\"} JSON."
+      ],
+      "bullets": [
+        "LM Studio (port 1234) and Ollama (port 11434) share OpenAI-Compatible APIs; injecting transport enables 100% offline CI unit tests",
+        "Set reasoning_effort to none and low temperature (0.2) on deterministic extraction or translation tasks to eliminate wasted thinking tokens",
+        "clean_local_llm_output strips multiline <think> blocks and outer Markdown fences before downstream JSON parsing"
+      ],
+      "callout_title": "Security Baseline: Bind Local Inference Servers Strictly to 127.0.0.1",
+      "callout_body": "Keep LM Studio Server and Ollama bound strictly to 127.0.0.1 (localhost) unless placed behind an authenticated reverse proxy on a private network. Local inference servers ship without authentication by default; exposing 0.0.0.0 invites unauthorized LAN or internet hosts to hijack your GPU and inspect active sessions."
+    },
+    {
+      "id": "sec3-sha256-cache",
+      "heading": "8.3 SHA-256 Content-Addressed Checkpoint Caching",
+      "paragraphs": [
+        "Batch-processing dozens of book chapters or thousands of records on a single local GPU can run for 30 to 60 minutes. Without checkpoint caching, a single malformed JSON response, driver reset, or power blip forces you to recompute every completed chunk from scratch. CachedLocalLlmClient implements classic content-addressed caching with zero external dependencies: _cache_key serializes [self.model_id, system_prompt, user_prompt] into deterministic JSON and hashes it with hashlib.sha256, slicing the first 16 hex characters as a compact cache key.",
+        "Including all three elements—model_id, system_prompt, and user_prompt—inside the hash is critical for correctness. Whenever you upgrade from one local model to another or tighten a glossary rule in the system prompt, the computed SHA-256 key changes automatically and triggers fresh inference, preventing silent stale-cache contamination. Conversely, our live run sends the exact same Ping status prompt twice and confirms the second call serves directly from self.cache with self.api_calls remaining at 1.",
+        "Promoting the in-memory dictionary self.cache into a crash-resilient production batch runner requires only one extra step: atomic disk persistence. Write each validated chunk to a temporary file inside .forge_cache/ and commit via os.replace (or store rows in SQLite). If step 8 of a 10-step pipeline fails or you refine post-processing code, rerunning the script replays steps 1 through 7 from disk in milliseconds and resumes GPU inference immediately at step 8."
+      ],
+      "bullets": [
+        "Hash model_id, system_prompt, and user_prompt together with SHA-256 so model swaps or prompt edits automatically invalidate stale entries",
+        "Identical repeated prompts hit cache before calling transport (api_calls stays 1 in live verification), eliminating redundant GPU work",
+        "Persist validated outputs atomically to disk JSON files or SQLite so long batch pipelines resume cleanly after any interruption"
+      ],
+      "callout_title": "Refinement: Hash Inference Hyperparameters Too When They Vary",
+      "callout_body": "If your pipeline varies temperature, max_tokens, or JSON Schema constraints dynamically for the same model and prompt, include those parameters in _cache_key as well—while stripping purely diagnostic timestamps before hashing so cache hit rates remain high."
+    },
+    {
+      "id": "sec4-integration",
+      "heading": "8.4 Local Production Best Practices: Resilience, Validation & VRAM Cleanup",
+      "paragraphs": [
+        "Turning a local model into a dependable production worker requires three operational safeguards beyond VRAM math and caching. First, enforce an output contract gate before caching: even with reasoning disabled and clean_local_llm_output applied, smaller quantized models can still truncate JSON at max_tokens or emit unescaped quotes. Pair the client with Chapter 2's structured validation retry loop (2-3 attempts feeding parse errors back to the model) and write to the checkpoint cache only after validation passes so corrupted artifacts are never persisted.",
+        "Second, separate lightweight health checks from inference timeouts. Cold-loading a large GGUF file or prefilling a long prompt can easily take 15-30 seconds before the first token arrives, tripping default 5-second web timeouts. Probe server readiness cheaply with GET /v1/models (LM Studio) or GET /api/tags (Ollama) before starting a batch, then configure generous read timeouts (180-300 seconds) with exponential backoff on /v1/chat/completions to ride out transient connection refusals during startup.",
+        "Third, automate VRAM teardown. Leaving a 16-20 GB model resident on a desktop GPU after a batch script finishes starves browsers, editors, and subsequent jobs of video memory. Wrap every batch runner in a Python try...finally block that explicitly unloads models on exit (such as lms unload --all or Ollama keep_alive: 0). With accurate VRAM budgeting, injected offline tests, output scrubbing, checkpoint caching, and clean teardown, a single workstation GPU becomes a zero-marginal-cost, privacy-preserving AI factory."
+      ],
+      "bullets": [
+        "Validate before caching: only persist cleaned outputs after JSON Schema or linter checks pass to keep checkpoints pristine",
+        "Use GET /v1/models or /api/tags for zero-compute health probes and set generous read timeouts for long prompt prefill",
+        "Always unload GPU models inside try...finally blocks so workstation VRAM is returned cleanly on both success and failure"
+      ],
+      "callout_title": "Pre-Flight Checklist for Single-GPU Batch Pipelines",
+      "callout_body": "Before starting a long batch run: (1) verify total VRAM with estimate_gguf_vram_gb leaving >= 1.5 GB headroom, (2) confirm the server listens only on 127.0.0.1, (3) run offline unit tests with mock_lm_studio to verify <think> stripping and cache hits, and (4) ensure finally-block teardown unloads VRAM."
+    }
+  ],
+  "diagram_caption": "Figure 8-1: Local LLM Client Architecture with VRAM Budgeting and SHA-256 Checkpoint Cache",
+  "diagram_svg": "<svg viewBox=\"0 0 760 260\" role=\"img\" aria-label=\"Local LLM Client Architecture with VRAM Budgeting and SHA-256 Checkpoint Cache\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"llm-arrow-dark\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#1c1917\"/></marker><marker id=\"llm-arrow-green\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#15803d\"/></marker></defs><rect width=\"760\" height=\"260\" fill=\"#fdfcf9\"/><rect x=\"18\" y=\"22\" width=\"212\" height=\"180\" rx=\"8\" fill=\"#ffffff\" stroke=\"#1c1917\" stroke-width=\"1.8\"/><rect x=\"18\" y=\"22\" width=\"212\" height=\"32\" rx=\"8\" fill=\"#1c1917\"/><text x=\"124\" y=\"43\" font-family=\"monospace\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#fdfcf9\">CachedLocalLlmClient</text><rect x=\"32\" y=\"66\" width=\"184\" height=\"54\" rx=\"5\" fill=\"#fffbeb\" stroke=\"#d97706\" stroke-width=\"1.2\"/><text x=\"124\" y=\"85\" font-family=\"sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">SHA-256 Checkpoint Cache</text><text x=\"124\" y=\"103\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#78350f\">hash(model, sys, user)[:16]</text><text x=\"124\" y=\"115\" font-family=\"monospace\" font-size=\"9.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#15803d\">Cache hit -&gt; api_calls = 1</text><rect x=\"32\" y=\"132\" width=\"184\" height=\"56\" rx=\"5\" fill=\"#f0fdf4\" stroke=\"#16a34a\" stroke-width=\"1.2\"/><text x=\"124\" y=\"151\" font-family=\"monospace\" font-size=\"10\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#14532d\">clean_local_llm_output()</text><text x=\"124\" y=\"168\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#57534e\">Strip &lt;think&gt; &amp; ```json</text><text x=\"124\" y=\"182\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#15803d\">-&gt; {\"status\": \"ready\"}</text><rect x=\"272\" y=\"52\" width=\"198\" height=\"122\" rx=\"8\" fill=\"#f7fee7\" stroke=\"#15803d\" stroke-width=\"1.8\"/><text x=\"371\" y=\"76\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#14532d\">Injected Transport Layer</text><text x=\"371\" y=\"98\" font-family=\"monospace\" font-size=\"10\" text-anchor=\"middle\" fill=\"#1c1917\">reasoning_effort: \"none\"</text><text x=\"371\" y=\"116\" font-family=\"monospace\" font-size=\"10\" text-anchor=\"middle\" fill=\"#57534e\">temperature: 0.2 | max_tokens</text><line x1=\"288\" y1=\"132\" x2=\"454\" y2=\"132\" stroke=\"#86efac\" stroke-width=\"1.2\" stroke-dasharray=\"4 3\"/><text x=\"371\" y=\"150\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#b45309\">Prod: 127.0.0.1:1234 / 11434</text><text x=\"371\" y=\"165\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#15803d\">CI: mock_lm_studio (offline)</text><rect x=\"512\" y=\"22\" width=\"230\" height=\"180\" rx=\"8\" fill=\"#ffffff\" stroke=\"#b45309\" stroke-width=\"1.8\"/><rect x=\"512\" y=\"22\" width=\"230\" height=\"32\" rx=\"8\" fill=\"#b45309\"/><text x=\"627\" y=\"43\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#fdfcf9\">Local GPU Engine (GGUF)</text><text x=\"526\" y=\"74\" font-family=\"sans-serif\" font-size=\"11\" font-weight=\"bold\" fill=\"#1c1917\">LM Studio / Ollama (llama.cpp)</text><text x=\"526\" y=\"96\" font-family=\"monospace\" font-size=\"10\" fill=\"#57534e\">26B Q4_K_M (4.5b) @ 8k ctx:</text><text x=\"526\" y=\"118\" font-family=\"monospace\" font-size=\"10\" fill=\"#1c1917\">Weights:  14.625 GB</text><text x=\"526\" y=\"136\" font-family=\"monospace\" font-size=\"10\" fill=\"#1c1917\">KV Cache:  1.040 GB</text><text x=\"526\" y=\"154\" font-family=\"monospace\" font-size=\"10\" fill=\"#1c1917\">Overhead:  1.200 GB</text><rect x=\"526\" y=\"164\" width=\"202\" height=\"26\" rx=\"4\" fill=\"#fef3c7\" stroke=\"#d97706\" stroke-width=\"1\"/><text x=\"627\" y=\"181\" font-family=\"monospace\" font-size=\"10.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">Total Budget = 16.86 GB</text><line x1=\"230\" y1=\"92\" x2=\"268\" y2=\"92\" stroke=\"#1c1917\" stroke-width=\"1.8\" marker-end=\"url(#llm-arrow-dark)\"/><text x=\"250\" y=\"84\" font-family=\"sans-serif\" font-size=\"9\" text-anchor=\"middle\" fill=\"#1c1917\">Miss</text><line x1=\"470\" y1=\"92\" x2=\"508\" y2=\"92\" stroke=\"#1c1917\" stroke-width=\"1.8\" marker-end=\"url(#llm-arrow-dark)\"/><text x=\"490\" y=\"84\" font-family=\"sans-serif\" font-size=\"9\" text-anchor=\"middle\" fill=\"#1c1917\">POST</text><line x1=\"512\" y1=\"148\" x2=\"474\" y2=\"148\" stroke=\"#15803d\" stroke-width=\"1.8\" marker-end=\"url(#llm-arrow-green)\"/><text x=\"492\" y=\"164\" font-family=\"sans-serif\" font-size=\"9\" text-anchor=\"middle\" fill=\"#15803d\">Raw</text><line x1=\"272\" y1=\"148\" x2=\"234\" y2=\"148\" stroke=\"#15803d\" stroke-width=\"1.8\" marker-end=\"url(#llm-arrow-green)\"/><text x=\"252\" y=\"164\" font-family=\"sans-serif\" font-size=\"9\" text-anchor=\"middle\" fill=\"#15803d\">Clean</text><rect x=\"18\" y=\"216\" width=\"724\" height=\"30\" rx=\"6\" fill=\"#fef3c7\" stroke=\"#d97706\" stroke-width=\"1.2\"/><text x=\"380\" y=\"236\" font-family=\"sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">Core Rules: Budget VRAM with headroom | Batch by model stage | Validate before SHA-256 caching</text></svg>",
+  "comparison_table": {
+    "caption": "Table 8-1: Q4_K_M (4.5-bit) VRAM Estimates Computed via estimate_gguf_vram_gb",
+    "headers": [
+      "Model Size (Q4_K_M)",
+      "Weights Only",
+      "Total VRAM (8k ctx)",
+      "Total VRAM (32k ctx)",
+      "Recommended Hardware"
+    ],
+    "rows": [
+      [
+        "8B Model (e.g., Llama-3 8B)",
+        "4.50 GB",
+        "6.02 GB",
+        "6.98 GB",
+        "8 GB+ GPU (RTX 4060 / 16 GB Mac)"
+      ],
+      [
+        "14B Model (e.g., Qwen 14B)",
+        "7.88 GB",
+        "9.64 GB",
+        "11.32 GB",
+        "12 GB GPU (RTX 3060 12G / 4070)"
+      ],
+      [
+        "26B Model (e.g., Gemma4-26B)",
+        "14.63 GB",
+        "16.86 GB",
+        "19.99 GB",
+        "24 GB GPU (RTX 3090 / 4090) or MoE partial offload"
+      ],
+      [
+        "32B Model (e.g., Qwen 32B)",
+        "18.00 GB",
+        "20.48 GB",
+        "24.32 GB",
+        "24 GB GPU (8k cap) or 32 GB+ unified memory"
+      ]
+    ]
+  },
+  "code_walkthrough": [
+    "estimate_gguf_vram_gb() adds static weights, linear KV Cache scaling, and 1.2 GB runtime overhead—returning 16.86 GB for a 26B Q4_K_M (4.5-bit) model at 8k context.",
+    "clean_local_llm_output() uses THINK_BLOCK_RE (re.DOTALL | re.IGNORECASE) to remove multiline <think> blocks and FENCE_RE to strip outer Markdown code fences.",
+    "CachedLocalLlmClient._cache_key() hashes [model_id, system_prompt, user_prompt] via SHA-256 (16 hex chars) so model or prompt changes invalidate stale entries automatically.",
+    "complete() sends reasoning_effort: none and temperature: 0.2 through an injected transport; the runnable demo uses mock_lm_studio offline and proves api_calls stays 1 on repeat calls."
+  ],
+  "pitfalls": [
+    {
+      "title": "Pitfall 1: Oversizing Context Windows Until KV Cache Triggers OOM",
+      "symptom": "Model weights look smaller than your GPU capacity, yet loading with 64k or 128k context causes immediate OOM crashes or silent CPU RAM spilling that cuts speed by 10x.",
+      "root_cause_and_fix": "KV Cache grows linearly with context length. Run estimate_gguf_vram_gb before loading, keep batch jobs inside the 4K-8K golden window, and preserve at least 1.5-2.0 GB of free VRAM headroom."
+    },
+    {
+      "title": "Pitfall 2: Leaving <think> Blocks or Markdown Fences Unscrubbed Before JSON Parsing",
+      "symptom": "Reasoning-capable open models prepend multiline <think>...</think> blocks or wrap answers in ```json ... ``` fences, causing json.loads() to raise JSONDecodeError.",
+      "root_cause_and_fix": "Pass reasoning_effort: none for formatting/extraction tasks and always scrub raw responses through clean_local_llm_output() before parsing—and only write validated results into your checkpoint cache."
+    },
+    {
+      "title": "Pitfall 3: Exposing Unauthenticated Local Ports or Forgetting VRAM Teardown",
+      "symptom": "Binding LM Studio or Ollama to 0.0.0.0 opens free GPU access to the LAN; or leaving a 20 GB model loaded after a script ends starves desktop apps and subsequent jobs.",
+      "root_cause_and_fix": "Bind local inference endpoints strictly to 127.0.0.1 unless fronted by an authenticated proxy, and wrap batch scripts in try...finally blocks that run lms unload --all or release VRAM automatically."
+    }
+  ],
+  "quiz": [
+    {
+      "question": "Using estimate_gguf_vram_gb(params_billion, quant_bits=4.5, context_k=8), what is the estimated total VRAM for an 8B Q4_K_M (4.5-bit) model at 8k context (including KV Cache and 1.2 GB overhead)?",
+      "options": [
+        "~2.50 GB",
+        "~6.02 GB",
+        "~12.80 GB",
+        "~24.00 GB"
+      ],
+      "answer_index": 1,
+      "explanation": "Weights = 8.0 * (4.5 / 8.0) = 4.50 GB, KV Cache = (8 / 8) * (8.0 * 0.04) = 0.32 GB, and runtime overhead = 1.20 GB, giving a total of 6.02 GB."
+    },
+    {
+      "question": "In CachedLocalLlmClient._cache_key(), why must self.model_id and system_prompt be hashed alongside user_prompt?",
+      "options": [
+        "Because Python's hashlib.sha256 requires at least three input elements",
+        "So upgrading models or editing system instructions automatically invalidates stale cached responses instead of serving outdated answers",
+        "To compress the GPU's internal KV Cache memory footprint",
+        "Because OpenAI-Compatible APIs reject repeated user_prompt strings"
+      ],
+      "answer_index": 1,
+      "explanation": "This cache stores application-level text completions. Omitting model_id or system_prompt from the SHA-256 key would return stale completions from an older model or prompt after configuration changes."
+    },
+    {
+      "question": "Why must THINK_BLOCK_RE in clean_local_llm_output() enable the re.DOTALL flag?",
+      "options": [
+        "To make tag matching case-insensitive",
+        "So the dot (.) wildcard matches newline characters and removes multiline <think>...</think> reasoning blocks completely",
+        "To anchor matching strictly to the start of the string",
+        "To convert cleaned strings directly into Python dicts"
+      ],
+      "answer_index": 1,
+      "explanation": "By default, regex '.' does not match newline characters (\\n). Because chain-of-thought <think> blocks almost always span multiple lines, omitting re.DOTALL leaves the entire reasoning block intact."
+    }
+  ],
+  "interview_faqs": [
+    {
+      "question": "How do LM Studio and Ollama differ in engineering workflows, and when should you pick each?",
+      "answer": "Both wrap llama.cpp with OpenAI-Compatible APIs, but optimize for different ergonomics. LM Studio (port 1234) shines on developer workstations with visual model inspection, fine-grained GPU offload controls, and the lms CLI for scripted single-GPU load/unload staging. Ollama (port 11434) excels as a lightweight background daemon with Modelfiles, making it straightforward to deploy inside Docker containers or systemd services."
+    },
+    {
+      "question": "Does Q4_K_M quantization hurt code generation or structured JSON reliability?",
+      "answer": "For modern 14B-35B open models, Q4_K_M (~4.5 bits/weight) hits the practical sweet spot: it saves over 70% VRAM relative to FP16 while protecting sensitive attention layers via K-Quants mixed precision, causing only minor perplexity drift. For smaller 7B-8B models under strict JSON Schema constraints, stepping up to Q6_K or Q8_0—paired with schema retry loops—further improves structural compliance."
+    },
+    {
+      "question": "How do you run a zero-compute health check against a local LLM server?",
+      "answer": "Never probe health via /v1/chat/completions, which triggers real GPU prefill and decode work. Instead, send a lightweight GET to http://127.0.0.1:1234/v1/models on LM Studio or GET http://127.0.0.1:11434/api/tags (and /api/ps for loaded models) on Ollama to verify HTTP 200 readiness with negligible overhead."
+    },
+    {
+      "question": "How do you prevent dynamic fields like timestamps or request IDs from breaking SHA-256 cache hits?",
+      "answer": "Keep non-semantic telemetry such as request_id and timestamps out of the prompt body—pass them via HTTP headers or external logs instead. When prompts legitimately contain dynamic metadata, normalize or separate volatile fields before computing _cache_key so expensive static document processing still achieves high cache hit rates."
+    }
+  ],
+  "further_reading": [
+    {
+      "title": "ggml-org/llama.cpp — Official Repository",
+      "url": "https://github.com/ggml-org/llama.cpp",
+      "note": "Core inference engine behind GGUF and K-Quants quantization, covering quantization tiers, KV Cache quantization, and GPU offloading."
+    },
+    {
+      "title": "LM Studio Developer Docs — OpenAI Compatibility API",
+      "url": "https://lmstudio.ai/docs/developer/openai-compat",
+      "note": "Official LM Studio local server API documentation detailing /v1/models, /v1/chat/completions, and reasoning controls."
+    },
+    {
+      "title": "Hugging Face Docs — GGUF Format Overview",
+      "url": "https://huggingface.co/docs/hub/gguf",
+      "note": "Overview of the GGUF single-file tensor and metadata format with practical comparisons of Q4_K_M, Q6_K, and Q8_0."
+    }
+  ],
+  "code_replacements": [
+    [
+      "Book 1 Ch.08 地端開源大模型實戰（LM Studio / Ollama）：零依賴客戶端、雜湊快取與 VRAM 估算",
+      "Book 1 Ch.08 Local Open-Weight LLMs (LM Studio / Ollama): Zero-Dependency Client, Hash Cache & VRAM Estimation"
+    ],
+    [
+      "示範 OpenAI-Compatible API 請求封裝、關閉思考模式、剝離 <think> 標籤與 SHA-256 斷點快取（CI 全離線安全）。",
+      "Demonstrates OpenAI-Compatible payload assembly, disabling reasoning mode, stripping <think> tags, and SHA-256 checkpoint caching (offline CI-safe)."
+    ],
+    [
+      "估算地端模型載入所需顯存（權重空間 ＋ KV Cache ＋ 系統開銷）。",
+      "Estimate VRAM required to load a local GGUF model (weights + KV Cache + runtime overhead)."
+    ],
+    [
+      "參數規模與量化位元數必須為正數",
+      "Parameter count and quantization bits must be positive"
+    ],
+    [
+      "剝離地端推理模型可能夾帶的 <think> 思考區塊與外層 Markdown 程式碼圍欄。",
+      "Strip <think> reasoning blocks and outer Markdown code fences from local LLM output."
+    ],
+    [
+      "支援斷點雜湊快取與依賴注入傳輸層（Transport）之本機 OpenAI-Compatible 客戶端。",
+      "Local OpenAI-Compatible client with SHA-256 checkpoint caching and an injectable transport layer."
+    ],
+    [
+      "# CI 環境零網路依賴：使用記憶體內模擬傳輸層示範 <think> 清理與快取命中",
+      "# Zero-network CI demo: in-memory mock transport demonstrating <think> scrubbing and cache hit"
+    ],
+    [
+      "Ch.08 26B Q4 預估顯存: ",
+      "Ch.08 26B Q4 estimated VRAM: "
+    ],
+    [
+      "清理輸出: ",
+      "Cleaned output: "
+    ],
+    [
+      " | 二次呼叫快取命中(API次=",
+      " | Second-call cache hit (API calls="
+    ]
+  ],
+  "output_replacements": [
+    [
+      "預估顯存:",
+      "estimated VRAM:"
+    ],
+    [
+      "清理輸出:",
+      "Cleaned output:"
+    ],
+    [
+      "二次呼叫快取命中(API次=",
+      "Second-call cache hit (API calls="
+    ]
+  ]
+}

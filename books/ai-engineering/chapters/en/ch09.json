@@ -1,0 +1,306 @@
+{
+  "book_id": "ai-engineering",
+  "chapter_id": "ch09",
+  "locale": "en",
+  "status": "published",
+  "badge": "Ch.09",
+  "part_id": "part4",
+  "title": "Beyond Vibe Coding: Spec-Driven AI Engineering & Mechanical Quality Gates",
+  "short_title": "Spec-Driven Engineering",
+  "summary": "Why pure Vibe Coding stalls past 1,000 lines: adopt Spec-Driven Engineering using executable ContractCases, mathematical invariants, AST static gates, and automated CI harnesses.",
+  "aeo_capsule": "<strong>Spec-Driven Engineering</strong> turns verbal requirements into machine-readable <code>ContractCase</code> edge tests and <code>invariants</code>, pairing <code>verify_implementation_against_spec</code> with AST static gates to constrain stochastic AI code generation inside a deterministic verification loop.",
+  "reading_minutes": 18,
+  "lastmod": "2026-11-28",
+  "example_file": "examples/ai_ch09_spec_driven_gate.py",
+  "keywords": [
+    "Vibe Coding",
+    "Spec-Driven Development",
+    "Contract Testing",
+    "Invariants",
+    "AST Quality Gate",
+    "AI Code Review",
+    "Purple Maple Press"
+  ],
+  "learning_objectives": [
+    "Evaluate where Vibe Coding excels for rapid prototyping and where missing boundary contracts trigger technical debt",
+    "Build a repeatable four-step loop: Specification -> Executable Contract (Cases + Invariants) -> AI Implementation -> Mechanical Verification Gate",
+    "Combine dynamic invariant harnesses with AST static gatekeepers in CI/CD to catch regressions and unsafe calls automatically"
+  ],
+  "sections": [
+    {
+      "id": "sec1-vibe-debt",
+      "heading": "9.1 Where Vibe Coding Breaks Down: From Prototype Speed to Technical Debt",
+      "paragraphs": [
+        "Vibe Coding—prompting an LLM interactively by feel to spin up code—delivers extraordinary speed for throwaway scripts, UI explorations, and quick proofs of concept. Once a codebase grows past a few thousand lines and touches billing, authorization, or cross-module invariants, purely conversational prompting starts accumulating silent failure modes. Language models sample probable tokens rather than formally proving edge cases: whenever preconditions and postconditions stay implicit in a chat window, the model reliably emits clean-looking happy-path code that collapses on extreme inputs.",
+        "Our runnable example examples/ai_ch09_spec_driven_gate.py illustrates this exact failure mode using a classic e-commerce discount helper. The naive vibe_coded_discount(price, pct) is a crisp one-liner—round(price * (1.0 - pct / 100.0), 2)—that passes a standard 20% discount check (100.0 -> 80.0). Yet feed it a 150% coupon (pct=150.0) or a negative percentage (pct=-10.0), and it silently returns a negative price (-50.0) or raises the item's price to 110.0. When teams rely purely on eyeballing diffs, missing boundary clamps routinely slip straight into production.",
+        "The inflection point from Vibe Coding to Spec-Driven Engineering happens when teams translate tacit expectations into an executable SpecContract before generating code. By freezing concrete boundary cases (ContractCase) alongside mathematical invariants up front, engineers stop acting as exhausted bug hunters and step into the higher-leverage role of contract architects."
+      ],
+      "bullets": [
+        "Vibe Coding shines for rapid prototypes, yet silently accumulates boundary-condition bugs in complex production domains",
+        "vibe_coded_discount passes a normal 20% discount test yet returns -50.0 at pct=150% and 110.0 at pct=-10%",
+        "Spec-Driven Engineering bounds probabilistic AI code generation inside deterministic, machine-verified contracts"
+      ],
+      "callout_title": "Engineering Note: Why LLMs Confidently Emit Missing-Boundary Code",
+      "callout_body": "Pretraining corpora are packed with concise tutorial snippets focused on the happy path. Unless your specification states explicitly whether pct > 100 should clamp to 0.0 or raise ValueError, the model guesses—and production traffic pays for wrong guesses."
+    },
+    {
+      "id": "sec2-spec-loop",
+      "heading": "9.2 The Four-Step Closed Loop: Spec, Contract, Implementation, and Gate",
+      "paragraphs": [
+        "Spec-Driven Engineering distills into a four-step loop that scales across any AI coding assistant: first, write down clear input preconditions and business invariants; second, encode them into immutable ContractCase and SpecContract objects; third, hand that contract and signature to the AI to synthesize an implementation; fourth, run verify_implementation_against_spec automatically and feed any structured failures back to the model until every check passes.",
+        "Look closely at SpecContract(feature_name='pricing.apply_discount') in the runnable script. It pairs two complementary verification layers. Concrete ContractCase tuples lock down specific edge behaviors: normal_20pct (100.0, 20.0 -> 80.0), clamp_over_100 (100.0, 150.0 -> 0.0), and clamp_negative_pct (100.0, -10.0 -> 100.0). Mathematical invariants verify universal properties across input grids: never_negative guarantees prices stay >= 0.0 across prices (0, 50, 999) and discounts (-20, 0, 50, 150), while monotonic_discount enforces that larger discounts never yield higher final prices.",
+        "Running both implementations through verify_implementation_against_spec makes the contrast unmistakable. Although vibe_coded_discount passes normal_20pct and monotonic_discount, the harness instantly catches 3 exact defects: clamp_over_100 returns -50.0, clamp_negative_pct returns 110.0, and never_negative fails. By contrast, spec_driven_discount rejects negative prices with ValueError and clamps discounts via max(0.0, min(100.0, pct)), clearing the gate with 0 bugs. Even if you swap to a brand-new underlying LLM six months later, the frozen contract guarantees business behavior never regresses."
+      ],
+      "bullets": [
+        "Use frozen dataclasses for ContractCase and SpecContract so specification rules stay immutable at runtime",
+        "Pair explicit edge cases with mathematical invariants (never_negative, monotonic_discount) to prevent hardcoded test cheating",
+        "Live verification catches 3 exact defects in vibe_coded_discount while spec_driven_discount passes with 0 failures"
+      ],
+      "callout_title": "Practical Workflow: Let AI Draft Contracts First, Review Them, Then Generate Code",
+      "callout_body": "Spec-Driven does not mean writing every line by hand. Ask the AI to propose boundary cases and invariants first, review that compact contract carefully as a human engineer, lock it in, and then let the AI iterate freely on the implementation against your mechanical harness."
+    },
+    {
+      "id": "sec3-ast-gate",
+      "heading": "9.3 Static Gatekeepers: AST Checks & Hooks for Structural Integrity",
+      "paragraphs": [
+        "Dynamic contract harnesses prove what a function outputs on tested inputs, yet they cannot spot structural or security hazards hiding inside the implementation. An eager coding agent chasing a green test run might inject eval() or shell=True calls, hardcode local machine paths, drop public type annotations, or build deeply nested branching that becomes unmaintainable three months later—all while passing every behavioral assertion.",
+        "Mature Spec-Driven pipelines therefore pair dynamic contracts with static Abstract Syntax Tree (AST) gatekeepers and automated Git or Agent hooks. Using Python's built-in ast module alongside fast linters like Ruff, static gates inspect the syntax tree before a single line executes: blocking forbidden ast.Call targets (eval, os.system, pickle.loads), enforcing type annotations on public ast.FunctionDef signatures, capping control-flow nesting depth, and flagging vacuous assertions.",
+        "Combining static structural rules with dynamic behavioral contracts creates a deterministic safety net around AI autonomy. Instead of vague review comments asking the model to 'write cleaner code,' automated gates emit exact file paths, line numbers, rule IDs, and contract failure strings—allowing the agent to self-repair cleanly while freeing human reviewers to focus on system architecture."
+      ],
+      "bullets": [
+        "Dynamic contracts verify runtime behavior while AST gates verify structure and security across unexecuted branches",
+        "Use Python's ast module or Ruff to block unsafe calls (eval/os.system), missing type hints, local path leaks, and deep nesting",
+        "Wire both static and dynamic gates into pre-commit and AI Agent hooks so non-compliant patches never reach main"
+      ],
+      "callout_title": "Guardrail: Prevent Coding Agents from Editing Tests to Make Failures Disappear",
+      "callout_body": "A classic failure mode in autonomous coding loops is the agent weakening assertions or deleting failing test cases to turn CI green. Separate contract review from implementation diffs and require explicit human approval whenever files under tests/ or contract registries change."
+    },
+    {
+      "id": "sec4-mech-validation",
+      "heading": "9.4 CI/CD Integration, Granularity, and Sustainable AI Velocity",
+      "paragraphs": [
+        "Running verify_implementation_against_spec inside your standard CI suite (for example, python -W error -m unittest discover) subjects every commit—human or AI—to the exact same quality bar. Notice an intentional ergonomic choice in our verifier: it returns (bool, list[str]) after evaluating every case and invariant inside try/except guards rather than aborting on the first failure. Surfacing all violations in one pass lets an AI coding assistant fix multiple bugs in a single turn, cutting retry latency and token spend.",
+        "Adopting Spec-Driven Engineering does not mean applying formal aerospace verification to every helper script. Calibrate specification granularity to business risk: reserve rigorous ContractCase matrices, mathematical invariants, and Property-Based Testing (such as Hypothesis) for your domain core—pricing, billing, authorization, data integrity, and public APIs—while keeping peripheral glue scripts lightweight with static types and smoke checks.",
+        "Viewed as a whole, Spec-Driven Engineering never sacrifices the speed advantage of AI coding; it equips that speed with steering and brakes. With frozen contracts defining truth, AST gates guarding structure and security, and CI enforcing zero-defect regressions on every push, teams capture AI velocity while sustaining production-grade reliability."
+      ],
+      "bullets": [
+        "Collect and return every failure in a single pass so AI agents repair multiple violations in one feedback cycle",
+        "Match specification rigor to domain risk: heavy contracts and PBT on core pricing/auth logic, light checks on throwaway glue scripts",
+        "Enforce SpecContracts and static gates as mandatory CI checks (with -W error) to insulate quality across model upgrades"
+      ],
+      "callout_title": "Adoption Playbook: Start with Your Most Bug-Prone Core Module",
+      "callout_body": "Never rewrite specifications for an entire legacy monolith at once. Pick one painful module—such as discount pricing, quota billing, or access control—encode 5 edge cases and 2 invariants into CI, and let the team experience the gate catching an AI regression before merge."
+    }
+  ],
+  "diagram_caption": "Figure 9-1: Spec-Driven Engineering Four-Step Loop with Dual Dynamic & Static Acceptance Gates",
+  "diagram_svg": "<svg viewBox=\"0 0 760 260\" role=\"img\" aria-label=\"Spec-Driven Engineering Four-Step Loop with Dual Dynamic and Static Acceptance Gates\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"spec-arrow-dark\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#1c1917\"/></marker><marker id=\"spec-arrow-red\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#b91c1c\"/></marker><marker id=\"spec-arrow-green\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#15803d\"/></marker></defs><rect width=\"760\" height=\"260\" fill=\"#fdfcf9\"/><rect x=\"18\" y=\"28\" width=\"148\" height=\"138\" rx=\"8\" fill=\"#ffffff\" stroke=\"#1c1917\" stroke-width=\"1.8\"/><rect x=\"18\" y=\"28\" width=\"148\" height=\"30\" rx=\"8\" fill=\"#1c1917\"/><text x=\"92\" y=\"48\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#fdfcf9\">1. Spec Contract</text><text x=\"30\" y=\"80\" font-family=\"monospace\" font-size=\"10.5\" fill=\"#b45309\">SpecContract</text><text x=\"30\" y=\"102\" font-family=\"monospace\" font-size=\"10\" fill=\"#1c1917\">cases (3 edge)</text><text x=\"30\" y=\"122\" font-family=\"monospace\" font-size=\"10\" fill=\"#1c1917\">never_negative</text><text x=\"30\" y=\"142\" font-family=\"monospace\" font-size=\"10\" fill=\"#57534e\">monotonic_disc.</text><rect x=\"202\" y=\"28\" width=\"148\" height=\"138\" rx=\"8\" fill=\"#ffffff\" stroke=\"#b45309\" stroke-width=\"1.8\"/><rect x=\"202\" y=\"28\" width=\"148\" height=\"30\" rx=\"8\" fill=\"#b45309\"/><text x=\"276\" y=\"48\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#fdfcf9\">2. AI Synthesis</text><text x=\"214\" y=\"82\" font-family=\"sans-serif\" font-size=\"10.5\" fill=\"#1c1917\">Generate code from spec</text><text x=\"214\" y=\"106\" font-family=\"monospace\" font-size=\"10\" fill=\"#b91c1c\">Vibe: 3 defects</text><text x=\"214\" y=\"128\" font-family=\"monospace\" font-size=\"10\" fill=\"#15803d\">Spec: 0 defects</text><text x=\"214\" y=\"150\" font-family=\"monospace\" font-size=\"9.5\" fill=\"#57534e\">max(0, min(100, pct))</text><rect x=\"386\" y=\"22\" width=\"186\" height=\"150\" rx=\"8\" fill=\"#f7fee7\" stroke=\"#15803d\" stroke-width=\"1.8\"/><text x=\"479\" y=\"44\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#14532d\">3. Dual Verification Gate</text><rect x=\"400\" y=\"56\" width=\"158\" height=\"46\" rx=\"5\" fill=\"#ffffff\" stroke=\"#16a34a\" stroke-width=\"1.2\"/><text x=\"479\" y=\"75\" font-family=\"sans-serif\" font-size=\"10.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#14532d\">Dynamic Contract Gate</text><text x=\"479\" y=\"92\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#57534e\">verify_implementation()</text><rect x=\"400\" y=\"112\" width=\"158\" height=\"46\" rx=\"5\" fill=\"#ffffff\" stroke=\"#d97706\" stroke-width=\"1.2\"/><text x=\"479\" y=\"131\" font-family=\"sans-serif\" font-size=\"10.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">AST / Linter Static Gate</text><text x=\"479\" y=\"148\" font-family=\"monospace\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#57534e\">Types / Unsafe Calls / Hooks</text><rect x=\"608\" y=\"44\" width=\"134\" height=\"106\" rx=\"8\" fill=\"#f0fdf4\" stroke=\"#15803d\" stroke-width=\"2\"/><text x=\"675\" y=\"78\" font-family=\"sans-serif\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#14532d\">4. Merge &amp; Ship</text><text x=\"675\" y=\"102\" font-family=\"monospace\" font-size=\"10.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#15803d\">PASS (bugs=0)</text><text x=\"675\" y=\"124\" font-family=\"sans-serif\" font-size=\"10\" text-anchor=\"middle\" fill=\"#57534e\">Repeatable green CI</text><line x1=\"166\" y1=\"97\" x2=\"198\" y2=\"97\" stroke=\"#1c1917\" stroke-width=\"1.8\" marker-end=\"url(#spec-arrow-dark)\"/><line x1=\"350\" y1=\"97\" x2=\"382\" y2=\"97\" stroke=\"#1c1917\" stroke-width=\"1.8\" marker-end=\"url(#spec-arrow-dark)\"/><line x1=\"572\" y1=\"97\" x2=\"604\" y2=\"97\" stroke=\"#15803d\" stroke-width=\"1.8\" marker-end=\"url(#spec-arrow-green)\"/><text x=\"588\" y=\"88\" font-family=\"sans-serif\" font-size=\"9\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#15803d\">Pass</text><path d=\"M 479 172 L 479 198 L 276 198 L 276 170\" fill=\"none\" stroke=\"#b91c1c\" stroke-width=\"1.6\" stroke-dasharray=\"5 3\" marker-end=\"url(#spec-arrow-red)\"/><text x=\"378\" y=\"192\" font-family=\"sans-serif\" font-size=\"10\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#b91c1c\">FAIL: Return granular failures list to repair AI code</text><rect x=\"18\" y=\"216\" width=\"724\" height=\"30\" rx=\"6\" fill=\"#fef3c7\" stroke=\"#d97706\" stroke-width=\"1.2\"/><text x=\"380\" y=\"236\" font-family=\"sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">Core Rules: Spec before code | Protect contracts from AI tampering | Dynamic + AST dual gates</text></svg>",
+  "comparison_table": {
+    "caption": "Table 9-1: Comparison of Four Software Verification Paradigms",
+    "headers": [
+      "Paradigm",
+      "Verification Mechanism",
+      "Defect Detection Stage",
+      "Long-Term Cost Trend",
+      "Best Fit"
+    ],
+    "rows": [
+      [
+        "Vibe Coding",
+        "Manual spot checks & visual demos",
+        "Runtime or post-release",
+        "Spikes sharply with scale",
+        "Throwaway scripts, quick UI prototypes"
+      ],
+      [
+        "Spec-Driven Engineering",
+        "SpecContract (Cases + Invariants) + AST gate",
+        "Immediately after synthesis & pre-merge CI",
+        "Flat & predictable across model upgrades",
+        "AI-assisted production & core domain logic"
+      ],
+      [
+        "Traditional TDD",
+        "Human-written unit tests & code",
+        "Development time",
+        "Stable, higher manual authoring effort",
+        "Human-driven software engineering"
+      ],
+      [
+        "Formal Methods",
+        "Mathematical proofs & model checking",
+        "Design phase elimination",
+        "High upfront modeling investment",
+        "Aerospace, medical, cryptographic kernels"
+      ]
+    ]
+  },
+  "code_walkthrough": [
+    "ContractCase and SpecContract use dataclass(frozen=True) to encapsulate feature names, concrete edge cases, and mathematical invariants as immutable specs.",
+    "verify_implementation_against_spec() evaluates every case and invariant inside try/except guards, returning all failures together rather than stopping at the first error.",
+    "vibe_coded_discount() omits negative-price checks and 0..100% clamping, triggering 3 exact failures: clamp_over_100, clamp_negative_pct, and never_negative.",
+    "spec_driven_discount() raises ValueError on negative prices and clamps pct via max(0.0, min(100.0, pct)), clearing every case and invariant with 0 defects."
+  ],
+  "pitfalls": [
+    {
+      "title": "Pitfall 1: Over-Specifying Trivial Helpers Until Velocity Grinds to a Halt",
+      "symptom": "Mandating exhaustive invariants and multi-stage contract reviews for simple glue scripts or copy edits slows delivery and encourages engineers to bypass checks.",
+      "root_cause_and_fix": "Failing to separate core domain logic from peripheral code. Apply strict SpecContracts and property-based tests to pricing, auth, storage, and public APIs while keeping auxiliary scripts lightweight."
+    },
+    {
+      "title": "Pitfall 2: Testing Only Happy Paths or Letting AI Weaken Test Assertions",
+      "symptom": "An AI implementation passes 100.0 at 20% discount -> 80.0, yet breaks on negative or >100% inputs—or an autonomous agent relaxes test assertions to turn CI green.",
+      "root_cause_and_fix": "Single-point example tests cannot bound stochastic generators. Combine boundary cases with mathematical invariants (or Hypothesis property tests) and require human review for any diff touching contract or test files."
+    },
+    {
+      "title": "Pitfall 3: Brittle Custom AST Rules Generating Constant False Positives",
+      "symptom": "Hand-rolled AST scripts reject legitimate dynamic helpers, test utilities, or idiomatic third-party usage across CI builds.",
+      "root_cause_and_fix": "Delegate general lint checks to mature, configurable tools like Ruff or ESLint, reserve custom AST gates for crisp security/hygiene red lines (no eval, no hardcoded local paths), and support audited opt-out annotations."
+    }
+  ],
+  "quiz": [
+    {
+      "question": "In examples/ai_ch09_spec_driven_gate.py, which exact 3 failures does verify_implementation_against_spec catch on vibe_coded_discount?",
+      "options": [
+        "normal_20pct, clamp_over_100, and monotonic_discount",
+        "clamp_over_100, clamp_negative_pct, and the never_negative invariant",
+        "Only the never_negative and monotonic_discount invariants",
+        "All 5 checks fail due to ZeroDivisionError"
+      ],
+      "answer_index": 1,
+      "explanation": "vibe_coded_discount passes normal_20pct (80.0) and monotonic_discount (90.0 >= 70.0), but returns -50.0 on clamp_over_100, 110.0 on clamp_negative_pct, and violates never_negative when d=150—totaling 3 caught defects."
+    },
+    {
+      "question": "How do AST static gates complement dynamic contract tests in Spec-Driven Engineering?",
+      "options": [
+        "AST gates replace unit tests completely so code never needs to run",
+        "AST gates inspect the full syntax tree without executing code, catching unsafe calls (eval/os.system), missing type hints, and structural defects even on unexecuted branches",
+        "AST gates work only for JavaScript and cannot parse Python",
+        "AST gates automatically invent business pricing formulas without a spec"
+      ],
+      "answer_index": 1,
+      "explanation": "Dynamic tests only exercise code paths hit by test inputs; static AST analysis traverses every node in the file before execution, blocking unsafe system calls, dead code, or missing type annotations."
+    },
+    {
+      "question": "If an AI-generated implementation passes every ContractCase example yet fails a SpecContract invariant, what is the right engineering response?",
+      "options": [
+        "Ignore the invariant failure and merge because all concrete cases passed",
+        "Feed the exact failures list back to the AI to fix the implementation until both cases and invariants pass (updating the spec only after human review if the spec itself is inconsistent)",
+        "Allow the AI to delete the failing invariant automatically",
+        "Print a console warning without failing the CI pipeline"
+      ],
+      "answer_index": 1,
+      "explanation": "An invariant failure exposes a general logic bug outside the concrete examples. Keep the gate red and iterate on the implementation; only humans should adjust contracts when business rules genuinely change."
+    }
+  ],
+  "interview_faqs": [
+    {
+      "question": "Does Spec-Driven Development slow down AI coding or stifle algorithmic optimization?",
+      "answer": "Quite the opposite. Contracts specify what must hold true (edge behavior, invariants, latency/memory bounds) rather than dictating how to implement it. With a deterministic harness in place, AI can refactor or optimize aggressively while eliminating hours of manual debugging and production regressions."
+    },
+    {
+      "question": "How do the chapter's invariants relate to Property-Based Testing (PBT) tools like Hypothesis?",
+      "answer": "The invariants tuple demonstrates lightweight property-based testing: verifying universal mathematical rules such as non-negativity and monotonicity across many inputs. For richer input domains, libraries like Hypothesis generate hundreds of randomized edge cases automatically and shrink any counterexample to a minimal failing input."
+    },
+    {
+      "question": "How do you implement equivalent AST static gates in TypeScript or Go codebases?",
+      "answer": "The pattern translates directly across ecosystems: TypeScript teams combine strict tsconfig settings with custom ESLint (ESTree) rules to ban unsafe patterns like raw innerHTML or unchecked any types; Go teams pair the standard go/ast package with golangci-lint and staticcheck to catch unhandled errors and concurrency hazards."
+    },
+    {
+      "question": "In microservice architectures, how do you stop an AI refactor in Service A from breaking Service B?",
+      "answer": "Extend single-function SpecContracts into cross-service Contract Testing backed by versioned OpenAPI or JSON Schemas. Validate backward compatibility automatically in the provider's CI pipeline (rejecting breaking field removals or type changes) so AI refactors never silently break downstream consumers."
+    }
+  ],
+  "further_reading": [
+    {
+      "title": "Martin Fowler — Test-Driven Development",
+      "url": "https://martinfowler.com/bliki/TestDrivenDevelopment.html",
+      "note": "Classic essay on specification-first development and how tight automated feedback loops enable fearless refactoring."
+    },
+    {
+      "title": "Python 3 Official Docs — unittest Testing Framework",
+      "url": "https://docs.python.org/3/library/unittest.html",
+      "note": "Official Python standard-library test documentation for building zero-dependency SpecContract CI regression gates."
+    },
+    {
+      "title": "Anthropic Engineering — Claude Code Best Practices",
+      "url": "https://www.anthropic.com/engineering/claude-code-best-practices",
+      "note": "Practical engineering workflows for agentic coding, covering spec-first prompting, test-driven loops, and verification guardrails."
+    }
+  ],
+  "code_replacements": [
+    [
+      "Book 1 Ch.09 從 Vibe Coding 到 Spec-Driven Engineering：自動化規格契約驗證閘門（Spec-to-Test Gate）",
+      "Book 1 Ch.09 From Vibe Coding to Spec-Driven Engineering: Automated Spec-to-Test Contract Gate"
+    ],
+    [
+      "示範如何把口頭需求轉化為可機讀的不變量契約（Invariants），在 AI 寫扣後自動攔截回歸漏洞。",
+      "Demonstrates turning verbal requirements into machine-readable invariant contracts to intercept regressions after AI code generation."
+    ],
+    [
+      "逐條檢驗 AI 產出的實作是否同時滿足範例測資與系統不變量。",
+      "Verify whether an AI-generated implementation satisfies every example case and system invariant."
+    ],
+    [
+      "' 拋出未預期例外: ",
+      "' raised unexpected exception: "
+    ],
+    [
+      "' 預期 ",
+      "' expected "
+    ],
+    [
+      "，實得 ",
+      ", got "
+    ],
+    [
+      "' 違反契約",
+      "' violated contract"
+    ],
+    [
+      "' 例外: ",
+      "' exception: "
+    ],
+    [
+      "反面教材：Vibe Coding 常見缺邊界保護（未鎖 0..100% 折扣上限，會算出負價格）。",
+      "Anti-pattern: Vibe Coding often omits boundary clamping (no 0..100% cap, yielding negative prices)."
+    ],
+    [
+      "規格驅動正解：嚴格保證輸入不變量、折扣夾擠與零負價。",
+      "Spec-driven solution: strictly enforces input preconditions, discount clamping, and non-negative pricing."
+    ],
+    [
+      "price 不可為負數",
+      "price cannot be negative"
+    ],
+    [
+      "Ch.09 Vibe 版驗收: ",
+      "Ch.09 Vibe gate: "
+    ],
+    [
+      " (抓出 ",
+      " (caught "
+    ],
+    [
+      " 項漏洞) | Spec 版驗收: ",
+      " bugs) | Spec gate: "
+    ],
+    [
+      " (漏洞=",
+      " (bugs="
+    ]
+  ],
+  "output_replacements": [
+    [
+      "版驗收:",
+      "gate:"
+    ],
+    [
+      "(抓出 3 項漏洞)",
+      "(caught 3 bugs)"
+    ],
+    [
+      "(漏洞=",
+      "(bugs="
+    ]
+  ]
+}
