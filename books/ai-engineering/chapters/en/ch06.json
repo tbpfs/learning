@@ -1,0 +1,256 @@
+{
+  "book_id": "ai-engineering",
+  "chapter_id": "ch06",
+  "locale": "en",
+  "status": "published",
+  "badge": "Ch.06",
+  "part_id": "part3",
+  "title": "Model Context Protocol (MCP) in Practice: Building a JSON-RPC 2.0 Server",
+  "short_title": "MCP JSON-RPC Server",
+  "summary": "MCP is the USB-C port for AI tooling. Implement a spec-compliant mini MCP Server from scratch in Python stdlib supporting initialize, tools/list, tools/call, resources/list, and standard JSON-RPC 2.0 error codes.",
+  "aeo_capsule": "<strong>Model Context Protocol (MCP)</strong> uses <code>JSON-RPC 2.0</code> envelopes with standardized <code>initialize</code> capability handshakes, <code>tools/list</code> dynamic discovery, and <code>tools/call</code> execution contracts to collapse M×N custom model-tool integrations into M+N.",
+  "reading_minutes": 18,
+  "lastmod": "2026-11-28",
+  "example_file": "examples/ai_ch06_mini_mcp_server.py",
+  "keywords": [
+    "MCP",
+    "Model Context Protocol",
+    "JSON-RPC 2.0",
+    "tools/list",
+    "tools/call",
+    "stdio Transport",
+    "Streamable HTTP",
+    "Purple Maple Press"
+  ],
+  "learning_objectives": [
+    "Understand how MCP collapses M×N model-to-tool integration complexity into M+N and separates Host, Client, and Server roles",
+    "Master JSON-RPC 2.0 message envelopes, standard error codes (-32600 / -32601 / -32602), tool-level isError flags, and Capability handshaking",
+    "Compare stdio and Streamable HTTP transports along with critical security boundaries (stdout isolation, Origin checks, and OAuth 2.1)"
+  ],
+  "sections": [
+    {
+      "id": "sec1-mcp-protocol-overview",
+      "heading": "6.1 MCP Design Philosophy and JSON-RPC 2.0 Message Envelopes",
+      "paragraphs": [
+        "In enterprise environments where multiple models and internal systems coexist, traditional AI engineering quickly falls into the M×N integration trap: M large language models (or IDEs and desktop hosts) each need bespoke adapters for N external tools such as databases, Git repositories, and internal APIs. Whenever a tool schema changes, every model-side wrapper breaks in tandem. The Model Context Protocol (MCP) solves this by defining an open, vendor-neutral wire protocol that reduces integration complexity from multiplicative (M×N) to additive (M+N). Model hosts implement an MCP Client once, tool authors implement an MCP Server once, and both sides interoperate cleanly over JSON-RPC 2.0—acting as a standardized USB-C port between models and live data.",
+        "Architecturally, MCP draws a clean line between three roles: the Host is the user-facing application running the LLM (such as an IDE or desktop assistant), the Client lives inside the Host to manage a stateful 1:1 protocol session with one server, and the Server exposes executable Tools, read-only context Resources, and reusable Prompts. Every message crosses the wire inside a JSON-RPC 2.0 envelope. Standard requests carry jsonrpc (strictly the string 2.0), method, optional params, and a string or integer id that correlates asynchronous responses back to their requests. One-way Notifications—such as notifications/initialized sent after the handshake—must omit the id key entirely, signaling that the server must not emit any response.",
+        "Every compliant session begins with a Capability handshake. When the client sends an initialize request, the server replies with protocolVersion (2025-03-26 in our reference example), serverInfo, and a declarative capabilities object. This upfront negotiation establishes safe boundaries before inference begins: once the server advertises support for tools and resources, the client queries tools/list and resources/list to inspect available schemas at runtime, then builds typed arguments for tools/call. This discover-then-invoke contract allows an AI agent to adopt newly registered tools without recompiling client code or hardcoding fragile endpoint paths."
+      ],
+      "bullets": [
+        "MCP collapses fragmented M×N tool adapters into an open M+N architecture that decouples model hosts from backend data sources",
+        "JSON-RPC 2.0 requests bind responses through a string or integer id, while one-way Notifications must omit the id member altogether",
+        "The initialize handshake declares protocolVersion and capabilities so clients only invoke features the server actually supports"
+      ],
+      "callout_title": "Engineering Note: Why JSON-RPC 2.0 Instead of REST?",
+      "callout_body": "REST APIs tie semantics to HTTP verbs (GET, POST, DELETE) and fixed URL paths, coupling your tooling layer to HTTP and making bidirectional server notifications awkward. JSON-RPC 2.0 encodes intent inside method and structured payloads inside params, remaining completely transport-agnostic so the exact same MiniMcpServer logic works over zero-network local stdio pipes as well as cloud Streamable HTTP endpoints."
+    },
+    {
+      "id": "sec2-mini-mcp-server-impl",
+      "heading": "6.2 Hand-Rolling a Mini MCP Server: Routing and Immutable Registration",
+      "paragraphs": [
+        "MCP separates tool discovery (tools/list) from tool execution (tools/call) into two distinct RPC methods. That decoupling allows an LLM agent to fetch each tool's name, natural-language description, and JSON Schema inputSchema before deciding how to construct arguments—eliminating brittle prompt-hardcoded contracts. In examples/ai_ch06_mini_mcp_server.py, we avoid black-box SDK magic and build directly on Python 3.12's standard library. We model each tool with a frozen dataclass (McpToolSpec) binding name, description, input_schema, and a callable handler into an immutable specification so runtime mutations cannot silently corrupt the routing table.",
+        "All wire routing flows through MiniMcpServer.handle_request. After parsing the incoming JSON payload into req_id, method, and params, the dispatcher immediately checks whether jsonrpc equals 2.0; any mismatch returns the standard -32600 (Invalid Request) error envelope. Valid requests then branch cleanly across initialize, tools/list, tools/call, and resources/list. On tools/call, the server extracts the tool name and arguments dictionary, verifying membership in self.tools first. If the requested tool is missing, it returns -32601 with an Unknown tool message; only registered tools reach their Python handler.",
+        "Our runnable entry point registers an estimate_vram_gb tool backed by a stateless lambda implementing params_b * 0.65 + 1.5 for Q4 GGUF memory estimation. Invoking it with params_b=32 produces 22.3. Pay close attention to the response envelope: regardless of whether a Python handler returns a float, integer, or dictionary, MCP wraps tool outputs inside a content array (here as a type=text item via str(output)) alongside an explicit isError: False boolean. Standardizing this boundary removes type ambiguity between transport serialization and LLM consumption, letting a 100-line stdlib server mirror production MCP behavior."
+      ],
+      "bullets": [
+        "McpToolSpec uses dataclass(frozen=True) to keep tool definitions and JSON Schemas immutable after registration",
+        "handle_request validates jsonrpc == 2.0 (-32600 on failure) before dispatching initialize, tools/list, tools/call, and resources/list",
+        "Successful tools/call outputs wrap results in a content array with isError: False, returning 22.3 GB for a 32B Q4 model"
+      ],
+      "callout_title": "Practical Tip: Inject Dependencies via Closures Without Heavy Frameworks",
+      "callout_body": "While the teaching example uses a concise lambda for pure arithmetic, production servers can capture database pools, vector store clients, or tenant auth contexts inside Python closures or callable classes without altering MiniMcpServer's routing core. You avoid heavyweight dependency-injection frameworks while keeping every tool handler trivially unit-testable."
+    },
+    {
+      "id": "sec3-error-handling-capabilities",
+      "heading": "6.3 Standard Error Codes, Two-Tier Errors, and Capability Negotiation",
+      "paragraphs": [
+        "Building a resilient MCP server requires separating protocol-level errors from tool-execution errors. Protocol errors use reserved JSON-RPC 2.0 error codes: -32700 for malformed JSON (Parse error), -32600 for invalid envelope structure or version (Invalid Request), -32601 for unknown methods or unregistered tool names (Method not found), -32602 for arguments violating inputSchema (Invalid params), and -32603 for unexpected server internals. In MiniMcpServer, bad versions return -32600 and unknown methods or tools return -32601, forcing clients back to tools/list and halting hallucinated tool invocations before they cause silent failures.",
+        "By contrast, when a tool name exists and parameters pass validation, yet runtime execution hits a domain or upstream failure—such as a missing database record, a rate-limited external API, or insufficient file permissions—the MCP specification instructs servers not to abort the session with a JSON-RPC error object. Instead, return a normal JSON-RPC result containing isError: True and a human-readable diagnostic message inside content. This distinction matters deeply in agent loops: many hosts treat protocol errors as fatal session faults, whereas an isError: True payload feeds the diagnostic back into the LLM's context so the model can adjust its parameters and self-recover on the next turn.",
+        "Another frequently inverted contract is the capabilities object returned during initialize. In MCP 2025-03-26, presence of a key advertises support: returning capabilities: {tools: {}, resources: {}} tells the client that both Tools and Resources are enabled (nested keys such as listChanged are optional sub-flags). If your server does not support Resources, you must omit the resources key rather than setting it to an empty object. Exposing structured URIs such as docs://mcp/spec through resources/list also turns an MCP server into a standardized read-only context provider, letting hosts selectively mount authoritative specs or live state snapshots into the model's context window."
+      ],
+      "bullets": [
+        "Reserve JSON-RPC error envelopes (-32600, -32601, -32602) for wire-level and contract violations rather than domain failures",
+        "Report recoverable tool runtime failures via a normal result with isError: True so the LLM can read the error and self-correct",
+        "Capabilities use key-presence semantics: omit the resources key completely when Resources are unsupported instead of returning {}"
+      ],
+      "callout_title": "Production Guardrail: Add Schema Validation and Exception Isolation",
+      "callout_body": "To stay dependency-free, MiniMcpServer omits a full JSON Schema validator before calling handlers. Before deploying to production, validate incoming arguments with jsonschema or Pydantic (returning -32602 on mismatch) and wrap handler execution in try/except so recoverable domain exceptions become isError: True responses rather than crashing the server process."
+    },
+    {
+      "id": "sec4-transport-layers-security",
+      "heading": "6.4 Transport Layer in Practice: stdio vs. Streamable HTTP Security",
+      "paragraphs": [
+        "Even though MCP's JSON-RPC 2.0 application layer is transport-agnostic, choosing between stdio and Streamable HTTP fundamentally changes deployment topology, debugging ergonomics, and security posture. Under stdio transport, the Host spawns the MCP Server as a local subprocess and exchanges newline-delimited JSON frames over stdin and stdout. It delivers microsecond local latency, opens no network ports, and inherits OS user permissions naturally—making it ideal for IDE extensions, local repo utilities, and CLI developer agents. Its classic production pitfall is stdout pollution: any stray print() call or third-party banner written to stdout corrupts the JSON-RPC stream and crashes the client parser, so every server log line must go strictly to stderr.",
+        "When an MCP Server must serve multiple users across a network—such as a Cloud Run or Kubernetes microservice—the 2025-03-26 specification replaces the legacy two-endpoint HTTP+SSE transport with Streamable HTTP. Clients send JSON-RPC payloads via HTTP POST to a single MCP endpoint. For fast calls, the server responds with a plain application/json body; for long-running work or live updates, the server upgrades that same HTTP response to text/event-stream (SSE), emitting notifications/progress updates before closing with the final JSON-RPC response matching the original id. Notably, Streamable HTTP relies on standard HTTP POST/GET and SSE rather than WebSockets, making it natively compatible with serverless platforms, reverse proxies, and CDN load balancers.",
+        "Neither local nor remote HTTP transports should ever run unguarded. For localhost Streamable HTTP servers, the MCP spec explicitly warns against DNS rebinding attacks: without checking the HTTP Origin header, a malicious webpage in the user's browser could invoke local MCP tools cross-origin. Local HTTP servers must bind strictly to 127.0.0.1 (never 0.0.0.0) and enforce an Origin allowlist. Cloud-hosted MCP servers must enforce TLS, OAuth 2.1 Bearer token authorization, per-tool access control, and rate limits—gaining rich observability through HTTP status codes, structured tracing, and Mcp-Session-Id correlation headers."
+      ],
+      "bullets": [
+        "stdio transport offers near-zero latency for local subprocess tools, but every server log must route to stderr to keep stdout clean",
+        "Streamable HTTP unifies HTTP POST and on-demand SSE streams on one endpoint (not WebSockets), fitting cloud proxies and serverless scale",
+        "Always validate Origin headers on HTTP MCP servers to block DNS rebinding, bind local servers to 127.0.0.1, and enforce TLS plus OAuth 2.1 remotely"
+      ],
+      "callout_title": "Architecture Decision: stdio for Local Tools, Streamable HTTP for Shared Services",
+      "callout_body": "Default to stdio when a tool only operates on a single developer's workstation and local files. The moment tools are shared across a team, deployed in containers, or require centralized auditing and OAuth authorization, adopt Streamable HTTP behind an authenticated API gateway."
+    }
+  ],
+  "diagram_caption": "Figure 6-1: MCP Protocol Layers and MiniMcpServer JSON-RPC 2.0 Request Routing Architecture",
+  "diagram_svg": "<svg viewBox=\"0 0 760 260\" role=\"img\" aria-label=\"MCP Protocol Layers and MiniMcpServer JSON-RPC 2.0 Request Routing Architecture\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"mcp-arrow-req\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#1c1917\"/></marker><marker id=\"mcp-arrow-res\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#15803d\"/></marker></defs><rect width=\"760\" height=\"260\" fill=\"#fdfcf9\"/><rect x=\"18\" y=\"24\" width=\"188\" height=\"178\" rx=\"8\" fill=\"#ffffff\" stroke=\"#1c1917\" stroke-width=\"1.8\"/><rect x=\"18\" y=\"24\" width=\"188\" height=\"32\" rx=\"8\" fill=\"#1c1917\"/><text x=\"112\" y=\"45\" font-family=\"sans-serif\" font-size=\"13\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#fdfcf9\">MCP Host / Client</text><text x=\"32\" y=\"78\" font-family=\"monospace\" font-size=\"11.5\" fill=\"#b45309\">1. initialize (id:1)</text><text x=\"32\" y=\"104\" font-family=\"monospace\" font-size=\"11.5\" fill=\"#b45309\">2. tools/list (id:2)</text><text x=\"32\" y=\"130\" font-family=\"monospace\" font-size=\"11.5\" fill=\"#b45309\">3. tools/call (id:3)</text><text x=\"32\" y=\"156\" font-family=\"monospace\" font-size=\"11.5\" fill=\"#b45309\">4. resources/list</text><text x=\"32\" y=\"184\" font-family=\"sans-serif\" font-size=\"10.5\" fill=\"#57534e\">Discover schema, then invoke</text><rect x=\"248\" y=\"36\" width=\"226\" height=\"154\" rx=\"8\" fill=\"#f7fee7\" stroke=\"#15803d\" stroke-width=\"1.8\"/><text x=\"361\" y=\"60\" font-family=\"monospace\" font-size=\"12.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#14532d\">JSON-RPC 2.0 Envelope</text><text x=\"361\" y=\"84\" font-family=\"monospace\" font-size=\"10.5\" text-anchor=\"middle\" fill=\"#1c1917\">jsonrpc: \"2.0\" | id | method</text><text x=\"361\" y=\"104\" font-family=\"monospace\" font-size=\"10.5\" text-anchor=\"middle\" fill=\"#57534e\">params / result / error</text><line x1=\"264\" y1=\"122\" x2=\"458\" y2=\"122\" stroke=\"#86efac\" stroke-width=\"1.2\" stroke-dasharray=\"4 3\"/><text x=\"361\" y=\"144\" font-family=\"sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#b45309\">Transport Layer</text><text x=\"361\" y=\"166\" font-family=\"monospace\" font-size=\"10.5\" text-anchor=\"middle\" fill=\"#1c1917\">stdio Pipes | Streamable HTTP</text><rect x=\"516\" y=\"24\" width=\"226\" height=\"178\" rx=\"8\" fill=\"#ffffff\" stroke=\"#1c1917\" stroke-width=\"1.8\"/><rect x=\"516\" y=\"24\" width=\"226\" height=\"32\" rx=\"8\" fill=\"#b45309\"/><text x=\"629\" y=\"45\" font-family=\"monospace\" font-size=\"13\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#fdfcf9\">MiniMcpServer Router</text><text x=\"530\" y=\"78\" font-family=\"monospace\" font-size=\"11\" fill=\"#1c1917\">protocol: 2025-03-26</text><text x=\"530\" y=\"102\" font-family=\"monospace\" font-size=\"11\" fill=\"#15803d\">estimate_vram_gb(32) -&gt; 22.3</text><text x=\"530\" y=\"126\" font-family=\"monospace\" font-size=\"11\" fill=\"#1c1917\">content[] + isError: false</text><text x=\"530\" y=\"150\" font-family=\"monospace\" font-size=\"11\" fill=\"#57534e\">URI: docs://mcp/spec</text><text x=\"530\" y=\"178\" font-family=\"monospace\" font-size=\"10.5\" fill=\"#b91c1c\">Error: -32600 / -32601</text><line x1=\"206\" y1=\"84\" x2=\"244\" y2=\"84\" stroke=\"#1c1917\" stroke-width=\"1.8\" marker-end=\"url(#mcp-arrow-req)\"/><text x=\"226\" y=\"76\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#1c1917\">Req</text><line x1=\"474\" y1=\"84\" x2=\"512\" y2=\"84\" stroke=\"#1c1917\" stroke-width=\"1.8\" marker-end=\"url(#mcp-arrow-req)\"/><text x=\"494\" y=\"76\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#1c1917\">Route</text><line x1=\"516\" y1=\"146\" x2=\"478\" y2=\"146\" stroke=\"#15803d\" stroke-width=\"1.8\" marker-end=\"url(#mcp-arrow-res)\"/><text x=\"496\" y=\"162\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#15803d\">Res</text><line x1=\"248\" y1=\"146\" x2=\"210\" y2=\"146\" stroke=\"#15803d\" stroke-width=\"1.8\" marker-end=\"url(#mcp-arrow-res)\"/><text x=\"228\" y=\"162\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#15803d\">Reply</text><rect x=\"18\" y=\"216\" width=\"724\" height=\"30\" rx=\"6\" fill=\"#fef3c7\" stroke=\"#d97706\" stroke-width=\"1.2\"/><text x=\"380\" y=\"236\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">Key Principles: M×N to M+N | Log to stderr on stdio | Enforce Origin &amp; OAuth 2.1 on HTTP</text></svg>",
+  "comparison_table": {
+    "caption": "Table 6-1: MCP Transport Layer Comparison (stdio vs. Streamable HTTP vs. Legacy HTTP+SSE)",
+    "headers": [
+      "Dimension",
+      "stdio Transport",
+      "Streamable HTTP (2025-03-26)",
+      "Legacy HTTP+SSE (2024-11-05)"
+    ],
+    "rows": [
+      [
+        "Channel & Endpoints",
+        "Local subprocess stdin / stdout newline JSON",
+        "Single HTTP endpoint (POST + on-demand SSE)",
+        "Split dual endpoints (GET /sse + POST /messages)"
+      ],
+      [
+        "Auth & Security Focus",
+        "Inherits OS user permissions; never print logs to stdout",
+        "TLS + OAuth 2.1 / Bearer + strict Origin validation",
+        "Requires cross-connection session correlation"
+      ],
+      [
+        "Latency & Scalability",
+        "Microsecond local latency; single local host only",
+        "Multi-tenant, serverless-friendly, resumable streams",
+        "Sticky long-lived SSE complicates stateless scaling"
+      ],
+      [
+        "Observability & Debugging",
+        "Inspect via stderr logs; no standard HTTP headers",
+        "Full HTTP status codes, Mcp-Session-Id, and tracing",
+        "Events and replies split across separate channels"
+      ],
+      [
+        "Best Use Case",
+        "Local IDE plugins, CLI utilities, single-machine files",
+        "Cloud microservices, shared team tools, production agents",
+        "Legacy client compatibility only; prefer Streamable HTTP"
+      ]
+    ]
+  },
+  "code_walkthrough": [
+    "McpToolSpec uses dataclass(frozen=True) to bind a tool's name, description, JSON Schema (input_schema), and Python handler into an immutable contract.",
+    "MiniMcpServer.handle_request validates jsonrpc == 2.0 first (returning -32600 on mismatch), then forwards the original req_id into initialize, tools/list, tools/call, and resources/list.",
+    "initialize replies with protocolVersion 2025-03-26, serverInfo, and capabilities; tools/list emits each registered tool's inputSchema for dynamic parameter generation.",
+    "tools/call returns -32601 (Unknown tool) on misses; on hits it executes estimate_vram_gb(32) -> 22.3 and wraps the output in a content array with isError: False."
+  ],
+  "pitfalls": [
+    {
+      "title": "Pitfall 1: Writing Debug Output via print() in stdio Mode",
+      "symptom": "After launching a local stdio MCP server, the Host (IDE or desktop client) immediately fails with a JSON parse error and disconnects, even though running the Python file directly works fine.",
+      "root_cause_and_fix": "stdio transport reserves stdout exclusively for JSON-RPC 2.0 frames; any print() statement or library startup banner corrupts the wire stream. Fix: route Python's logging StreamHandler explicitly to sys.stderr and forbid direct print() calls along tool execution paths."
+    },
+    {
+      "title": "Pitfall 2: Skipping Schema Validation or Mixing Protocol and Tool Errors",
+      "symptom": "An LLM passes a wrong argument type (such as a string for params_b) and crashes the server with an unhandled exception, or an upstream API 404 returns -32603 and terminates the agent loop prematurely.",
+      "root_cause_and_fix": "Enforce the two-tier error model: validate arguments against input_schema before calling handlers (returning -32602 Invalid params on violation), and wrap runtime handler calls in try/except so recoverable business or upstream failures return a normal result with isError: True and actionable text for the LLM."
+    },
+    {
+      "title": "Pitfall 3: Missing Origin Checks on Local HTTP or Overwriting Request IDs",
+      "symptom": "Concurrent tool calls return mismatched responses that stall the client UI, or a localhost MCP HTTP server bound to 0.0.0.0 is triggered cross-origin by a malicious webpage via DNS rebinding.",
+      "root_cause_and_fix": "Always echo back the exact req_id from each incoming request instead of using global counters. For Streamable HTTP, bind local servers strictly to 127.0.0.1, validate the Origin header against an explicit allowlist on every request, and require TLS plus OAuth 2.1 Bearer tokens for remote deployments."
+    }
+  ],
+  "quiz": [
+    {
+      "question": "In an MCP 2025-03-26 initialize handshake response, how should capabilities be configured if a server supports Tools but does NOT support Resources?",
+      "options": [
+        "Set resources to null",
+        "Set resources to an empty object {}",
+        "Set resources to an empty array []",
+        "Omit the resources key from the capabilities object entirely"
+      ],
+      "answer_index": 3,
+      "explanation": "MCP capabilities follow key-presence semantics: including resources: {} advertises that the server supports Resources (without optional sub-flags). When Resources are unsupported, omit the resources key so clients do not send resources/list requests."
+    },
+    {
+      "question": "In MiniMcpServer, which JSON-RPC 2.0 error code is returned when a client calls tools/call with an unregistered tool name?",
+      "options": [
+        "-32600 (Invalid Request)",
+        "-32601 (Method Not Found)",
+        "-32602 (Invalid Params)",
+        "-32603 (Internal Error)"
+      ],
+      "answer_index": 1,
+      "explanation": "When tname is absent from self.tools, MiniMcpServer returns self._error(req_id, -32601, f'Unknown tool: {tname}'). Code -32600 covers invalid JSON-RPC versions or envelopes, while -32602 indicates parameter validation failure."
+    },
+    {
+      "question": "Why does MCP include an isError: True boolean inside a normal tools/call result instead of returning every tool failure as a JSON-RPC error object?",
+      "options": [
+        "To preserve compatibility with legacy WebSocket framing",
+        "To separate protocol faults from tool execution failures so the LLM can read the error and self-correct its next call",
+        "Because JSON-RPC 2.0 forbids custom text inside error messages",
+        "To compress payload size over slow networks"
+      ],
+      "answer_index": 1,
+      "explanation": "Many MCP hosts treat JSON-RPC protocol errors as fatal session errors and halt execution. Wrapping recoverable business failures (such as missing records or rate limits) in a normal result with isError: True lets the LLM inspect the diagnostic text and retry with corrected parameters."
+    }
+  ],
+  "interview_faqs": [
+    {
+      "question": "What is the fundamental difference between MCP and LangChain Tools or vendor-specific Function Calling?",
+      "answer": "LangChain Tools are framework-bound code abstractions (Python or TypeScript objects), and vendor function-calling schemas vary subtly across providers. MCP is a language-agnostic, cross-process wire protocol built on JSON-RPC 2.0. By exposing a single MCP Server, any compliant host (such as Claude Desktop, Cursor, or a custom agent runtime) can dynamically discover and call its tools through initialize, tools/list, and tools/call without framework-specific adapters."
+    },
+    {
+      "question": "In JSON-RPC 2.0 and MCP, what is the difference between a Notification and setting id to null?",
+      "answer": "This is a frequent protocol misconception. Under JSON-RPC 2.0, a Notification is a request object that omits the id member completely (for example, notifications/initialized after handshake), and servers must never reply to it. Setting id to null on requests is discouraged by JSON-RPC 2.0 and explicitly disallowed by MCP 2025-03-26, which requires request IDs to be strings or integers. An id of null appears only in error responses when the server could not parse the request ID (such as a -32700 Parse error)."
+    },
+    {
+      "question": "How does an MCP Server report live progress for long-running tools over Streamable HTTP?",
+      "answer": "When sending an HTTP POST for tools/call, the client can include a unique progressToken inside params._meta. Rather than returning a single blocking JSON body, the server upgrades that HTTP response to text/event-stream (SSE), emits intermediate notifications/progress events referencing the same progressToken, and finally sends the single JSON-RPC result response carrying the original request id before closing the stream."
+    },
+    {
+      "question": "What are the four most critical upgrades needed to turn MiniMcpServer into a production MCP service?",
+      "answer": "First, catch json.JSONDecodeError at handle_request entry to return -32700 and add an initialization state check rejecting tools/call before handshake completion. Second, validate arguments against input_schema using jsonschema or Pydantic, returning -32602 on mismatch. Third, wrap handler execution in try/except with timeouts and rate limits so domain errors return isError: True cleanly instead of crashing the worker. Fourth, pair the core router with a hardened transport—logging strictly to stderr for stdio, or enforcing Origin validation, TLS, and OAuth 2.1 for Streamable HTTP."
+    }
+  ],
+  "further_reading": [
+    {
+      "title": "Model Context Protocol Official Specification (Latest)",
+      "url": "https://modelcontextprotocol.io/specification/latest",
+      "note": "Official MCP specification covering lifecycle handshake, capabilities, Tools/Resources contracts, and Streamable HTTP transport."
+    },
+    {
+      "title": "JSON-RPC 2.0 Specification",
+      "url": "https://www.jsonrpc.org/specification",
+      "note": "The canonical JSON-RPC 2.0 standard defining Requests, Notifications, Batching, and reserved error codes (-32700 through -32603)."
+    },
+    {
+      "title": "Anthropic — Introducing the Model Context Protocol",
+      "url": "https://www.anthropic.com/news/model-context-protocol",
+      "note": "Original announcement outlining MCP's design motivation for eliminating M×N data silos with an open interoperability standard."
+    }
+  ],
+  "code_replacements": [
+    [
+      "Book 1 Ch.06 MCP（Model Context Protocol）深度實戰：純標準庫 JSON-RPC 2.0 迷你 MCP Server",
+      "Book 1 Ch.06 Model Context Protocol (MCP) Deep Dive: Zero-Dependency JSON-RPC 2.0 Mini MCP Server"
+    ],
+    [
+      "零外部依賴完整實作 initialize、tools/list、tools/call 與 resources/list 協定訊息路由。",
+      "Zero-dependency implementation of initialize, tools/list, tools/call, and resources/list protocol message routing."
+    ],
+    [
+      "符合 JSON-RPC 2.0 與 MCP 核心握手契約的輕量級教學實作。",
+      "Lightweight reference implementation compliant with JSON-RPC 2.0 and the core MCP handshake contract."
+    ],
+    [
+      "Ch.06 MCP 握手協定: ",
+      "Ch.06 MCP Handshake Protocol: "
+    ]
+  ],
+  "output_replacements": [
+    [
+      "握手協定:",
+      "Handshake Protocol:"
+    ]
+  ]
+}

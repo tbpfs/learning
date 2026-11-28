@@ -1,0 +1,256 @@
+{
+  "book_id": "ai-engineering",
+  "chapter_id": "ch06",
+  "locale": "zh-CN",
+  "status": "published",
+  "badge": "Ch.06",
+  "part_id": "part3",
+  "title": "MCP（模型上下文协议）实战：手写 JSON-RPC 2.0 服务端",
+  "short_title": "MCP 协议与 JSON-RPC 实战",
+  "summary": "MCP 如同 AI 时代的 USB-C 标准接口。本章不依赖黑箱 SDK，直接用 Python 标准库手写完整支持 initialize、tools/list、tools/call、resources/list 与标准错误码规范的迷你 MCP 服务端。",
+  "aeo_capsule": "<strong>MCP（模型上下文协议）</strong>以 <code>JSON-RPC 2.0</code> 为底层消息信封，通过标准化的 <code>initialize</code> 能力握手、<code>tools/list</code> 动态发现与 <code>tools/call</code> 执行契约，将 M 个模型对接 N 个外部工具的 M×N 定制集成复杂度收敛为 M+N。",
+  "reading_minutes": 18,
+  "lastmod": "2026-11-28",
+  "example_file": "examples/ai_ch06_mini_mcp_server.py",
+  "keywords": [
+    "MCP",
+    "Model Context Protocol",
+    "JSON-RPC 2.0",
+    "tools/list",
+    "tools/call",
+    "stdio Transport",
+    "Streamable HTTP",
+    "紫枫出版社"
+  ],
+  "learning_objectives": [
+    "理解 MCP 如何将 M×N 的模型与工具集成复杂度收敛为 M+N，并划清 Host、Client 与 Server 职责",
+    "掌握 JSON-RPC 2.0 消息信封、标准错误码（-32600 / -32601 / -32602）、工具执行错误 isError 与 Capability 握手契约",
+    "实战区分 stdio 与 Streamable HTTP 两种传输层的安全防线（stdout 隔离、Origin 校验与 OAuth 权限控制）"
+  ],
+  "sections": [
+    {
+      "id": "sec1-mcp-protocol-overview",
+      "heading": "6.1 MCP 核心设计哲学与 JSON-RPC 2.0 消息信封",
+      "paragraphs": [
+        "在多模型与多工具并存的企业环境里，传统 AI 应用开发往往陷入 M×N 的集成泥淖：M 个大语言模型（或 IDE、桌面端 Host）必须分别为 N 个外部工具（数据库、Git 仓库、内部报表 API）编写专属的插件与适配器。一旦工具接口改版，所有模型端的封装代码都得同步修改。MCP（Model Context Protocol）通过定义中立的开放通信标准，将集成复杂度从乘法降至加法（M+N）——模型端只需实现一次 MCP Client，工具提供方只需实现一次 MCP Server，双方即可通过统一的 JSON-RPC 2.0 协议自由组合，如同在模型与数据源之间建立标准化的 USB-C 接口。",
+        "在架构分工上，MCP 明确区隔三个角色：Host 是承载用户交互与大语言模型的宿主程序（例如 IDE 或桌面助手），Client 是 Host 内部负责与单个服务端维持 1 对 1 状态连接的协议引擎，而 Server 则是对外暴露工具（Tools）、只读上下文资源（Resources）与提示模板（Prompts）的轻量服务。所有跨边界通信皆封装在 JSON-RPC 2.0 信封之中：请求对象必须携带 jsonrpc（固定为字符串 2.0）、method 与可选的 params，并附上字符串或整数类型的 id 作为异步请求与响应的关联键；若属于单向事件通知（Notification，例如握手完成后的 notifications/initialized），则依规范完全省略 id 键值，服务端收到后不得返回任何响应。",
+        "连接建立的第一步必然是 Capability 握手流程。当 Client 发送 initialize 请求后，Server 必须回复包含 protocolVersion（示例对应 2025-03-26 规范版本）、serverInfo 与 capabilities 对象的结构化结果。这种声明式协商机制让双方在正式推理前就对齐可用边界：唯有服务端在 capabilities 中明确声明支持 tools 与 resources，客户端才应进一步通过 tools/list 与 resources/list 发现可用列表，并依据服务端返回的 JSON Schema 动态构建参数执行 tools/call。这种先发现、后调用的协议契约，使 Agent 无需重新编译即可适应远程工具的扩展与迭代。"
+      ],
+      "bullets": [
+        "MCP 将 M×N 的碎片化 SDK 集成收敛为标准化的 M+N 架构，把工具提供方与模型宿主彻底解耦",
+        "JSON-RPC 2.0 请求靠 id（字符串或整数）绑定响应，单向 Notification 则必须完全省略 id 字段",
+        "initialize 握手阶段声明 protocolVersion 与 capabilities，确保双方先对齐能力边界再进行动态工具发现"
+      ],
+      "callout_title": "工程笔记：为什么 MCP 选用 JSON-RPC 2.0 而非传统 REST API？",
+      "callout_body": "REST API 依赖 HTTP 方法（GET、POST、DELETE）与固定 URL 资源路径表达操作，不仅强耦合于 HTTP 传输层，也不易同时支持本地 stdio 管道与双向服务端通知。JSON-RPC 2.0 将动作语义收敛于 method 字段、参数统一置于 params 对象，完全不绑定底层传输协议，让同一套 MiniMcpServer 逻辑既可运行在零网络开销的本地子进程管道，也能无缝迁移至云端 Streamable HTTP 端点。"
+    },
+    {
+      "id": "sec2-mini-mcp-server-impl",
+      "heading": "6.2 手写 Mini MCP Server：路由分发与不可变工具注册",
+      "paragraphs": [
+        "MCP 将工具的「能力发现」与「实际执行」拆分为 tools/list 与 tools/call 两个独立方法。这种分离设计让 LLM Agent 得以在推理前获取每个工具的名称、自然语言描述与严格符合 JSON Schema 的 inputSchema，进而推导出类型正确的调用参数，避免将参数结构写死在提示词里。在本章实现文件 examples/ai_ch06_mini_mcp_server.py 中，我们不依赖任何第三方框架，仅使用 Python 3.12 标准库的 dataclass(frozen=True) 定义 McpToolSpec，将工具名称、说明、input_schema 与执行函数 handler 封装为不可变对象，防止运行期路由表遭到意外篡改。",
+        "整个服务端的消息中枢落在 MiniMcpServer.handle_request 方法。当原始 JSON 字符串进入后，系统先解析出 req_id、method 与 params，第一步即校验 jsonrpc 字段是否严格等于 2.0；若版本不符立即返回标准错误码 -32600（Invalid Request）。通过信封校验后，路由分发器依次处理 initialize、tools/list、tools/call 与 resources/list 四个核心方法。调用 tools/call 时，服务端会取出工具名称与 arguments 字典，先检查名称是否存在于 self.tools 注册表——若查无此工具，立刻返回 -32601 并附上 Unknown tool 消息；匹配成功后才将 arguments 交由对应 handler 执行。",
+        "在示例主程序中，我们通过无状态 lambda 闭包注册了 estimate_vram_gb 工具，以公式 params_b * 0.65 + 1.5 估算 Q4 量化模型所需的 GPU 显存；当客户端以 params_b=32 调用时，服务端精准返回 22.3。请特别注意返回结构的设计细节：无论工具算出的原始值是浮点数、整数还是字典，MCP 规范皆要求将结果封装在 content 数组中（此处转为 type 为 text 的纯文本项），并在外层明确标记 isError: False。这样的统一信封让下游 LLM 与 Host 界面能以一致方式消费工具输出，彻底消除传输层与业务层之间的类型歧义。"
+      ],
+      "bullets": [
+        "McpToolSpec 启用 frozen=True 让工具定义成为不可变契约，确保运行期注册表与 Schema 一致性",
+        "handle_request 先校验 jsonrpc == 2.0（否则返回 -32600），再将请求精准路由至四大 MCP 核心方法",
+        "tools/call 成功结果一律封装为 content 数组搭配 isError: False，实测 32B Q4 显存估算输出为 22.3"
+      ],
+      "callout_title": "实战技巧：利用闭包注入依赖，同时维持路由层纯净",
+      "callout_body": "示例使用精简的 lambda 表达式演示无状态计算；在真实生产系统中，您可以通过 Python 闭包或 callable 类，将数据库连接池、向量检索客户端与权限上下文绑定在 handler 内部，而无需改动 MiniMcpServer 的分发核心。这样既免除笨重的依赖注入框架，也能针对每个工具独立编写快速单元测试。"
+    },
+    {
+      "id": "sec3-error-handling-capabilities",
+      "heading": "6.3 标准错误码、双层错误模型与 Capability 协商",
+      "paragraphs": [
+        "设计稳健的 MCP Server 时，工程师必须严格区分「协议层错误（Protocol Error）」与「工具执行错误（Tool Execution Error）」两条通道。协议层错误遵循 JSON-RPC 2.0 保留错误码规范：-32700 代表无效 JSON 语法（Parse error）、-32600 代表信封结构或版本错误（Invalid Request）、-32601 代表方法不存在或未注册工具（Method not found）、-32602 代表参数类型或必填字段不符合 inputSchema（Invalid params），而 -32603 则保留给服务端内部未预期异常。在 MiniMcpServer 中，传入错误协议版本会触发 -32600，调用不存在的方法或工具则会触发 -32601，迫使客户端回归 tools/list 重新校准，防堵模型因幻觉捏造工具名称。",
+        "相对地，若工具名称存在、参数格式合法，但在实际执行过程中发生业务或外部系统失败——例如查询数据库无此记录、外部汇率 API 超时或文件权限不足——MCP 规范明确建议不要抛出 JSON-RPC error 对象中断会话，而是返回正常的 JSON-RPC result，并在其中设置 isError: True 且把具体错误原因写入 content 文本数组。原因非常实际：许多 Host 遇到协议层错误会直接中止代理循环，但当工具返回带有 isError: True 的可读诊断文本时，LLM 本身就能读取错误内容、判断参数该如何修正，进而在下一个推理步骤完成自主修复。",
+        "另一项常被写反的契约是 initialize 响应中的 capabilities 对象。在 MCP 规范里，capabilities 采用「出现即声明支持」语义：当服务端返回 capabilities: {tools: {}, resources: {}} 时，即便内层是空对象，也明确表示服务端支持工具与资源功能（内层子字段如 listChanged 则是进阶选用标志）；若某服务端完全不提供 Resources 功能，正确做法是直接省略 resources 键值，而非填入空对象。此外，通过实现 resources/list 公开 docs://mcp/spec 等结构化 URI，服务端能把静态规格书、项目架构文档或实时状态快照转化为只读上下文，让 Host 在推理前决定是否挂载进模型的上下文窗口，进一步压低回答幻觉概率。"
+      ],
+      "bullets": [
+        "协议层错误走 JSON-RPC error 对象（-32600 信封错误、-32601 未知方法或工具、-32602 参数违规），用于拦截契约违规",
+        "工具执行期的业务失败应返回正常 result 并标记 isError: True，让 LLM 读懂失败原因并自主重试修正",
+        "capabilities 采「出现即声明支持」原则：不支持 Resources 时应直接省略该键，而非返回空对象 {}"
+      ],
+      "callout_title": "避坑指南：生产环境别漏掉参数校验与异常隔离",
+      "callout_body": "为了保持教学示例精简，MiniMcpServer 在调用 handler 前未内置完整 JSON Schema 校验器。上线前务必在 tools/call 入口引入 jsonschema 或 Pydantic 校验 arguments（不符则返回 -32602），并用 try/except 包裹 handler 执行，将可恢复的业务错误转为 isError: True，避免单一工具异常就把整个 MCP 服务端进程打崩。"
+    },
+    {
+      "id": "sec4-transport-layers-security",
+      "heading": "6.4 传输层实战：stdio 与 Streamable HTTP 的部署与安全防线",
+      "paragraphs": [
+        "虽然 MCP 的 JSON-RPC 2.0 消息层与底层传输完全解耦，但选用 stdio 还是 Streamable HTTP，会彻底改变系统的部署拓扑、调试方式与攻击面。stdio 传输由 Host 直接启动 MCP Server 作为本地子进程，通过标准输入（stdin）与标准输出（stdout）以换行分隔的 JSON 消息通信。它的优势在于零网络开销、无需开启本地端口且天然受限于本地操作系统用户权限，非常适合 IDE 插件、本地文件检索或个人 CLI 工具。然而 stdio 有一个新手几乎必踩的致命地雷：任何不小心写入 stdout 的 print() 调试输出或第三方库启动横幅，都会直接污染 JSON-RPC 数据流并导致客户端解析崩溃；因此所有服务端日志一律必须导向 stderr。",
+        "当 MCP Server 需要跨机器共享、部署于 Cloud Run 或 Kubernetes 集群，并同时服务多位用户与企业级权限管控时，MCP 2025-03-26 规范正式以 Streamable HTTP 取代旧版双端点 HTTP+SSE 传输。Streamable HTTP 将所有请求收敛至单一 MCP HTTP 端点：客户端通过 HTTP POST 发送 JSON-RPC 消息，若任务可立即完成，服务端直接返回单一 application/json 响应；若工具属于耗时操作或需要流式推送进度，服务端则将同一条 HTTP 响应升级为 text/event-stream（SSE）流，期间可通过 notifications/progress 推送中间进度，最后再发送带有原始 id 的最终结果。需注意 Streamable HTTP 构建于标准 HTTP POST/GET 与 SSE 之上，并非 WebSocket，因此能原生兼容多数无服务器平台、反向代理与 CDN 负载均衡器。",
+        "在安全防护层面，远程与本地 HTTP 传输都绝不可裸奔。针对运行在开发者本地的 Streamable HTTP 服务端，官方规范特别警示 DNS Rebinding（DNS 重新绑定）攻击：若未校验请求的 Origin 请求头，用户浏览器打开的恶意网页就能通过跨源请求操作本地 MCP 工具。因此本地 HTTP 服务端必须明确绑定 127.0.0.1（切勿绑定 0.0.0.0）并严格比对 Origin 白名单；而部署在云端的公开服务则必须启用 TLS 加密、OAuth 2.1 Bearer Token 认证、细粒度工具权限检查与速率限制，同时借助 HTTP 状态码与结构化追踪头（如 Mcp-Session-Id），建立完整的可观测性与审计轨迹。"
+      ],
+      "bullets": [
+        "stdio 传输零网络延迟且适合本地子进程工具，但严禁向 stdout 打印任何非 JSON-RPC 日志，所有日志必须改写入 stderr",
+        "Streamable HTTP 以单一端点整合 HTTP POST 与按需 SSE 流（非 WebSocket），原生兼容云端反向代理与无服务器扩展",
+        "HTTP 传输必须强制检查 Origin 请求头防范 DNS Rebinding，本地仅绑定 127.0.0.1，远程一律搭配 TLS 与 OAuth 2.1 认证"
+      ],
+      "callout_title": "架构决策：本地开发走 stdio，团队与云端服务走 Streamable HTTP",
+      "callout_body": "若工具仅供单机开发者操作本地文件或开发环境，优先采用 stdio 最省心且安全边界单纯；一旦涉及多人共享、跨网络访问企业数据或需要集中审计与 OAuth 授权，应采用 Streamable HTTP，并在 API Gateway 层统一落地身份认证、请求配额与结构化日志监控。"
+    }
+  ],
+  "diagram_caption": "图 6-1：MCP 协议分层与 MiniMcpServer JSON-RPC 2.0 请求路由架构图",
+  "diagram_svg": "<svg viewBox=\"0 0 760 260\" role=\"img\" aria-label=\"MCP 协议分层与 MiniMcpServer JSON-RPC 2.0 请求路由架构图\" xmlns=\"http://www.w3.org/2000/svg\"><defs><marker id=\"mcp-arrow-req\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#1c1917\"/></marker><marker id=\"mcp-arrow-res\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"3\" orient=\"auto\" markerUnits=\"strokeWidth\"><path d=\"M0,0 L0,6 L7,3 z\" fill=\"#15803d\"/></marker></defs><rect width=\"760\" height=\"260\" fill=\"#fdfcf9\"/><rect x=\"18\" y=\"24\" width=\"188\" height=\"178\" rx=\"8\" fill=\"#ffffff\" stroke=\"#1c1917\" stroke-width=\"1.8\"/><rect x=\"18\" y=\"24\" width=\"188\" height=\"32\" rx=\"8\" fill=\"#1c1917\"/><text x=\"112\" y=\"45\" font-family=\"sans-serif\" font-size=\"13\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#fdfcf9\">MCP Host / Client</text><text x=\"32\" y=\"78\" font-family=\"monospace\" font-size=\"11.5\" fill=\"#b45309\">1. initialize (id:1)</text><text x=\"32\" y=\"104\" font-family=\"monospace\" font-size=\"11.5\" fill=\"#b45309\">2. tools/list (id:2)</text><text x=\"32\" y=\"130\" font-family=\"monospace\" font-size=\"11.5\" fill=\"#b45309\">3. tools/call (id:3)</text><text x=\"32\" y=\"156\" font-family=\"monospace\" font-size=\"11.5\" fill=\"#b45309\">4. resources/list</text><text x=\"32\" y=\"184\" font-family=\"sans-serif\" font-size=\"10.5\" fill=\"#57534e\">先发现 Schema，再执行调用</text><rect x=\"248\" y=\"36\" width=\"226\" height=\"154\" rx=\"8\" fill=\"#f7fee7\" stroke=\"#15803d\" stroke-width=\"1.8\"/><text x=\"361\" y=\"60\" font-family=\"monospace\" font-size=\"13\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#14532d\">JSON-RPC 2.0 信封</text><text x=\"361\" y=\"84\" font-family=\"monospace\" font-size=\"10.5\" text-anchor=\"middle\" fill=\"#1c1917\">jsonrpc: \"2.0\" | id | method</text><text x=\"361\" y=\"104\" font-family=\"monospace\" font-size=\"10.5\" text-anchor=\"middle\" fill=\"#57534e\">params / result / error</text><line x1=\"264\" y1=\"122\" x2=\"458\" y2=\"122\" stroke=\"#86efac\" stroke-width=\"1.2\" stroke-dasharray=\"4 3\"/><text x=\"361\" y=\"144\" font-family=\"sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#b45309\">传输层（Transport）</text><text x=\"361\" y=\"166\" font-family=\"monospace\" font-size=\"10.5\" text-anchor=\"middle\" fill=\"#1c1917\">stdio 管道 | Streamable HTTP</text><rect x=\"516\" y=\"24\" width=\"226\" height=\"178\" rx=\"8\" fill=\"#ffffff\" stroke=\"#1c1917\" stroke-width=\"1.8\"/><rect x=\"516\" y=\"24\" width=\"226\" height=\"32\" rx=\"8\" fill=\"#b45309\"/><text x=\"629\" y=\"45\" font-family=\"monospace\" font-size=\"13\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#fdfcf9\">MiniMcpServer 路由层</text><text x=\"530\" y=\"78\" font-family=\"monospace\" font-size=\"11\" fill=\"#1c1917\">protocol: 2025-03-26</text><text x=\"530\" y=\"102\" font-family=\"monospace\" font-size=\"11\" fill=\"#15803d\">estimate_vram_gb(32) -&gt; 22.3</text><text x=\"530\" y=\"126\" font-family=\"monospace\" font-size=\"11\" fill=\"#1c1917\">content[] + isError: false</text><text x=\"530\" y=\"150\" font-family=\"monospace\" font-size=\"11\" fill=\"#57534e\">URI: docs://mcp/spec</text><text x=\"530\" y=\"178\" font-family=\"monospace\" font-size=\"10.5\" fill=\"#b91c1c\">Error: -32600 / -32601</text><line x1=\"206\" y1=\"84\" x2=\"244\" y2=\"84\" stroke=\"#1c1917\" stroke-width=\"1.8\" marker-end=\"url(#mcp-arrow-req)\"/><text x=\"226\" y=\"76\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#1c1917\">请求</text><line x1=\"474\" y1=\"84\" x2=\"512\" y2=\"84\" stroke=\"#1c1917\" stroke-width=\"1.8\" marker-end=\"url(#mcp-arrow-req)\"/><text x=\"494\" y=\"76\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#1c1917\">分发</text><line x1=\"516\" y1=\"146\" x2=\"478\" y2=\"146\" stroke=\"#15803d\" stroke-width=\"1.8\" marker-end=\"url(#mcp-arrow-res)\"/><text x=\"496\" y=\"162\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#15803d\">响应</text><line x1=\"248\" y1=\"146\" x2=\"210\" y2=\"146\" stroke=\"#15803d\" stroke-width=\"1.8\" marker-end=\"url(#mcp-arrow-res)\"/><text x=\"228\" y=\"162\" font-family=\"sans-serif\" font-size=\"9.5\" text-anchor=\"middle\" fill=\"#15803d\">返回</text><rect x=\"18\" y=\"216\" width=\"724\" height=\"30\" rx=\"6\" fill=\"#fef3c7\" stroke=\"#d97706\" stroke-width=\"1.2\"/><text x=\"380\" y=\"236\" font-family=\"sans-serif\" font-size=\"11.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#92400e\">设计核心：M×N 降维为 M+N ｜ stdio 日志仅写 stderr ｜ HTTP 必验 Origin 与 OAuth 2.1</text></svg>",
+  "comparison_table": {
+    "caption": "表 6-1：MCP 传输层架构比较（stdio vs Streamable HTTP vs 旧版 HTTP+SSE）",
+    "headers": [
+      "比较维度",
+      "stdio Transport",
+      "Streamable HTTP (2025-03-26)",
+      "旧版 HTTP+SSE (2024-11-05)"
+    ],
+    "rows": [
+      [
+        "通信通道与端点",
+        "本地子进程 stdin / stdout 换行 JSON",
+        "单一 HTTP 端点（POST + 按需 SSE 流）",
+        "双端点分离（GET /sse + POST /messages）"
+      ],
+      [
+        "身份认证与安全重点",
+        "沿用本地进程权限，切忌在 stdout 打印日志",
+        "TLS + OAuth 2.1 / Bearer + 强制 Origin 校验",
+        "需跨两条连接维护 Session 状态与权限"
+      ],
+      [
+        "延迟与并发扩展",
+        "微秒级本地低延迟，限单机单一 Host 连接",
+        "支持多租户、无服务器扩展与断线续传",
+        "长驻 SSE 连接难跨无状态负载均衡器扩展"
+      ],
+      [
+        "可观测性与调试",
+        "通过 stderr 查看日志，缺乏标准 HTTP 请求头",
+        "完整支持 HTTP 状态码、Mcp-Session-Id 与链路追踪",
+        "事件与响应分散于不同通道，追踪较繁琐"
+      ],
+      [
+        "最佳适用场景",
+        "本地 IDE 插件、CLI 开发工具、单机文件访问",
+        "云端微服务、企业团队共享工具、生产级 Agent",
+        "仅供兼容旧版客户端，新项目应改用 Streamable HTTP"
+      ]
+    ]
+  },
+  "code_walkthrough": [
+    "McpToolSpec 以 dataclass(frozen=True) 定义不可变工具规格，将名称、描述、JSON Schema（input_schema）与 Python 执行函数 handler 封装成单一契约对象。",
+    "MiniMcpServer.handle_request 先校验 jsonrpc 字段是否为 2.0（不符即返回 -32600），再透传原始 req_id 进入 initialize、tools/list、tools/call 与 resources/list 分发逻辑。",
+    "initialize 返回协议版本 2025-03-26、服务端信息与 capabilities 声明；tools/list 动态输出所有已注册工具的 inputSchema 供模型规划参数。",
+    "tools/call 找不到工具时返回 -32601（Unknown tool）；命中后调用 estimate_vram_gb(32) 算出 22.3，并包装为 content 数组与 isError: False 的标准响应。"
+  ],
+  "pitfalls": [
+    {
+      "title": "陷阱 1：在 stdio 模式使用 print() 打印调试日志",
+      "symptom": "在本地以 stdio 启动 MCP Server 后，Host（如 IDE 或桌面客户端）立刻报错 JSON parse error 并强制断开连接，但手动单跑 Python 脚本却完全正常。",
+      "root_cause_and_fix": "stdio 传输将标准输出（stdout）专用于 JSON-RPC 2.0 消息信封，任何 print() 输出或第三方库警告都会混入数据流造成解析失败。修复方式：将 logging 的 StreamHandler 明确绑定至 sys.stderr，并严禁在工具执行路径中直接调用 print()。"
+    },
+    {
+      "title": "陷阱 2：跳过参数校验或混淆协议错误与工具执行错误",
+      "symptom": "模型传入类型不符的参数（例如把 params_b 传成字符串或漏传必填键）导致服务端抛出未捕获异常；或外部 API 查无数据时返回 -32603，导致 Agent 直接终止任务无法自我修正。",
+      "root_cause_and_fix": "请严守双层错误模型：在进入 handler 前依 input_schema 校验参数类型与必填字段，违规时返回 JSON-RPC 错误码 -32602（Invalid params）；进入 handler 后若属外部 API 超时或业务查询失败，则捕获异常并返回正常 result 搭配 isError: True 与清晰的错误说明文本，让 LLM 读懂后重试。"
+    },
+    {
+      "title": "陷阱 3：本地 Streamable HTTP 未检查 Origin 或错误覆写请求 id",
+      "symptom": "高并发调用时前端收到错位的工具结果造成界面卡死；或本地开启 MCP HTTP 服务于 0.0.0.0 却遭浏览器后台网页通过 DNS Rebinding 恶意触发本地工具。",
+      "root_cause_and_fix": "响应的 id 必须原样透传自该笔请求的 req_id（禁止使用全局计数器覆写）；同时凡启用 Streamable HTTP 者，本地模式一律仅监听 127.0.0.1，并在每一笔请求严格校验 Origin 请求头白名单，云端部署则加上 TLS 与 OAuth 2.1 Bearer Token 认证。"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "在 MCP 2025-03-26 规范的 initialize 握手响应中，若某服务端仅支持 Tools 而不支持 Resources，capabilities 对象应如何正确设置？",
+      "options": [
+        "将 resources 设为 null",
+        "将 resources 设为空对象 {}",
+        "将 resources 设为空数组 []",
+        "在 capabilities 对象中直接省略 resources 键值"
+      ],
+      "answer_index": 3,
+      "explanation": "MCP capabilities 采用「出现即声明支持」语义：存在 resources: {} 代表服务端支持资源功能（只是未启用额外子标志）。若不支持 Resources，正确做法是在 capabilities 中直接省略 resources 键值，避免客户端误发 resources/list 请求。"
+    },
+    {
+      "question": "在 MiniMcpServer 的实现中，当客户端发送 tools/call 并指定一个尚未注册的工具名称时，服务端返回的 JSON-RPC 2.0 错误码为何？",
+      "options": [
+        "-32600 (Invalid Request)",
+        "-32601 (Method Not Found)",
+        "-32602 (Invalid Params)",
+        "-32603 (Internal Error)"
+      ],
+      "answer_index": 1,
+      "explanation": "示例代码中若 tname 不存在于 self.tools 字典，会调用 self._error(req_id, -32601, f'Unknown tool: {tname}')。-32600 保留给无效的 JSON-RPC 版本或信封结构，-32602 用于参数类型校验失败。"
+    },
+    {
+      "question": "为什么 MCP 在 tools/call 的正常 result 中设计了 isError: True 标志，而不是把所有工具失败都改用 JSON-RPC error 对象返回？",
+      "options": [
+        "为了强制兼容旧版 WebSocket 协议",
+        "区分协议层错误与工具执行层失败，让 LLM 能直接读取错误内容并自行修正参数重试",
+        "因为 JSON-RPC 2.0 规范不允许自定义错误消息文本",
+        "为了减少网络数据包传输大小"
+      ],
+      "answer_index": 1,
+      "explanation": "JSON-RPC error 代表协议或路由层异常，许多 Host 收到后会直接中断会话；将业务执行失败（如数据库查无记录、API 限流）以 result 搭配 isError: True 与文本说明返回，能让 LLM 把错误当成观察结果读入上下文，进而调整策略完成任务。"
+    }
+  ],
+  "interview_faqs": [
+    {
+      "question": "MCP 与 LangChain Tools（或各家原生 Function Calling）的本质差异是什么？",
+      "answer": "LangChain Tools 是绑定特定框架的代码抽象层（Python 或 TypeScript 对象），而各模型商的 Function Calling JSON 格式也各有细节差异；MCP 则是跨语言、跨进程、基于 JSON-RPC 2.0 的开放网络与进程间通信协议。只要工具端实现一次 MCP Server，任何支持 MCP 的 Host（如 Claude Desktop、Cursor、自建 Agent 平台）皆能通过标准的 initialize、tools/list 与 tools/call 即插即用，无需为每个框架重写适配器。"
+    },
+    {
+      "question": "在 JSON-RPC 2.0 与 MCP 规范中，Notification（通知）与 id 为 null 有什么差别？",
+      "answer": "这是最常见的协议误区。依据 JSON-RPC 2.0 规范，Notification 是「完全省略 id 键值」的请求对象（例如 MCP 握手后的 notifications/initialized），服务端处理后不得返回任何响应。至于将 id 设为 null，JSON-RPC 2.0 规范明确不建议用于请求，且 MCP 2025-03-26 更明文规定请求 id 必须为字符串或整数、不得为 null；id: null 仅会出现在服务端无法解析请求 id（例如 -32700 Parse error）时的错误响应对象中。"
+    },
+    {
+      "question": "在 Streamable HTTP 模式下，MCP Server 如何处理耗时的工具调用并回报实时进度？",
+      "answer": "客户端发送 HTTP POST 调用 tools/call 时，可在请求参数的 _meta 对象内夹带唯一的 progressToken。服务端收到后不必急着关闭连接，而是将该笔 HTTP 响应的 Content-Type 升级为 text/event-stream（SSE），在耗时计算过程中持续通过该条 SSE 流推送 notifications/progress 事件（携带相同的 progressToken、当前进度与总量），待计算结束后再于同一条流发送带有原始请求 id 的最终 JSON-RPC result 响应。"
+    },
+    {
+      "question": "若要将本章的 MiniMcpServer 升级为可上线的生产级服务，最关键的四项补强是什么？",
+      "answer": "第一，在 handle_request 入口捕获 json.JSONDecodeError 返回 -32700，并加入初始化状态机，拒绝握手完成前的 tools/call 请求；第二，集成 jsonschema 或 Pydantic 依据 input_schema 校验 arguments，类型不符即返回 -32602；第三，以 try/except 包裹 handler 执行，将可预期的业务失败封装为 isError: True 交由 LLM 判读，同时加上执行超时（timeout）与速率限制；第四，依部署场景挂载 stdio（确保日志全写 stderr）或 Streamable HTTP（强制校验 Origin、TLS 与 OAuth 2.1 权限）。"
+    }
+  ],
+  "further_reading": [
+    {
+      "title": "Model Context Protocol Official Specification (Latest)",
+      "url": "https://modelcontextprotocol.io/specification/latest",
+      "note": "MCP 官方最新协议规范，涵盖生命周期握手、Capabilities、Tools/Resources 契约与 Streamable HTTP 传输细节。"
+    },
+    {
+      "title": "JSON-RPC 2.0 Specification",
+      "url": "https://www.jsonrpc.org/specification",
+      "note": "JSON-RPC 2.0 原始标准文档，完整定义 Request、Notification、Batch 与 -32700 至 -32603 保留错误码。"
+    },
+    {
+      "title": "Anthropic — Introducing the Model Context Protocol",
+      "url": "https://www.anthropic.com/news/model-context-protocol",
+      "note": "MCP 发布背景与设计愿景原文，深入阐述如何打破 M×N 数据孤岛并建立开放的 AI 工具互操作生态。"
+    }
+  ],
+  "code_replacements": [
+    [
+      "Book 1 Ch.06 MCP（Model Context Protocol）深度實戰：純標準庫 JSON-RPC 2.0 迷你 MCP Server",
+      "第一卷 第 6 章 MCP（模型上下文协议）深度实战：纯标准库 JSON-RPC 2.0 迷你 MCP 服务端"
+    ],
+    [
+      "零外部依賴完整實作 initialize、tools/list、tools/call 與 resources/list 協定訊息路由。",
+      "零外部依赖，完整实现 initialize、tools/list、tools/call 与 resources/list 协议消息路由。"
+    ],
+    [
+      "符合 JSON-RPC 2.0 與 MCP 核心握手契約的輕量級教學實作。",
+      "符合 JSON-RPC 2.0 与 MCP 核心握手契约的轻量级教学实现。"
+    ],
+    [
+      "Ch.06 MCP 握手協定: ",
+      "Ch.06 MCP 握手协议: "
+    ]
+  ],
+  "output_replacements": [
+    [
+      "握手協定:",
+      "握手协议:"
+    ]
+  ]
+}
